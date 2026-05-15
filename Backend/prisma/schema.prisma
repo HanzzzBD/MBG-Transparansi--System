@@ -1,0 +1,451 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  admin
+  pemerintah
+  sppg
+  sekolah
+  umum
+}
+
+enum SppgStatus {
+  active
+  inactive
+  problem
+}
+
+enum DistributionStatus {
+  in_progress
+  delivered
+  failed
+}
+
+enum ValidationStatus {
+  verified
+  conflict
+  pending
+}
+
+enum IssueCategory {
+  logistik
+  keterlambatan
+  kekurangan_bahan
+  peralatan
+  lainnya
+}
+
+enum IssueStatus {
+  open
+  in_progress
+  resolved
+}
+
+enum ReportCategory {
+  kualitas_makanan
+  keterlambatan
+  kekurangan_porsi
+  lainnya
+}
+
+enum AuditAction {
+  INSERT
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  LOCK
+  UNLOCK
+}
+
+enum AnomalyType {
+  OVER_CAPACITY
+  PRICE_ANOMALY
+  VALIDATION_CONFLICT
+  PENDING_TIMEOUT
+}
+
+enum FileStatus {
+  processing
+  ready
+  failed
+}
+
+enum ExportType {
+  pdf
+  excel
+}
+
+enum ExportStatus {
+  pending
+  processing
+  done
+  failed
+}
+
+enum NotificationType {
+  distribution
+  validation
+  anomaly
+  system
+}
+
+model User {
+  id                     Int              @id @default(autoincrement())
+  name                   String
+  email                  String           @unique
+  password               String
+  role                   UserRole
+  sppgId                 Int?             @map("sppg_id")
+  schoolId               Int?             @map("school_id")
+  isActive               Boolean          @default(true) @map("is_active")
+  deletedAt              DateTime?        @map("deleted_at")
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+  sppg                   Sppg?            @relation("SppgUsers", fields: [sppgId], references: [id], onDelete: SetNull)
+  school                 School?          @relation("SchoolUsers", fields: [schoolId], references: [id], onDelete: SetNull)
+  sessions               UserSession[]
+  uploadedProofs         Proof[]          @relation("ProofUploader")
+  reportedIssues         Issue[]          @relation("IssueReporter")
+  schoolReports          SchoolReport[]   @relation("SchoolReportReporter")
+  auditLogs              AuditLog[]       @relation("AuditLogActor")
+  resolvedAnomalies      AnomalyLog[]     @relation("AnomalyResolver")
+  uploadedFiles          File[]           @relation("FileUploader")
+  requestedExports       Export[]         @relation("ExportRequester")
+  updatedPriceThresholds PriceThreshold[] @relation("PriceThresholdUpdater")
+  updatedSystemConfigs   SystemConfig[]   @relation("SystemConfigUpdater")
+  notifications          Notification[]   @relation("UserNotifications")
+
+  @@index([deletedAt], map: "idx_users_deleted_at")
+  @@index([sppgId], map: "idx_users_sppg")
+  @@index([schoolId], map: "idx_users_school")
+  @@map("users")
+}
+
+model UserSession {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  refreshToken String   @unique @map("refresh_token")
+  userAgent    String?  @map("user_agent")
+  ipAddress    String?  @map("ip_address")
+  isRevoked    Boolean  @default(false) @map("is_revoked")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_sessions_user")
+  @@index([refreshToken], map: "idx_sessions_token")
+  @@map("user_sessions")
+}
+
+model Sppg {
+  id            Int            @id @default(autoincrement())
+  name          String
+  province      String
+  city          String
+  address       String?
+  lat           Float?
+  lng           Float?
+  capacity      Int
+  workers       Int?
+  picName       String?        @map("pic_name")
+  picPhone      String?        @map("pic_phone")
+  status        SppgStatus     @default(active)
+  deletedAt     DateTime?      @map("deleted_at")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  users         User[]         @relation("SppgUsers")
+  schools       School[]
+  distributions Distribution[]
+  menus         Menu[]
+  issues        Issue[]
+
+  @@index([province, city], map: "idx_sppg_location")
+  @@index([status], map: "idx_sppg_status")
+  @@index([deletedAt], map: "idx_sppg_deleted_at")
+  @@map("sppg")
+}
+
+model School {
+  id              Int            @id @default(autoincrement())
+  name            String
+  province        String
+  city            String
+  address         String?
+  sppgId          Int            @map("sppg_id")
+  totalStudents   Int            @default(0) @map("total_students")
+  deletedAt       DateTime?      @map("deleted_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  sppg            Sppg           @relation(fields: [sppgId], references: [id], onDelete: Restrict)
+  users           User[]         @relation("SchoolUsers")
+  distributions   Distribution[]
+  validations     Validation[]
+  schoolReports   SchoolReport[]
+
+  @@index([sppgId], map: "idx_schools_sppg")
+  @@index([province, city], map: "idx_schools_location")
+  @@index([deletedAt], map: "idx_schools_deleted_at")
+  @@map("schools")
+}
+
+model Distribution {
+  id               Int                @id @default(autoincrement())
+  sppgId           Int                @map("sppg_id")
+  schoolId         Int                @map("school_id")
+  portions         Int
+  pricePerPortion  Decimal            @map("price_per_portion") @db.Decimal(10, 2)
+  /// SDD requires this column to be a stored generated field in PostgreSQL.
+  totalCost        Decimal            @default(dbgenerated()) @map("total_cost") @db.Decimal(12, 2)
+  distributionDate DateTime           @map("distribution_date") @db.Date
+  status           DistributionStatus @default(in_progress)
+  failureReason    String?            @map("failure_reason")
+  isLocked         Boolean            @default(false) @map("is_locked")
+  unlockedUntil    DateTime?          @map("unlocked_until")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  sppg             Sppg               @relation(fields: [sppgId], references: [id], onDelete: Restrict)
+  school           School             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  validation       Validation?        @relation("DistributionValidation")
+  proofs           Proof[]
+  anomalyLogs      AnomalyLog[]
+
+  @@index([sppgId], map: "idx_distributions_sppg")
+  @@index([schoolId], map: "idx_distributions_school")
+  @@index([distributionDate], map: "idx_distributions_date")
+  @@index([status], map: "idx_distributions_status")
+  @@index([unlockedUntil], map: "idx_distributions_unlocked_until")
+  @@map("distributions")
+}
+
+model Validation {
+  id               Int              @id @default(autoincrement())
+  distributionId   Int              @unique @map("distribution_id")
+  schoolId         Int              @map("school_id")
+  receivedPortions Int              @map("received_portions")
+  qualityOk        Boolean?         @map("quality_ok")
+  status           ValidationStatus @default(pending)
+  notes            String?
+  validatedAt      DateTime?        @map("validated_at")
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+  distribution     Distribution     @relation("DistributionValidation", fields: [distributionId], references: [id], onDelete: Cascade)
+  school           School           @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+
+  @@index([schoolId], map: "idx_validations_school")
+  @@index([status], map: "idx_validations_status")
+  @@map("validations")
+}
+
+model Menu {
+  id         Int      @id @default(autoincrement())
+  sppgId     Int      @map("sppg_id")
+  menuDate   DateTime @map("menu_date") @db.Date
+  menuName   String   @map("menu_name")
+  calories   Int?
+  proteinG   Int?     @map("protein_g")
+  carbsG     Int?     @map("carbs_g")
+  fatG       Int?     @map("fat_g")
+  deletedAt  DateTime? @map("deleted_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+  sppg       Sppg     @relation(fields: [sppgId], references: [id], onDelete: Cascade)
+
+  @@unique([sppgId, menuDate], map: "menus_sppg_id_menu_date_key")
+  @@index([deletedAt], map: "idx_menus_deleted_at")
+  @@map("menus")
+}
+
+model Proof {
+  id             Int          @id @default(autoincrement())
+  distributionId Int          @map("distribution_id")
+  fileId         Int          @map("file_id")
+  uploadedBy     Int          @map("uploaded_by")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  distribution   Distribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  file           File         @relation(fields: [fileId], references: [id], onDelete: Restrict)
+  uploader       User         @relation("ProofUploader", fields: [uploadedBy], references: [id])
+
+  @@index([distributionId], map: "idx_proofs_distribution")
+  @@index([fileId], map: "idx_proofs_file")
+  @@map("proofs")
+}
+
+model Issue {
+  id          Int           @id @default(autoincrement())
+  sppgId      Int           @map("sppg_id")
+  reportedBy  Int           @map("reported_by")
+  category    IssueCategory
+  description String
+  status      IssueStatus   @default(open)
+  deletedAt   DateTime?     @map("deleted_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  sppg        Sppg          @relation(fields: [sppgId], references: [id], onDelete: Cascade)
+  reporter    User          @relation("IssueReporter", fields: [reportedBy], references: [id])
+
+  @@index([sppgId], map: "idx_issues_sppg")
+  @@index([status], map: "idx_issues_status")
+  @@index([deletedAt], map: "idx_issues_deleted_at")
+  @@map("issues")
+}
+
+model SchoolReport {
+  id         Int            @id @default(autoincrement())
+  schoolId   Int            @map("school_id")
+  reportedBy Int            @map("reported_by")
+  category   ReportCategory
+  message    String
+  createdAt  DateTime       @default(now()) @map("created_at")
+  school     School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  reporter   User           @relation("SchoolReportReporter", fields: [reportedBy], references: [id])
+
+  @@index([schoolId], map: "idx_school_reports_school")
+  @@map("school_reports")
+}
+
+model PublicReport {
+  id           Int            @id @default(autoincrement())
+  reporterName String?        @map("reporter_name")
+  category     ReportCategory
+  message      String
+  province     String?
+  city         String?
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  @@index([category], map: "idx_public_reports_category")
+  @@index([province, city], map: "idx_public_reports_location")
+  @@map("public_reports")
+}
+
+model AuditLog {
+  id        Int         @id @default(autoincrement())
+  userId    Int?        @map("user_id")
+  action    AuditAction
+  tableName String      @map("table_name")
+  recordId  Int         @map("record_id")
+  oldData   Json?       @map("old_data")
+  newData   Json?       @map("new_data")
+  ipAddress String?     @map("ip_address")
+  createdAt DateTime    @default(now()) @map("created_at")
+  user      User?       @relation("AuditLogActor", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tableName, recordId], map: "idx_audit_table_record")
+  @@index([userId], map: "idx_audit_user")
+  @@map("audit_logs")
+}
+
+model AnomalyLog {
+  id             Int          @id @default(autoincrement())
+  distributionId Int          @map("distribution_id")
+  anomalyType    AnomalyType  @map("anomaly_type")
+  description    String
+  isResolved     Boolean      @default(false) @map("is_resolved")
+  resolvedBy     Int?         @map("resolved_by")
+  resolvedAt     DateTime?    @map("resolved_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  distribution   Distribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  resolver       User?        @relation("AnomalyResolver", fields: [resolvedBy], references: [id])
+
+  @@index([distributionId], map: "idx_anomaly_logs_distribution")
+  @@index([anomalyType, isResolved], map: "idx_anomaly_logs_type_resolved")
+  @@map("anomaly_logs")
+}
+
+model File {
+  id           Int        @id @default(autoincrement())
+  originalName String     @map("original_name")
+  storedName   String     @unique @map("stored_name")
+  fileUrl      String     @map("file_url")
+  mimeType     String     @map("mime_type")
+  sizeBytes    Int        @map("size_bytes")
+  uploadedBy   Int        @map("uploaded_by")
+  status       FileStatus @default(processing)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  uploader     User       @relation("FileUploader", fields: [uploadedBy], references: [id])
+  proofs       Proof[]
+  exports      Export[]
+
+  @@index([uploadedBy], map: "idx_files_uploaded_by")
+  @@index([status], map: "idx_files_status")
+  @@map("files")
+}
+
+model Export {
+  id           Int          @id @default(autoincrement())
+  userId       Int          @map("user_id")
+  type         ExportType
+  filterParams Json?        @map("filter_params")
+  status       ExportStatus @default(pending)
+  fileId       Int?         @map("file_id")
+  errorMsg     String?      @map("error_msg")
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  user         User         @relation("ExportRequester", fields: [userId], references: [id], onDelete: Cascade)
+  file         File?        @relation(fields: [fileId], references: [id])
+
+  @@index([userId], map: "idx_exports_user")
+  @@index([status], map: "idx_exports_status")
+  @@map("exports")
+}
+
+model PriceThreshold {
+  id            Int      @id @default(autoincrement())
+  province      String   @unique
+  minPrice      Decimal  @map("min_price") @db.Decimal(10, 2)
+  maxPrice      Decimal  @map("max_price") @db.Decimal(10, 2)
+  updatedBy     Int?     @map("updated_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedByUser User?    @relation("PriceThresholdUpdater", fields: [updatedBy], references: [id])
+
+  @@map("price_thresholds")
+}
+
+model SystemConfig {
+  id            Int      @id @default(autoincrement())
+  key           String   @unique
+  value         Json
+  description   String?
+  updatedBy     Int?     @map("updated_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  updatedByUser User?    @relation("SystemConfigUpdater", fields: [updatedBy], references: [id])
+
+  @@map("system_configs")
+}
+
+model LoginAttempt {
+  id        Int      @id @default(autoincrement())
+  email     String
+  ipAddress String   @map("ip_address")
+  success   Boolean
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email, createdAt], map: "idx_login_attempts_email")
+  @@index([ipAddress, createdAt], map: "idx_login_attempts_ip")
+  @@map("login_attempts")
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int              @map("user_id")
+  type      NotificationType
+  title     String
+  message   String
+  payload   Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  user      User             @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead], map: "idx_notifications_user_read")
+  @@index([createdAt], map: "idx_notifications_created_at")
+  @@map("notifications")
+}
