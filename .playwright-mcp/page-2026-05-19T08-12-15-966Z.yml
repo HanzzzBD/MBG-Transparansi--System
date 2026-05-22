@@ -1,0 +1,320 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - link "M MBG Transparency System" [ref=e6] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=e7]: M
+      - generic [ref=e8]:
+        - generic [ref=e9]: MBG
+        - generic [ref=e10]: Transparency System
+    - navigation "Menu dashboard" [ref=e11]:
+      - link "Dashboard" [ref=e12] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e14]
+        - generic [ref=e19]: Dashboard
+      - link "Peta SPPG" [ref=e20] [cursor=pointer]:
+        - /url: /dashboard/peta-sppg
+        - img [ref=e22]
+        - generic [ref=e24]: Peta SPPG
+      - link "Analitik Wilayah" [ref=e25] [cursor=pointer]:
+        - /url: /dashboard/analitik-wilayah
+        - img [ref=e27]
+        - generic [ref=e29]: Analitik Wilayah
+      - link "Transparansi Anggaran" [ref=e30] [cursor=pointer]:
+        - /url: /dashboard/anggaran
+        - img [ref=e32]
+        - generic [ref=e35]: Transparansi Anggaran
+      - link "Laporan Masyarakat 8" [ref=e36] [cursor=pointer]:
+        - /url: /dashboard/laporan-masyarakat
+        - img [ref=e38]
+        - generic [ref=e40]: Laporan Masyarakat
+        - generic [ref=e41]: "8"
+      - link "Anomaly Detection" [ref=e42] [cursor=pointer]:
+        - /url: /dashboard/anomaly
+        - img [ref=e44]
+        - generic [ref=e46]: Anomaly Detection
+      - link "Audit Log" [ref=e47] [cursor=pointer]:
+        - /url: /dashboard/audit-log
+        - img [ref=e49]
+        - generic [ref=e52]: Audit Log
+      - link "Export Data" [ref=e53] [cursor=pointer]:
+        - /url: /dashboard/export
+        - img [ref=e55]
+        - generic [ref=e58]: Export Data
+      - link "Data SPPG & Sekolah" [ref=e59] [cursor=pointer]:
+        - /url: /dashboard/master-data
+        - img [ref=e61]
+        - generic [ref=e65]: Data SPPG & Sekolah
+      - link "User & Role" [ref=e66] [cursor=pointer]:
+        - /url: /dashboard/users
+        - img [ref=e68]
+        - generic [ref=e73]: User & Role
+      - link "Lock / Unlock Data" [ref=e74] [cursor=pointer]:
+        - /url: /dashboard/lock-data
+        - img [ref=e76]
+        - generic [ref=e79]: Lock / Unlock Data
+      - link "Override Data" [ref=e80] [cursor=pointer]:
+        - /url: /dashboard/override
+        - img [ref=e82]
+        - generic [ref=e84]: Override Data
+      - link "API Monitoring" [ref=e85] [cursor=pointer]:
+        - /url: /dashboard/api-monitoring
+        - img [ref=e87]
+        - generic [ref=e89]: API Monitoring
+      - link "Settings" [ref=e90] [cursor=pointer]:
+        - /url: /dashboard/settings
+        - img [ref=e92]
+        - generic [ref=e95]: Settings
+    - generic [ref=e96]:
+      - generic [ref=e97]:
+        - generic [ref=e98]: A
+        - generic [ref=e99]:
+          - generic [ref=e100]: Admin MBG
+          - generic [ref=e101]: Admin
+      - button "Logout" [ref=e102] [cursor=pointer]:
+        - img [ref=e103]
+        - generic [ref=e106]: Logout
+  - complementary [ref=e107]:
+    - link "M MBG Transparency System" [ref=e109] [cursor=pointer]:
+      - /url: /dashboard
+      - generic [ref=e110]: M
+      - generic [ref=e111]:
+        - generic [ref=e112]: MBG
+        - generic [ref=e113]: Transparency System
+    - navigation "Menu dashboard" [ref=e114]:
+      - link "Dashboard" [ref=e115] [cursor=pointer]:
+        - /url: /dashboard
+        - img [ref=e117]
+        - generic [ref=e122]: Dashboard
+      - link "Peta SPPG" [ref=e123] [cursor=pointer]:
+        - /url: /dashboard/peta-sppg
+        - img [ref=e125]
+        - generic [ref=e127]: Peta SPPG
+      - link "Analitik Wilayah" [ref=e128] [cursor=pointer]:
+        - /url: /dashboard/analitik-wilayah
+        - img [ref=e130]
+        - generic [ref=e132]: Analitik Wilayah
+      - link "Transparansi Anggaran" [ref=e133] [cursor=pointer]:
+        - /url: /dashboard/anggaran
+        - img [ref=e135]
+        - generic [ref=e138]: Transparansi Anggaran
+      - link "Laporan Masyarakat 8" [ref=e139] [cursor=pointer]:
+        - /url: /dashboard/laporan-masyarakat
+        - img [ref=e141]
+        - generic [ref=e143]: Laporan Masyarakat
+        - generic [ref=e144]: "8"
+      - link "Anomaly Detection" [ref=e145] [cursor=pointer]:
+        - /url: /dashboard/anomaly
+        - img [ref=e147]
+        - generic [ref=e149]: Anomaly Detection
+      - link "Audit Log" [ref=e150] [cursor=pointer]:
+        - /url: /dashboard/audit-log
+        - img [ref=e152]
+        - generic [ref=e155]: Audit Log
+      - link "Export Data" [ref=e156] [cursor=pointer]:
+        - /url: /dashboard/export
+        - img [ref=e158]
+        - generic [ref=e161]: Export Data
+      - link "Data SPPG & Sekolah" [ref=e162] [cursor=pointer]:
+        - /url: /dashboard/master-data
+        - img [ref=e164]
+        - generic [ref=e168]: Data SPPG & Sekolah
+      - link "User & Role" [ref=e169] [cursor=pointer]:
+        - /url: /dashboard/users
+        - img [ref=e171]
+        - generic [ref=e176]: User & Role
+      - link "Lock / Unlock Data" [ref=e177] [cursor=pointer]:
+        - /url: /dashboard/lock-data
+        - img [ref=e179]
+        - generic [ref=e182]: Lock / Unlock Data
+      - link "Override Data" [ref=e183] [cursor=pointer]:
+        - /url: /dashboard/override
+        - img [ref=e185]
+        - generic [ref=e187]: Override Data
+      - link "API Monitoring" [ref=e188] [cursor=pointer]:
+        - /url: /dashboard/api-monitoring
+        - img [ref=e190]
+        - generic [ref=e192]: API Monitoring
+      - link "Settings" [ref=e193] [cursor=pointer]:
+        - /url: /dashboard/settings
+        - img [ref=e195]
+        - generic [ref=e198]: Settings
+    - generic [ref=e199]:
+      - generic [ref=e200]:
+        - generic [ref=e201]: A
+        - generic [ref=e202]:
+          - generic [ref=e203]: Admin MBG
+          - generic [ref=e204]: Admin
+      - button "Logout" [ref=e205] [cursor=pointer]:
+        - img [ref=e206]
+        - generic [ref=e209]: Logout
+  - generic [ref=e210]:
+    - banner [ref=e211]:
+      - generic [ref=e212]:
+        - button "Ciutkan sidebar" [ref=e213] [cursor=pointer]:
+          - img [ref=e214]
+        - generic [ref=e215]:
+          - generic [ref=e216]: Dashboard
+          - generic [ref=e217]: /
+          - strong [ref=e218]: Dashboard
+      - generic [ref=e219]:
+        - img
+        - searchbox "Cari SPPG, sekolah, distribusi..." [ref=e220]
+      - generic [ref=e221]:
+        - button "Buka notifikasi" [ref=e223] [cursor=pointer]:
+          - img [ref=e224]
+          - generic [ref=e227]: "8"
+        - button "A Admin MBG" [ref=e229] [cursor=pointer]:
+          - generic [ref=e230]: A
+          - generic [ref=e231]: Admin MBG
+          - img [ref=e232]
+    - main [ref=e234]:
+      - generic [ref=e235]:
+        - generic [ref=e237]:
+          - paragraph [ref=e238]: Admin Only
+          - heading "Lock / Unlock Data" [level=1] [ref=e239]
+          - paragraph [ref=e240]: Kontrol editabilitas data distribusi untuk memastikan integritas
+        - region "Ringkasan lock distribusi" [ref=e241]:
+          - article [ref=e242]:
+            - img [ref=e244]
+            - generic [ref=e249]: Data Terkunci
+            - strong [ref=e250]: "23"
+          - article [ref=e251]:
+            - img [ref=e253]
+            - generic [ref=e256]: Data Bisa Diedit
+            - strong [ref=e257]: "156"
+          - article [ref=e258]:
+            - img [ref=e260]
+            - generic [ref=e263]: Auto-Lock Pending
+            - strong [ref=e264]: "8"
+        - generic [ref=e266]:
+          - generic [ref=e267]:
+            - generic [ref=e268]: Search
+            - generic [ref=e269]:
+              - img
+              - searchbox "Search" [ref=e270]
+          - generic [ref=e271]:
+            - generic [ref=e272]: Status
+            - combobox "Status" [ref=e273]:
+              - option "Semua" [selected]
+              - option "Terkunci"
+              - option "Bisa Diedit"
+          - generic [ref=e274]:
+            - generic [ref=e275]: Date From
+            - textbox "Date From" [ref=e276]
+          - generic [ref=e277]:
+            - generic [ref=e278]: Date To
+            - textbox "Date To" [ref=e279]
+          - generic [ref=e280]:
+            - generic [ref=e281]: Provinsi
+            - combobox "Provinsi" [ref=e282]:
+              - option "Semua Provinsi" [selected]
+              - option "Aceh"
+              - option "Sumatera Utara"
+              - option "Sumatera Barat"
+              - option "Riau"
+              - option "Kepulauan Riau"
+              - option "Jambi"
+              - option "Bengkulu"
+              - option "Sumatera Selatan"
+              - option "Kepulauan Bangka Belitung"
+              - option "Lampung"
+              - option "Banten"
+              - option "DKI Jakarta"
+              - option "Jawa Barat"
+              - option "Jawa Tengah"
+              - option "DI Yogyakarta"
+              - option "Jawa Timur"
+              - option "Bali"
+              - option "Nusa Tenggara Barat"
+              - option "Nusa Tenggara Timur"
+              - option "Kalimantan Barat"
+              - option "Kalimantan Tengah"
+              - option "Kalimantan Selatan"
+              - option "Kalimantan Timur"
+              - option "Kalimantan Utara"
+              - option "Sulawesi Utara"
+              - option "Gorontalo"
+              - option "Sulawesi Tengah"
+              - option "Sulawesi Barat"
+              - option "Sulawesi Selatan"
+              - option "Sulawesi Tenggara"
+              - option "Maluku"
+              - option "Maluku Utara"
+              - option "Papua"
+              - option "Papua Barat"
+          - button "Reset Filter" [ref=e283] [cursor=pointer]:
+            - img [ref=e284]
+            - text: Reset Filter
+        - generic [ref=e289]:
+          - generic [ref=e290]:
+            - img [ref=e291]
+            - text: Memuat data distribusi...
+          - table [ref=e294]:
+            - rowgroup [ref=e295]:
+              - row "ID SPPG Sekolah Distrik Porsi Tanggal Status Dikunci Oleh Dikunci Pada Aksi" [ref=e296]:
+                - columnheader "ID" [ref=e297]
+                - columnheader "SPPG" [ref=e298]
+                - columnheader "Sekolah" [ref=e299]
+                - columnheader "Distrik" [ref=e300]
+                - columnheader "Porsi" [ref=e301]
+                - columnheader "Tanggal" [ref=e302]
+                - columnheader "Status" [ref=e303]
+                - columnheader "Dikunci Oleh" [ref=e304]
+                - columnheader "Dikunci Pada" [ref=e305]
+                - columnheader "Aksi" [ref=e306]
+            - rowgroup
+          - generic [ref=e307]:
+            - generic [ref=e308]: Menampilkan 0-0 dari 0 data
+            - generic [ref=e309]:
+              - button "Previous" [disabled] [ref=e310]
+              - button "Next" [disabled] [ref=e311]
+        - generic [ref=e312]:
+          - generic [ref=e313]:
+            - generic [ref=e314]:
+              - paragraph [ref=e315]: Audit Trail
+              - heading "Log Lock/Unlock Terbaru" [level=2] [ref=e316]
+            - img [ref=e317]
+          - table [ref=e321]:
+            - rowgroup [ref=e322]:
+              - row "Timestamp Admin Aksi Distribusi Alasan" [ref=e323]:
+                - columnheader "Timestamp" [ref=e324]
+                - columnheader "Admin" [ref=e325]
+                - columnheader "Aksi" [ref=e326]
+                - columnheader "Distribusi" [ref=e327]
+                - columnheader "Alasan" [ref=e328]
+            - rowgroup [ref=e329]:
+              - 'row "18 Mei 2026, 16.15 Super Admin LOCK #DST-1001 Distribusi sudah selesai divalidasi sekolah." [ref=e330]':
+                - cell "18 Mei 2026, 16.15" [ref=e331]
+                - cell "Super Admin" [ref=e332]
+                - cell "LOCK" [ref=e333]:
+                  - generic [ref=e334]: LOCK
+                - cell "#DST-1001" [ref=e335]
+                - cell "Distribusi sudah selesai divalidasi sekolah." [ref=e336]
+              - 'row "18 Mei 2026, 15.30 Admin Nasional LOCK #DST-1003 Data final untuk laporan harian." [ref=e337]':
+                - cell "18 Mei 2026, 15.30" [ref=e338]
+                - cell "Admin Nasional" [ref=e339]
+                - cell "LOCK" [ref=e340]:
+                  - generic [ref=e341]: LOCK
+                - cell "#DST-1003" [ref=e342]
+                - cell "Data final untuk laporan harian." [ref=e343]
+              - 'row "17 Mei 2026, 22.20 Super Admin UNLOCK #DST-0998 Koreksi porsi diterima dari sekolah." [ref=e344]':
+                - cell "17 Mei 2026, 22.20" [ref=e345]
+                - cell "Super Admin" [ref=e346]
+                - cell "UNLOCK" [ref=e347]:
+                  - generic [ref=e348]: UNLOCK
+                - cell "#DST-0998" [ref=e349]
+                - cell "Koreksi porsi diterima dari sekolah." [ref=e350]
+              - 'row "17 Mei 2026, 19.10 Admin Nasional LOCK #DST-0994 Menutup data setelah audit validasi." [ref=e351]':
+                - cell "17 Mei 2026, 19.10" [ref=e352]
+                - cell "Admin Nasional" [ref=e353]
+                - cell "LOCK" [ref=e354]:
+                  - generic [ref=e355]: LOCK
+                - cell "#DST-0994" [ref=e356]
+                - cell "Menutup data setelah audit validasi." [ref=e357]
+              - 'row "16 Mei 2026, 17.30 Super Admin UNLOCK #DST-0988 Koreksi foto bukti distribusi." [ref=e358]':
+                - cell "16 Mei 2026, 17.30" [ref=e359]
+                - cell "Super Admin" [ref=e360]
+                - cell "UNLOCK" [ref=e361]:
+                  - generic [ref=e362]: UNLOCK
+                - cell "#DST-0988" [ref=e363]
+                - cell "Koreksi foto bukti distribusi." [ref=e364]

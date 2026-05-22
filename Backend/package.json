@@ -6,6 +6,12 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "seed": "node prisma/seed.js",
+    "seed:demo-users": "node src/scripts/seedDemoUsers.js",
+    "import:sppg": "node src/scripts/importSppg.js",
+    "import:dapodik": "node src/scripts/importDapodikLocal.js",
+    "import:food-prices": "node src/scripts/importFoodPrices.js",
+    "verify:food-prices": "node src/scripts/verifyFoodPriceIntegration.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"

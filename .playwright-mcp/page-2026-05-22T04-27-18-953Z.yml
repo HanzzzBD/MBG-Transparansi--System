@@ -1,0 +1,196 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "MBG Transparency System" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: MBG
+        - generic [ref=e8]:
+          - generic [ref=e9]: MBG
+          - generic [ref=e10]: Transparency System
+      - navigation "Navigasi utama" [ref=e11]:
+        - link "Beranda" [ref=e12] [cursor=pointer]:
+          - /url: /
+        - link "Peta SPPG" [ref=e13] [cursor=pointer]:
+          - /url: /peta
+        - link "Statistik" [ref=e14] [cursor=pointer]:
+          - /url: /statistik
+        - link "Laporan" [ref=e15] [cursor=pointer]:
+          - /url: "#laporan"
+      - link "Login" [ref=e17] [cursor=pointer]:
+        - /url: /login
+        - img [ref=e18]
+        - text: Login
+  - main [ref=e21]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - img [ref=e29]
+        - text: Platform monitoring publik Program MBG
+      - heading "Transparansi Distribusi Makan Bergizi Gratis" [level=1] [ref=e32]
+      - paragraph [ref=e33]: Pantau distribusi makanan bergizi ke seluruh sekolah Indonesia secara real-time, terbuka untuk publik.
+      - generic [ref=e34]:
+        - link "Lihat Dashboard" [ref=e35] [cursor=pointer]:
+          - /url: /dashboard
+          - text: Lihat Dashboard
+          - img [ref=e36]
+        - link "Peta SPPG" [ref=e38] [cursor=pointer]:
+          - /url: /peta
+    - generic [ref=e41]:
+      - paragraph [ref=e42]: Mini Dashboard
+      - heading "Ringkasan distribusi nasional" [level=2] [ref=e43]
+      - paragraph [ref=e44]: KPI publik diambil dari endpoint backend GET /api/analytics/summary.
+    - generic [ref=e51]:
+      - generic [ref=e52]:
+        - paragraph [ref=e53]: Peta SPPG
+        - heading "Pratinjau sebaran dapur SPPG di Indonesia" [level=2] [ref=e54]
+        - paragraph [ref=e55]: Marker diambil dari GET /api/sppg?fields=lat,lng,status&limit=10 dan titik tanpa koordinat dilewati.
+      - generic [ref=e56]:
+        - iframe [ref=e57]:
+          - generic [ref=f1e2]:
+            - img
+            - generic:
+              - region "Map" [ref=f1e3]
+              - button "[missing \"en-US.javascripts.map.marker.title\" translation]" [ref=f1e4]:
+                - img [ref=f1e5]
+            - generic:
+              - generic [ref=f1e8]:
+                - button "Zoom In" [ref=f1e9] [cursor=pointer]
+                - button "Zoom Out" [ref=f1e11] [cursor=pointer]
+              - group [ref=f1e13]:
+                - generic [ref=f1e14]:
+                  - text: ©
+                  - link "OpenStreetMap contributors" [ref=f1e15] [cursor=pointer]:
+                    - /url: /copyright
+                  - text: ♥️
+                  - link "Make a Donation" [ref=f1e16] [cursor=pointer]:
+                    - /url: https://supporting.openstreetmap.org
+                  - text: .
+                  - link "Website and API terms" [ref=f1e17] [cursor=pointer]:
+                    - /url: https://wiki.osmfoundation.org/wiki/Terms_of_Use
+        - generic [ref=e60]:
+          - img [ref=e61]
+          - text: Memuat peta SPPG...
+        - link "Lihat Peta Lengkap" [ref=e63] [cursor=pointer]:
+          - /url: /peta
+          - text: Lihat Peta Lengkap
+          - img [ref=e64]
+    - generic [ref=e67]:
+      - generic [ref=e68]:
+        - paragraph [ref=e69]: Fitur Utama
+        - heading "Dirancang untuk transparansi dari SPPG ke sekolah" [level=2] [ref=e70]
+        - paragraph [ref=e71]: "Mengacu pada SDD: dashboard nasional, peta SPPG, bukti distribusi, anggaran, anomali, dan laporan publik."
+      - generic [ref=e72]:
+        - article [ref=e73]:
+          - img [ref=e75]
+          - heading "Peta Distribusi" [level=3] [ref=e79]
+          - paragraph [ref=e80]: Lihat lokasi dan status semua SPPG di seluruh Indonesia
+        - article [ref=e81]:
+          - img [ref=e83]
+          - heading "Dashboard Realtime" [level=3] [ref=e85]
+          - paragraph [ref=e86]: KPI dan tren distribusi diperbarui secara otomatis
+        - article [ref=e87]:
+          - img [ref=e89]
+          - heading "Bukti Distribusi" [level=3] [ref=e92]
+          - paragraph [ref=e93]: Setiap distribusi didokumentasikan dengan foto
+        - article [ref=e94]:
+          - img [ref=e96]
+          - heading "Transparansi Anggaran" [level=3] [ref=e100]
+          - paragraph [ref=e101]: Harga per porsi per wilayah dapat dipantau publik
+        - article [ref=e102]:
+          - img [ref=e104]
+          - heading "Deteksi Anomali" [level=3] [ref=e106]
+          - paragraph [ref=e107]: Sistem otomatis mendeteksi data yang tidak wajar
+        - article [ref=e108]:
+          - img [ref=e110]
+          - heading "Laporan Masyarakat" [level=3] [ref=e113]
+          - paragraph [ref=e114]: Siapapun bisa melaporkan masalah yang ditemukan
+    - generic [ref=e116]:
+      - generic [ref=e117]:
+        - paragraph [ref=e118]: Laporan Masyarakat
+        - heading "Temukan Masalah? Laporkan Sekarang" [level=2] [ref=e119]
+        - paragraph [ref=e120]: "Form publik mengikuti SDD: pesan minimal 20 karakter, honeypot anti-bot, dan CAPTCHA wajib sebelum POST /api/public-reports."
+        - generic [ref=e122]:
+          - img [ref=e123]
+          - paragraph [ref=e127]: Memuat Cloudflare Turnstile...
+      - generic [ref=e128]:
+        - generic [ref=e129]:
+          - generic [ref=e130]:
+            - generic [ref=e131]: Nama
+            - textbox "Nama" [ref=e132]:
+              - /placeholder: Anonim
+          - generic [ref=e133]:
+            - generic [ref=e134]: Provinsi
+            - combobox "Provinsi" [ref=e135]:
+              - option "Pilih provinsi" [selected]
+              - option "Aceh"
+              - option "Sumatera Utara"
+              - option "Sumatera Barat"
+              - option "Riau"
+              - option "DKI Jakarta"
+              - option "Jawa Barat"
+              - option "Jawa Tengah"
+              - option "Jawa Timur"
+              - option "Bali"
+              - option "Kalimantan Barat"
+              - option "Kalimantan Timur"
+              - option "Sulawesi Selatan"
+              - option "Nusa Tenggara Timur"
+              - option "Papua"
+          - generic [ref=e136]:
+            - generic [ref=e137]: Kota
+            - textbox "Kota" [ref=e138]:
+              - /placeholder: "Contoh: Bandung"
+          - generic [ref=e139]:
+            - generic [ref=e140]: Kategori
+            - combobox "Kategori" [ref=e141]:
+              - option "Pilih kategori" [selected]
+              - option "Kualitas Makanan"
+              - option "Keterlambatan"
+              - option "Kekurangan Porsi"
+              - option "Lainnya"
+          - generic [ref=e142]:
+            - generic [ref=e143]: Pesan
+            - textbox "Pesan" [ref=e144]:
+              - /placeholder: Ceritakan masalah yang ditemukan, termasuk lokasi dan waktu kejadian.
+          - generic [ref=e145]:
+            - text: Website
+            - textbox [ref=e146]
+        - button "Kirim Laporan" [ref=e150] [cursor=pointer]:
+          - img [ref=e151]
+          - text: Kirim Laporan
+    - generic [ref=e155]:
+      - generic [ref=e156]:
+        - heading "Bergabung Memantau Program MBG" [level=2] [ref=e157]
+        - paragraph [ref=e158]: Login untuk akses dashboard lengkap sesuai peran Anda
+      - link "Masuk Dashboard" [ref=e159] [cursor=pointer]:
+        - /url: /login
+        - text: Masuk Dashboard
+        - img [ref=e160]
+  - contentinfo [ref=e162]:
+    - generic [ref=e163]:
+      - generic [ref=e164]:
+        - link "MBG MBG Transparency System" [ref=e165] [cursor=pointer]:
+          - /url: /
+          - generic [ref=e166]: MBG
+          - generic [ref=e167]:
+            - generic [ref=e168]: MBG
+            - generic [ref=e169]: Transparency System
+        - paragraph [ref=e170]: Platform monitoring distribusi Program Makan Bergizi Gratis dari SPPG ke sekolah dengan data publik, audit, dan kanal laporan masyarakat.
+      - generic [ref=e171]:
+        - heading "Navigasi" [level=3] [ref=e172]
+        - generic [ref=e173]:
+          - link "Beranda" [ref=e174] [cursor=pointer]:
+            - /url: /
+          - link "Peta" [ref=e175] [cursor=pointer]:
+            - /url: /peta
+          - link "Statistik" [ref=e176] [cursor=pointer]:
+            - /url: /statistik
+          - link "Laporan" [ref=e177] [cursor=pointer]:
+            - /url: "#laporan"
+      - generic [ref=e178]:
+        - heading "Informasi" [level=3] [ref=e179]
+        - generic [ref=e180]:
+          - link "Kontak" [ref=e181] [cursor=pointer]:
+            - /url: mailto:kontak@mbg.go.id
+          - link "Kebijakan Privasi" [ref=e182] [cursor=pointer]:
+            - /url: /privacy
+    - generic [ref=e183]: Copyright 2024 MBG Transparency System.

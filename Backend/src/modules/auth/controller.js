@@ -45,6 +45,7 @@ const login = async (req, res, next) => {
       status: "success",
       data: {
         accessToken: result.accessToken,
+        token: result.accessToken,
         user: result.user
       }
     });

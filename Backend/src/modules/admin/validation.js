@@ -154,6 +154,7 @@ const overrideDistributionSchema = z.object({
     .object({
       sppgId: z.coerce.number().int().positive().optional(),
       schoolId: z.coerce.number().int().positive().optional(),
+      productionBatchId: z.coerce.number().int().positive().optional().nullable(),
       portions: z.coerce.number().int().positive().optional(),
       pricePerPortion: z.coerce.number().positive().optional(),
       distributionDate: z.iso.date().optional(),
@@ -164,9 +165,16 @@ const overrideDistributionSchema = z.object({
     .refine(
       (value) =>
         Object.keys(value).some((key) =>
-          ["sppgId", "schoolId", "portions", "pricePerPortion", "distributionDate", "status", "failureReason"].includes(
-            key
-          )
+          [
+            "sppgId",
+            "schoolId",
+            "productionBatchId",
+            "portions",
+            "pricePerPortion",
+            "distributionDate",
+            "status",
+            "failureReason"
+          ].includes(key)
         ),
       {
         message: "At least one distribution field must be provided."

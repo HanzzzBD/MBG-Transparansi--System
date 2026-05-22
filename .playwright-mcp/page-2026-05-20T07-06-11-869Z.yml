@@ -1,0 +1,297 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e3]:
+    - complementary [ref=e4]:
+      - link "M MBG Transparency System" [ref=e6] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e7]: M
+        - generic [ref=e8]:
+          - generic [ref=e9]: MBG
+          - generic [ref=e10]: Transparency System
+      - navigation "Menu dashboard" [ref=e11]:
+        - link "Dashboard" [ref=e12] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e14]
+          - generic [ref=e19]: Dashboard
+        - link "Peta SPPG" [ref=e20] [cursor=pointer]:
+          - /url: /dashboard/peta-sppg
+          - img [ref=e22]
+          - generic [ref=e24]: Peta SPPG
+        - link "Analitik Wilayah" [ref=e25] [cursor=pointer]:
+          - /url: /dashboard/analitik-wilayah
+          - img [ref=e27]
+          - generic [ref=e29]: Analitik Wilayah
+        - link "Transparansi Anggaran" [ref=e30] [cursor=pointer]:
+          - /url: /dashboard/anggaran
+          - img [ref=e32]
+          - generic [ref=e35]: Transparansi Anggaran
+        - link "Laporan Masyarakat 9" [ref=e36] [cursor=pointer]:
+          - /url: /dashboard/laporan-masyarakat
+          - img [ref=e38]
+          - generic [ref=e40]: Laporan Masyarakat
+          - generic [ref=e41]: "9"
+        - link "Anomaly Detection" [ref=e42] [cursor=pointer]:
+          - /url: /dashboard/anomaly
+          - img [ref=e44]
+          - generic [ref=e46]: Anomaly Detection
+        - link "Audit Log" [ref=e47] [cursor=pointer]:
+          - /url: /dashboard/audit-log
+          - img [ref=e49]
+          - generic [ref=e52]: Audit Log
+        - link "Export Data" [ref=e53] [cursor=pointer]:
+          - /url: /dashboard/export
+          - img [ref=e55]
+          - generic [ref=e58]: Export Data
+      - generic [ref=e59]:
+        - generic [ref=e60]:
+          - generic [ref=e61]: P
+          - generic [ref=e62]:
+            - generic [ref=e63]: Pengguna MBG
+            - generic [ref=e64]: Pemerintah
+        - button "Logout" [ref=e65] [cursor=pointer]:
+          - img [ref=e66]
+          - generic [ref=e69]: Logout
+    - complementary [ref=e70]:
+      - link "M MBG Transparency System" [ref=e72] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e73]: M
+        - generic [ref=e74]:
+          - generic [ref=e75]: MBG
+          - generic [ref=e76]: Transparency System
+      - navigation "Menu dashboard" [ref=e77]:
+        - link "Dashboard" [ref=e78] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e80]
+          - generic [ref=e85]: Dashboard
+        - link "Peta SPPG" [ref=e86] [cursor=pointer]:
+          - /url: /dashboard/peta-sppg
+          - img [ref=e88]
+          - generic [ref=e90]: Peta SPPG
+        - link "Analitik Wilayah" [ref=e91] [cursor=pointer]:
+          - /url: /dashboard/analitik-wilayah
+          - img [ref=e93]
+          - generic [ref=e95]: Analitik Wilayah
+        - link "Transparansi Anggaran" [ref=e96] [cursor=pointer]:
+          - /url: /dashboard/anggaran
+          - img [ref=e98]
+          - generic [ref=e101]: Transparansi Anggaran
+        - link "Laporan Masyarakat 9" [ref=e102] [cursor=pointer]:
+          - /url: /dashboard/laporan-masyarakat
+          - img [ref=e104]
+          - generic [ref=e106]: Laporan Masyarakat
+          - generic [ref=e107]: "9"
+        - link "Anomaly Detection" [ref=e108] [cursor=pointer]:
+          - /url: /dashboard/anomaly
+          - img [ref=e110]
+          - generic [ref=e112]: Anomaly Detection
+        - link "Audit Log" [ref=e113] [cursor=pointer]:
+          - /url: /dashboard/audit-log
+          - img [ref=e115]
+          - generic [ref=e118]: Audit Log
+        - link "Export Data" [ref=e119] [cursor=pointer]:
+          - /url: /dashboard/export
+          - img [ref=e121]
+          - generic [ref=e124]: Export Data
+      - generic [ref=e125]:
+        - generic [ref=e126]:
+          - generic [ref=e127]: P
+          - generic [ref=e128]:
+            - generic [ref=e129]: Pengguna MBG
+            - generic [ref=e130]: Pemerintah
+        - button "Logout" [ref=e131] [cursor=pointer]:
+          - img [ref=e132]
+          - generic [ref=e135]: Logout
+    - generic [ref=e136]:
+      - banner [ref=e137]:
+        - generic [ref=e138]:
+          - button "Ciutkan sidebar" [ref=e139] [cursor=pointer]:
+            - img [ref=e140]
+          - generic [ref=e141]:
+            - generic [ref=e142]: Dashboard
+            - generic [ref=e143]: /
+            - strong [ref=e144]: Laporan Masyarakat
+        - generic [ref=e145]:
+          - img
+          - searchbox "Cari SPPG, sekolah, distribusi..." [ref=e146]
+        - generic [ref=e147]:
+          - button "Buka notifikasi" [ref=e149] [cursor=pointer]:
+            - img [ref=e150]
+            - generic [ref=e153]: "9"
+          - button "P Pengguna MBG" [ref=e155] [cursor=pointer]:
+            - generic [ref=e156]: P
+            - generic [ref=e157]: Pengguna MBG
+            - img [ref=e158]
+      - main [ref=e160]:
+        - generic [ref=e161]:
+          - generic [ref=e162]:
+            - generic [ref=e163]:
+              - paragraph [ref=e164]: Pemerintah & Admin
+              - heading "Laporan Masyarakat" [level=1] [ref=e165]
+              - paragraph [ref=e166]: Semua laporan yang masuk dari publik melalui form laporan
+            - generic "Ringkasan laporan masyarakat" [ref=e167]:
+              - generic [ref=e168]:
+                - img [ref=e169]
+                - text: Total Laporan
+                - strong [ref=e172]: "15"
+              - generic [ref=e173]:
+                - img [ref=e174]
+                - text: Bulan Ini
+                - strong [ref=e176]: "15"
+              - generic [ref=e177]:
+                - img [ref=e178]
+                - text: Perlu Tindak Lanjut
+                - strong [ref=e180]: "9"
+          - generic [ref=e182]:
+            - generic [ref=e183]:
+              - generic [ref=e184]: Kategori
+              - combobox "Kategori" [ref=e185]:
+                - option "Semua" [selected]
+                - option "Kualitas Makanan"
+                - option "Keterlambatan"
+                - option "Kekurangan Porsi"
+                - option "Lainnya"
+            - generic [ref=e186]:
+              - generic [ref=e187]: Provinsi
+              - combobox "Provinsi" [ref=e188]:
+                - option "Semua Provinsi" [selected]
+                - option "Aceh"
+                - option "Sumatera Utara"
+                - option "Sumatera Barat"
+                - option "Riau"
+                - option "Kepulauan Riau"
+                - option "Jambi"
+                - option "Bengkulu"
+                - option "Sumatera Selatan"
+                - option "Kepulauan Bangka Belitung"
+                - option "Lampung"
+                - option "Banten"
+                - option "DKI Jakarta"
+                - option "Jawa Barat"
+                - option "Jawa Tengah"
+                - option "DI Yogyakarta"
+                - option "Jawa Timur"
+                - option "Bali"
+                - option "Nusa Tenggara Barat"
+                - option "Nusa Tenggara Timur"
+                - option "Kalimantan Barat"
+                - option "Kalimantan Tengah"
+                - option "Kalimantan Selatan"
+                - option "Kalimantan Timur"
+                - option "Kalimantan Utara"
+                - option "Sulawesi Utara"
+                - option "Gorontalo"
+                - option "Sulawesi Tengah"
+                - option "Sulawesi Barat"
+                - option "Sulawesi Selatan"
+                - option "Sulawesi Tenggara"
+                - option "Maluku"
+                - option "Maluku Utara"
+                - option "Papua"
+                - option "Papua Barat"
+            - generic [ref=e189]:
+              - generic [ref=e190]: Date From
+              - textbox "Date From" [ref=e191]
+            - generic [ref=e192]:
+              - generic [ref=e193]: Date To
+              - textbox "Date To" [ref=e194]
+            - generic [ref=e195]:
+              - generic [ref=e196]: Status
+              - generic [ref=e197]:
+                - button "Belum Ditindak" [ref=e198] [cursor=pointer]
+                - button "Sudah Ditindak" [ref=e199] [cursor=pointer]
+                - button "Semua" [ref=e200] [cursor=pointer]
+            - button "Reset Filter" [ref=e201] [cursor=pointer]:
+              - img [ref=e202]
+              - text: Reset Filter
+          - region "Kategori laporan" [ref=e207]:
+            - button "Kualitas Makanan 5" [ref=e208] [cursor=pointer]:
+              - generic [ref=e210]: Kualitas Makanan
+              - strong [ref=e211]: "5"
+            - button "Keterlambatan 4" [ref=e212] [cursor=pointer]:
+              - generic [ref=e214]: Keterlambatan
+              - strong [ref=e215]: "4"
+            - button "Kekurangan Porsi 3" [ref=e216] [cursor=pointer]:
+              - generic [ref=e218]: Kekurangan Porsi
+              - strong [ref=e219]: "3"
+            - button "Lainnya 3" [ref=e220] [cursor=pointer]:
+              - generic [ref=e222]: Lainnya
+              - strong [ref=e223]: "3"
+          - generic [ref=e224]:
+            - generic [ref=e225]:
+              - img [ref=e226]
+              - text: Memuat laporan masyarakat...
+            - table [ref=e229]:
+              - rowgroup [ref=e230]:
+                - row "ID Pelapor Kategori Provinsi Kota Pesan Tanggal Status Aksi" [ref=e231]:
+                  - columnheader "ID" [ref=e232]
+                  - columnheader "Pelapor" [ref=e233]
+                  - columnheader "Kategori" [ref=e234]
+                  - columnheader "Provinsi" [ref=e235]
+                  - columnheader "Kota" [ref=e236]
+                  - columnheader "Pesan" [ref=e237]
+                  - columnheader "Tanggal" [ref=e238]
+                  - columnheader "Status" [ref=e239]
+                  - columnheader "Aksi" [ref=e240]
+              - rowgroup
+            - generic [ref=e241]:
+              - generic [ref=e242]: Menampilkan 0-0 dari 0 laporan
+              - generic [ref=e243]:
+                - button "Previous" [disabled] [ref=e244]
+                - button "Next" [disabled] [ref=e245]
+          - generic [ref=e246]:
+            - article [ref=e247]:
+              - heading "Tren Laporan Masuk 30 Hari" [level=2] [ref=e248]
+              - generic [ref=e250]:
+                - list [ref=e252]:
+                  - listitem [ref=e253]:
+                    - img "Kekurangan Porsi legend icon" [ref=e254]
+                    - text: Kekurangan Porsi
+                  - listitem [ref=e256]:
+                    - img "Keterlambatan legend icon" [ref=e257]
+                    - text: Keterlambatan
+                  - listitem [ref=e259]:
+                    - img "Kualitas Makanan legend icon" [ref=e260]
+                    - text: Kualitas Makanan
+                  - listitem [ref=e262]:
+                    - img "Lainnya legend icon" [ref=e263]
+                    - text: Lainnya
+                - application [ref=e265]:
+                  - generic [ref=e294]:
+                    - generic [ref=e295]:
+                      - generic [ref=e297]: 23 Apr
+                      - generic [ref=e299]: 26 Apr
+                      - generic [ref=e301]: 29 Apr
+                      - generic [ref=e303]: 02 Mei
+                      - generic [ref=e305]: 05 Mei
+                      - generic [ref=e307]: 08 Mei
+                      - generic [ref=e309]: 11 Mei
+                      - generic [ref=e311]: 14 Mei
+                      - generic [ref=e313]: 17 Mei
+                      - generic [ref=e315]: 20 Mei
+                    - generic [ref=e316]:
+                      - generic [ref=e318]: "0"
+                      - generic [ref=e320]: "2"
+                      - generic [ref=e322]: "4"
+                      - generic [ref=e324]: "6"
+                      - generic [ref=e326]: "8"
+            - article [ref=e327]:
+              - heading "Wilayah dengan Laporan Terbanyak" [level=2] [ref=e328]
+              - application [ref=e331]:
+                - generic [ref=e335]:
+                  - generic [ref=e336]:
+                    - generic [ref=e338]: "0"
+                    - generic [ref=e340]: "10"
+                    - generic [ref=e342]: "20"
+                    - generic [ref=e344]: "30"
+                    - generic [ref=e346]: "40"
+                  - generic [ref=e347]:
+                    - generic [ref=e349]: Bandung
+                    - generic [ref=e351]: JakartaTimur
+                    - generic [ref=e353]: Surabaya
+                    - generic [ref=e355]: Medan
+                    - generic [ref=e357]: Makassar
+                    - generic [ref=e359]: Semarang
+                    - generic [ref=e361]: Denpasar
+                    - generic [ref=e363]: Jayapura
+                    - generic [ref=e365]: Balikpapan
+                    - generic [ref=e367]: Kupang
+  - generic [ref=e368]: Bandung

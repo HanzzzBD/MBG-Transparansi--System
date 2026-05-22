@@ -55,6 +55,69 @@ const getBudget = async (req, res, next) => {
       filters: req.query
     });
 
+    res.status(200).json({  
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getBudgetSummary = async (req, res, next) => {
+  try {
+    const result = await analyticsService.getBudgetSummary({
+      filters: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPricePerProvince = async (req, res, next) => {
+  try {
+    const result = await analyticsService.getPricePerProvince({
+      filters: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPriceAnomalies = async (req, res, next) => {
+  try {
+    const pagination = analyticsService.parseAnalyticsPagination(req.query);
+    const result = await analyticsService.getPriceAnomalies({
+      filters: req.query,
+      pagination
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCostingAnalytics = async (req, res, next) => {
+  try {
+    const result = await analyticsService.getCostingAnalytics({
+      filters: req.query
+    });
+
     res.status(200).json({
       status: "success",
       data: result.data
@@ -102,8 +165,12 @@ const getAnomaly = async (req, res, next) => {
 module.exports = {
   getAnomaly,
   getBudget,
+  getBudgetSummary,
   getByProvince,
+  getCostingAnalytics,
   getDistributionTrend,
+  getPriceAnomalies,
+  getPricePerProvince,
   getSuccessRate,
   getSummary
 };

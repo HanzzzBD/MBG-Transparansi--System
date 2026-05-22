@@ -1,0 +1,57 @@
+- main [ref=e3]:
+  - region "Informasi MBG Transparency System" [ref=e4]:
+    - generic [ref=e5]:
+      - link "Kembali ke beranda MBG" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e7]: MBG
+        - generic [ref=e8]:
+          - generic [ref=e9]: MBG Transparency System
+          - generic [ref=e10]: Platform monitoring distribusi Makan Bergizi Gratis yang transparan, akuntabel, dan real-time.
+      - img [ref=e12]:
+        - img [ref=e19]
+        - img [ref=e26]
+        - img [ref=e30]
+      - generic [ref=e34]:
+        - generic [ref=e35]:
+          - img [ref=e36]
+          - generic [ref=e39]: Monitoring distribusi makanan secara real-time
+        - generic [ref=e40]:
+          - img [ref=e41]
+          - generic [ref=e44]: Validasi penerimaan dari sekolah
+        - generic [ref=e45]:
+          - img [ref=e46]
+          - generic [ref=e49]: Transparansi data untuk pemerintah dan publik
+  - generic [ref=e51]:
+    - generic [ref=e52]:
+      - heading "Masuk ke Sistem" [level=1] [ref=e53]
+      - paragraph [ref=e54]: Gunakan akun yang diberikan oleh administrator
+    - generic [ref=e55]:
+      - generic [ref=e56]:
+        - generic [ref=e57]: Email
+        - generic [ref=e58]:
+          - img
+          - textbox "Email" [ref=e59]:
+            - /placeholder: nama@mbg.go.id
+      - generic [ref=e60]:
+        - generic [ref=e61]: Password
+        - generic [ref=e62]:
+          - img
+          - textbox "Password" [ref=e63]:
+            - /placeholder: Masukkan password
+          - button "Tampilkan password" [ref=e64] [cursor=pointer]:
+            - img [ref=e65]
+      - generic [ref=e68]:
+        - generic [ref=e69] [cursor=pointer]:
+          - checkbox "Ingat saya" [ref=e70]
+          - generic [ref=e71]: Ingat saya
+        - link "Lupa password?" [ref=e72] [cursor=pointer]:
+          - /url: "#forgot-password"
+      - button "Masuk" [ref=e73] [cursor=pointer]:
+        - img [ref=e74]
+        - text: Masuk
+    - generic [ref=e78]: atau masuk sebagai
+    - generic [ref=e79]:
+      - button "Demo Admin" [ref=e80] [cursor=pointer]
+      - button "Demo SPPG" [ref=e81] [cursor=pointer]
+      - button "Demo Pemerintah" [ref=e82] [cursor=pointer]
+    - paragraph [ref=e83]: "TODO: sesuaikan seed user untuk Demo SPPG dan Demo Pemerintah jika akun belum tersedia di backend."

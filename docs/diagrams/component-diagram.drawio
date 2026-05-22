@@ -1,0 +1,94 @@
+<mxfile host="app.diagrams.net" modified="2026-05-18T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="Diagram Komponen" name="Diagram Komponen">
+    <mxGraphModel dx="1500" dy="860" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="860" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="t" value="Diagram Komponen - Komponen Backend MBG" style="whiteSpace=wrap;html=1;strokeColor=none;fillColor=none;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="30" y="20" width="760" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="client" value="Klien Web / Konsumen API" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="60" y="120" width="210" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="express" value="Express App + HTTP Server" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="360" y="100" width="260" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="socket" value="Socket.IO Server" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="680" y="100" width="210" height="90" as="geometry" />
+    </mxCell>
+    <mxCell id="mw" value="Middleware: HTTPS, Helmet, CORS, Rate Limit, Auth, RBAC, Zod" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="360" y="270" width="340" height="110" as="geometry" />
+    </mxCell>
+    <mxCell id="routes" value="API Router /api" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="760" y="270" width="210" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="modules" value="Modul Fitur: auth, admin, analytics, sppg, schools, distributions, validations, dapodik, reports, exports, files, proofs, notifications, menus, issues" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="1050" y="170" width="390" height="180" as="geometry" />
+    </mxCell>
+    <mxCell id="utils" value="Utils: audit, anomaly, ownership, notification, storage, pagination, captcha, socket" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="1050" y="420" width="390" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="prisma" value="Prisma Client + Adapter PG" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="760" y="520" width="250" height="90" as="geometry" />
+    </mxCell>
+    <mxCell id="db" value="PostgreSQL Database" style="whiteSpace=wrap;html=1;shape=cylinder;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="760" y="700" width="250" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="redis" value="Redis opsional: rate limit dan BullMQ export" style="whiteSpace=wrap;html=1;shape=cylinder;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="60" y="520" width="260" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="storage" value="Storage file: lokal / Cloudflare R2" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="360" y="700" width="260" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="dapodik" value="Dataset JSON lokal Dapodik" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="60" y="700" width="260" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="worker" value="Runtime Cron dan Worker: export, auto-lock, validation timeout" style="whiteSpace=wrap;html=1;shape=component;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="1050" y="650" width="390" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="e1" value="HTTP REST /api" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="client" target="express">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" value="WebSocket auth token" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="client" target="socket">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" value="pipeline request" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="express" target="mw">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" value="request valid" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="mw" target="routes">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e5" value="dispatch controller/service" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="routes" target="modules">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e6" value="pakai helper" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="modules" target="utils">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e7" value="query/mutation" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="modules" target="prisma">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e8" value="SQL" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="prisma" target="db">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e9" value="rate limit store" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="mw" target="redis">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e10" value="upload/download/export" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="modules" target="storage">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e11" value="import lokal" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="modules" target="dapodik">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e12" value="process job dan cron" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="worker" target="modules">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e13" value="BullMQ jika REDIS_URL ada" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="worker" target="redis">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e14" value="emit notifikasi" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="utils" target="socket">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

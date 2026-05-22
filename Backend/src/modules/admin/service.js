@@ -1,7 +1,10 @@
+const bcrypt = require("bcrypt");
+
 const { getPrismaClient } = require("../../config/prisma");
 const AppError = require("../../utils/appError");
 const { createAnomalyIfNeeded } = require("../../utils/anomaly");
 const { createAuditLog } = require("../../utils/auditLog");
+const { checkDistributionPriceAnomaly } = require("../../utils/distributionPriceAnomaly");
 const { endOfDayUtc, startOfDayUtc } = require("../../utils/date");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 const {
@@ -10,6 +13,8 @@ const {
   findUserIdsBySppgId
 } = require("../../utils/notification");
 const authService = require("../auth/service");
+const productionBatchService = require("../productionBatches/service");
+const { BCRYPT_ROUNDS } = require("../../utils/auth");
 
 const prisma = getPrismaClient();
 
@@ -49,6 +54,7 @@ const distributionDetailInclude = {
   sppg: true,
   school: true,
   validation: true,
+  productionBatch: true,
   proofs: {
     include: {
       file: true,
@@ -204,29 +210,13 @@ const detectDistributionAnomalies = async ({ tx, distribution, sppg, actorUserId
     });
   }
 
-  const priceThreshold = await tx.priceThreshold.findFirst({
-    where: {
-      province: {
-        equals: sppg.province,
-        mode: "insensitive"
-      }
-    }
+  await checkDistributionPriceAnomaly({
+    prisma: tx,
+    distribution,
+    province: sppg.province,
+    actorUserId,
+    ipAddress
   });
-
-  if (
-    priceThreshold &&
-    (Number(distribution.pricePerPortion) < Number(priceThreshold.minPrice) ||
-      Number(distribution.pricePerPortion) > Number(priceThreshold.maxPrice))
-  ) {
-    await createAnomalyIfNeeded({
-      prisma: tx,
-      distributionId: distribution.id,
-      anomalyType: "PRICE_ANOMALY",
-      description: `Price per portion ${distribution.pricePerPortion} is outside threshold range ${priceThreshold.minPrice}-${priceThreshold.maxPrice} for ${sppg.province}.`,
-      actorUserId,
-      ipAddress
-    });
-  }
 };
 
 const createDeliveredNotification = async ({ tx, distribution }) => {
@@ -338,6 +328,22 @@ const createUser = async ({ payload, actorUserId, ipAddress }) => {
 const updateUser = async ({ id, payload, actorUserId, ipAddress }) => {
   const existing = await getManageableUserById(id);
   const nextRole = payload.role ?? existing.role;
+  const normalizedEmail = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : undefined;
+
+  if (normalizedEmail && normalizedEmail !== existing.email) {
+    const emailOwner = await prisma.user.findUnique({
+      where: {
+        email: normalizedEmail
+      },
+      select: {
+        id: true
+      }
+    });
+
+    if (emailOwner && emailOwner.id !== existing.id) {
+      throw new AppError("A user with this email already exists.", 409, "EMAIL_ALREADY_EXISTS");
+    }
+  }
 
   if (payload.sppgId !== undefined && nextRole !== "sppg") {
     throw new AppError("sppgId can only be set for sppg accounts.", 400, "SPPG_SCOPE_INVALID");
@@ -370,6 +376,7 @@ const updateUser = async ({ id, payload, actorUserId, ipAddress }) => {
   });
 
   const shouldRevokeSessions = payload.isActive === false;
+  const passwordHash = payload.password ? await bcrypt.hash(payload.password, BCRYPT_ROUNDS) : null;
 
   const user = await prisma.$transaction(async (tx) => {
     const updated = await tx.user.update({
@@ -377,6 +384,9 @@ const updateUser = async ({ id, payload, actorUserId, ipAddress }) => {
         id: existing.id
       },
       data: {
+        ...(payload.name !== undefined ? { name: payload.name.trim() } : {}),
+        ...(normalizedEmail !== undefined ? { email: normalizedEmail } : {}),
+        ...(passwordHash ? { password: passwordHash } : {}),
         ...(payload.role !== undefined ? { role: nextRole } : {}),
         ...(payload.isActive !== undefined ? { isActive: payload.isActive } : {}),
         sppgId: nextSppgId,
@@ -500,6 +510,12 @@ const listAnomalyLogs = async ({ query }) => {
             school: true
           }
         },
+        productionBatch: {
+          include: {
+            sppg: true
+          }
+        },
+        productionBatchItem: true,
         resolver: {
           select: {
             id: true,
@@ -604,7 +620,7 @@ const resolveAnomalyLog = async ({ id, actorUserId, ipAddress }) => {
   };
 };
 
-const lockDistribution = async ({ id, actorUserId, ipAddress }) => {
+const lockDistribution = async ({ id, actorUserId, ipAddress, reason = null }) => {
   const existing = await getDistributionById(id);
 
   if (existing.isLocked && !existing.unlockedUntil) {
@@ -635,7 +651,8 @@ const lockDistribution = async ({ id, actorUserId, ipAddress }) => {
       newData: {
         id: updated.id,
         isLocked: updated.isLocked,
-        unlockedUntil: updated.unlockedUntil
+        unlockedUntil: updated.unlockedUntil,
+        reason
       },
       ipAddress
     });
@@ -653,9 +670,17 @@ const lockDistribution = async ({ id, actorUserId, ipAddress }) => {
   };
 };
 
-const unlockDistribution = async ({ id, actorUserId, ipAddress }) => {
+const unlockDistribution = async ({
+  id,
+  actorUserId,
+  ipAddress,
+  reason = null,
+  autoRelockAfterOneHour = true
+}) => {
   const existing = await getDistributionById(id);
-  const unlockedUntil = new Date(Date.now() + DISTRIBUTION_UNLOCK_WINDOW_MS);
+  const unlockedUntil = autoRelockAfterOneHour
+    ? new Date(Date.now() + DISTRIBUTION_UNLOCK_WINDOW_MS)
+    : null;
 
   const distribution = await prisma.$transaction(async (tx) => {
     const updated = await tx.distribution.update({
@@ -679,7 +704,9 @@ const unlockDistribution = async ({ id, actorUserId, ipAddress }) => {
       newData: {
         id: updated.id,
         isLocked: updated.isLocked,
-        unlockedUntil: updated.unlockedUntil
+        unlockedUntil: updated.unlockedUntil,
+        reason,
+        autoRelockAfterOneHour
       },
       ipAddress
     });
@@ -709,6 +736,22 @@ const overrideDistribution = async ({ id, payload, actorUserId, ipAddress }) => 
   const nextUnlockedUntil = becameDelivered ? null : existing.unlockedUntil;
 
   const distribution = await prisma.$transaction(async (tx) => {
+    const productionBatch = await productionBatchService.findBatchForDistribution({
+      sppgId: targetSppgId,
+      distributionDate: payload.distributionDate ?? existing.distributionDate,
+      productionBatchId: payload.productionBatchId,
+      client: tx
+    });
+
+    if (payload.productionBatchId && !productionBatch) {
+      throw new AppError("Production batch not found for this SPPG.", 404, "PRODUCTION_BATCH_NOT_FOUND");
+    }
+
+    const shouldUseBatchPrice = payload.pricePerPortion === undefined && payload.productionBatchId !== undefined;
+    const nextPricePerPortion = shouldUseBatchPrice && productionBatch
+      ? Number(productionBatch.costPerPortion)
+      : payload.pricePerPortion;
+
     const updated = await tx.distribution.update({
       where: {
         id: existing.id
@@ -716,8 +759,9 @@ const overrideDistribution = async ({ id, payload, actorUserId, ipAddress }) => 
       data: {
         ...(payload.sppgId !== undefined ? { sppgId: targetSppgId } : {}),
         ...(payload.schoolId !== undefined ? { schoolId: targetSchoolId } : {}),
+        ...(payload.productionBatchId !== undefined ? { productionBatchId: productionBatch?.id ?? null } : {}),
         ...(payload.portions !== undefined ? { portions: payload.portions } : {}),
-        ...(payload.pricePerPortion !== undefined ? { pricePerPortion: payload.pricePerPortion } : {}),
+        ...(nextPricePerPortion !== undefined ? { pricePerPortion: nextPricePerPortion } : {}),
         ...(payload.distributionDate !== undefined ? { distributionDate: new Date(payload.distributionDate) } : {}),
         ...(payload.status !== undefined ? { status: payload.status } : {}),
         ...(payload.failureReason !== undefined ? { failureReason: payload.failureReason } : {}),

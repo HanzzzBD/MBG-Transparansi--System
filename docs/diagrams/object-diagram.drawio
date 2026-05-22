@@ -1,0 +1,82 @@
+<mxfile host="app.diagrams.net" modified="2026-05-18T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="Diagram Objek" name="Diagram Objek">
+    <mxGraphModel dx="1450" dy="820" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1450" pageHeight="820" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="t" value="Diagram Objek - Snapshot Distribusi Delivered" style="whiteSpace=wrap;html=1;strokeColor=none;fillColor=none;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="30" y="20" width="760" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="u1" value="&lt;b&gt;&lt;u&gt;admin: User&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;id=1&lt;br&gt;role=admin&lt;br&gt;isActive=true" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="60" y="110" width="230" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="u2" value="&lt;b&gt;&lt;u&gt;petugasSppg: User&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;role=sppg&lt;br&gt;sppgId=10" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="60" y="300" width="230" height="115" as="geometry" />
+    </mxCell>
+    <mxCell id="u3" value="&lt;b&gt;&lt;u&gt;petugasSekolah: User&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;role=sekolah&lt;br&gt;schoolId=25" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="60" y="480" width="230" height="115" as="geometry" />
+    </mxCell>
+    <mxCell id="sppg" value="&lt;b&gt;&lt;u&gt;sppgBandung: Sppg&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;id=10&lt;br&gt;city=Kota Bandung&lt;br&gt;capacity=1000&lt;br&gt;status=active" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="370" y="170" width="260" height="145" as="geometry" />
+    </mxCell>
+    <mxCell id="school" value="&lt;b&gt;&lt;u&gt;sdContoh: School&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;id=25&lt;br&gt;sppgId=10&lt;br&gt;city=Kota Bandung&lt;br&gt;totalStudents=420" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="720" y="170" width="270" height="145" as="geometry" />
+    </mxCell>
+    <mxCell id="dist" value="&lt;b&gt;&lt;u&gt;distHariIni: Distribution&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;id=501&lt;br&gt;sppgId=10&lt;br&gt;schoolId=25&lt;br&gt;status=delivered&lt;br&gt;isLocked=true&lt;br&gt;portions=420" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="1090" y="120" width="300" height="180" as="geometry" />
+    </mxCell>
+    <mxCell id="val" value="&lt;b&gt;&lt;u&gt;validasi: Validation&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;distributionId=501&lt;br&gt;schoolId=25&lt;br&gt;receivedPortions=420&lt;br&gt;status=verified&lt;br&gt;qualityOk=true" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="1090" y="370" width="300" height="165" as="geometry" />
+    </mxCell>
+    <mxCell id="file" value="&lt;b&gt;&lt;u&gt;fotoBukti: File&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;status=ready&lt;br&gt;mimeType=image/jpeg&lt;br&gt;uploadedBy=petugasSppg" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="720" y="420" width="270" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="proof" value="&lt;b&gt;&lt;u&gt;bukti: Proof&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;distributionId=501&lt;br&gt;fileId=fotoBukti&lt;br&gt;uploadedBy=petugasSppg" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="720" y="620" width="270" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="notif" value="&lt;b&gt;&lt;u&gt;notifSekolah: Notification&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;userId=petugasSekolah&lt;br&gt;type=distribution&lt;br&gt;isRead=false" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="370" y="620" width="260" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="audit" value="&lt;b&gt;&lt;u&gt;auditLogin: AuditLog&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;userId=admin&lt;br&gt;action=LOGIN&lt;br&gt;tableName=users" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="60" y="660" width="230" height="115" as="geometry" />
+    </mxCell>
+    <mxCell id="anom" value="&lt;b&gt;&lt;u&gt;anomali: AnomalyLog&lt;/u&gt;&lt;/b&gt;&lt;hr&gt;distributionId=501&lt;br&gt;anomalyType=PRICE_ANOMALY&lt;br&gt;isResolved=false&lt;br&gt;opsional jika harga di luar threshold" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#ffffff;strokeColor=#666666;align=left;verticalAlign=top;spacing=8;" vertex="1" parent="1">
+      <mxGeometry x="1090" y="620" width="300" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="e1" value="terhubung ke" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="u2" target="sppg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" value="terhubung ke" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="u3" target="school">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" value="melayani" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="sppg" target="school">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" value="sumber distribusi" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="sppg" target="dist">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e5" value="tujuan distribusi" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="school" target="dist">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e6" value="divalidasi oleh" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="dist" target="val">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e7" value="dipakai bukti" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="file" target="proof">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e8" value="punya bukti" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="dist" target="proof">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e9" value="menerima" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="u3" target="notif">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e10" value="membuat jejak" style="endArrow=none;html=1;rounded=0;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="u1" target="audit">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e11" value="bisa memicu" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="dist" target="anom">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

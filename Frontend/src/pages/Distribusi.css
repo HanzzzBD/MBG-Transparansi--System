@@ -1,0 +1,734 @@
+.distribusi-page {
+  --color-sky: #b5e0ea;
+  --color-primary: #0071e4;
+  --color-navy: #0f4c81;
+  --color-white: #ffffff;
+  --color-light-gray: #f4f8fb;
+  --color-text-dark: #111928;
+  --color-text-muted: #6b7280;
+  --color-success: #057a55;
+  --color-warning: #92400e;
+  --color-danger: #9b1c1c;
+  display: grid;
+  gap: 18px;
+  color: var(--color-text-dark);
+}
+
+.distribusi-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.distribusi-title {
+  margin: 6px 0 0;
+  color: var(--color-navy);
+  font-size: clamp(28px, 3vw, 36px);
+  font-weight: 950;
+  line-height: 1.08;
+}
+
+.distribusi-subtitle {
+  margin: 0;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.distribusi-header p:last-child {
+  max-width: 720px;
+  margin: 10px 0 0;
+  color: var(--color-text-muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.distribusi-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  border: 1px solid var(--color-sky);
+  border-radius: 14px;
+  background: var(--color-white);
+  padding: 8px;
+  box-shadow: 0 14px 32px rgba(15, 76, 129, 0.07);
+}
+
+.distribusi-tab {
+  min-height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 950;
+  cursor: pointer;
+  padding: 0 15px;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.distribusi-tab:hover,
+.distribusi-tab:focus-visible {
+  color: var(--color-primary);
+}
+
+.distribusi-tab-active {
+  border-color: var(--color-sky);
+  background: var(--color-primary);
+  color: var(--color-white);
+  box-shadow: 0 12px 24px rgba(0, 113, 228, 0.18);
+}
+
+.distribusi-card {
+  border: 1px solid var(--color-sky);
+  border-radius: 16px;
+  background: var(--color-white);
+  box-shadow: 0 18px 42px rgba(15, 76, 129, 0.08);
+  padding: 18px;
+}
+
+.distribusi-filter-row {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.distribusi-table-note {
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 850;
+}
+
+.distribusi-table-note strong {
+  color: var(--color-navy);
+}
+
+.distribusi-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-sky);
+  border-radius: 14px;
+}
+
+.distribusi-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.distribusi-table th,
+.distribusi-table td {
+  border-bottom: 1px solid rgba(181, 224, 234, 0.55);
+  padding: 14px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.distribusi-table th {
+  background: var(--color-light-gray);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.distribusi-table td {
+  color: var(--color-text-dark);
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.distribusi-table td strong {
+  display: block;
+  color: var(--color-navy);
+  font-weight: 950;
+}
+
+.distribusi-table td span {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.distribusi-table td small {
+  display: block;
+  max-width: 220px;
+  margin-top: 7px;
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.distribusi-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.distribusi-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.distribusi-summary span {
+  border: 1px solid var(--color-sky);
+  border-radius: 999px;
+  background: var(--color-light-gray);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 850;
+  padding: 9px 13px;
+}
+
+.distribusi-summary strong {
+  color: var(--color-navy);
+}
+
+.distribusi-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  align-items: center;
+}
+
+.distribusi-btn {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  padding: 0 13px;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+}
+
+.distribusi-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.distribusi-btn:hover:not(:disabled),
+.distribusi-btn:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.distribusi-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.distribusi-btn-primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-white);
+}
+
+.distribusi-btn-primary:hover:not(:disabled),
+.distribusi-btn-primary:focus-visible:not(:disabled) {
+  border-color: var(--color-navy);
+  background: var(--color-navy);
+}
+
+.distribusi-btn-secondary {
+  border-color: var(--color-sky);
+  background: var(--color-white);
+  color: var(--color-navy);
+}
+
+.distribusi-btn-secondary:hover:not(:disabled),
+.distribusi-btn-secondary:focus-visible:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.distribusi-btn-danger {
+  border-color: var(--color-danger);
+  background: var(--color-danger);
+  color: var(--color-white);
+}
+
+.distribusi-form {
+  display: grid;
+  gap: 16px;
+}
+
+.distribusi-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.distribusi-field {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.distribusi-field-wide {
+  grid-column: 1 / -1;
+}
+
+.distribusi-label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.distribusi-input,
+.distribusi-select {
+  width: 100%;
+  height: 44px;
+  border: 1px solid #d1d5db;
+  border-radius: 11px;
+  background: var(--color-white);
+  color: var(--color-text-dark);
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.distribusi-input {
+  padding: 0 13px;
+}
+
+.distribusi-select {
+  padding: 0 12px;
+}
+
+.distribusi-input:focus,
+.distribusi-select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 4px rgba(0, 113, 228, 0.12);
+}
+
+.distribusi-search-wrap {
+  position: relative;
+  display: block;
+}
+
+.distribusi-search-wrap svg {
+  position: absolute;
+  top: 50%;
+  left: 13px;
+  width: 18px;
+  height: 18px;
+  color: var(--color-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.distribusi-search-wrap .distribusi-input {
+  padding-left: 40px;
+}
+
+.distribusi-field-error {
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.distribusi-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid rgba(146, 64, 14, 0.25);
+  border-radius: 12px;
+  background: rgba(146, 64, 14, 0.07);
+  color: var(--color-warning);
+  font-size: 13px;
+  font-weight: 900;
+  padding: 12px;
+}
+
+.distribusi-warning svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+}
+
+.distribusi-total-preview {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  border: 1px solid var(--color-sky);
+  border-radius: 14px;
+  background: var(--color-light-gray);
+  padding: 14px;
+}
+
+.distribusi-total-preview span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.distribusi-total-preview strong {
+  color: var(--color-navy);
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.distribusi-upload-list {
+  display: grid;
+  gap: 16px;
+}
+
+.distribusi-upload-card {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--color-sky);
+  border-radius: 16px;
+  background: var(--color-white);
+  box-shadow: 0 18px 42px rgba(15, 76, 129, 0.08);
+  padding: 18px;
+}
+
+.distribusi-upload-card-selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 18px 42px rgba(0, 113, 228, 0.14);
+}
+
+.distribusi-upload-info {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.distribusi-upload-info h2 {
+  margin: 0;
+  color: var(--color-navy);
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.distribusi-upload-info p {
+  margin: 6px 0 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 820;
+}
+
+.distribusi-dropzone {
+  display: grid;
+  min-height: 150px;
+  place-items: center;
+  gap: 8px;
+  border: 2px dashed var(--color-sky);
+  border-radius: 16px;
+  background: var(--color-light-gray);
+  color: var(--color-navy);
+  cursor: pointer;
+  padding: 18px;
+  text-align: center;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    transform 180ms ease;
+}
+
+.distribusi-dropzone svg {
+  width: 34px;
+  height: 34px;
+  color: var(--color-primary);
+}
+
+.distribusi-dropzone strong {
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.distribusi-dropzone span {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.distribusi-dropzone:hover,
+.distribusi-dropzone:focus-visible,
+.distribusi-dropzone-active {
+  border-color: var(--color-primary);
+  background: rgba(0, 113, 228, 0.06);
+  transform: translateY(-1px);
+}
+
+.distribusi-upload-preview {
+  width: 180px;
+  max-width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border: 1px solid var(--color-sky);
+  border-radius: 14px;
+}
+
+.distribusi-upload-status {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 950;
+  white-space: nowrap;
+  padding: 0 11px;
+}
+
+.distribusi-upload-status-empty {
+  background: rgba(155, 28, 28, 0.09);
+  color: var(--color-danger);
+}
+
+.distribusi-upload-status-done {
+  background: rgba(5, 122, 85, 0.1);
+  color: var(--color-success);
+}
+
+.distribusi-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background: rgba(17, 25, 40, 0.44);
+  padding: 18px;
+}
+
+.distribusi-modal {
+  position: relative;
+  width: min(460px, 100%);
+  border: 1px solid var(--color-sky);
+  border-radius: 18px;
+  background: var(--color-white);
+  box-shadow: 0 28px 80px rgba(15, 76, 129, 0.24);
+  padding: 24px;
+  animation: distribusi-modal-in 180ms ease both;
+}
+
+.distribusi-modal h2 {
+  margin: 0;
+  color: var(--color-navy);
+  font-size: 22px;
+  font-weight: 950;
+}
+
+.distribusi-modal p {
+  margin: 12px 0 20px;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.distribusi-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--color-sky);
+  border-radius: 10px;
+  background: var(--color-white);
+  color: var(--color-navy);
+  cursor: pointer;
+}
+
+.distribusi-modal-close svg {
+  width: 18px;
+  height: 18px;
+}
+
+.distribusi-toast {
+  position: fixed;
+  top: 18px;
+  right: 18px;
+  z-index: 100;
+  max-width: min(360px, calc(100vw - 32px));
+  border-radius: 13px;
+  color: var(--color-white);
+  font-size: 13px;
+  font-weight: 950;
+  padding: 13px 15px;
+  box-shadow: 0 18px 46px rgba(15, 76, 129, 0.18);
+  animation: distribusi-toast-in 180ms ease both;
+}
+
+.distribusi-toast-success {
+  background: var(--color-success);
+}
+
+.distribusi-toast-danger {
+  background: var(--color-danger);
+}
+
+.distribusi-toast-warning {
+  background: var(--color-warning);
+}
+
+.distribusi-loading,
+.distribusi-error {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 13px;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 13px 14px;
+}
+
+.distribusi-loading {
+  border: 1px solid var(--color-sky);
+  background: var(--color-light-gray);
+  color: var(--color-navy);
+  margin-bottom: 14px;
+}
+
+.distribusi-loading svg,
+.distribusi-btn svg {
+  flex: 0 0 auto;
+}
+
+.distribusi-loading svg,
+.distribusi-btn:disabled svg {
+  animation: distribusi-spin 0.8s linear infinite;
+}
+
+.distribusi-error {
+  border: 1px solid rgba(155, 28, 28, 0.24);
+  background: rgba(155, 28, 28, 0.06);
+  color: var(--color-danger);
+}
+
+.distribusi-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 950;
+  padding: 6px 9px;
+}
+
+.distribusi-status-in_progress {
+  background: rgba(146, 64, 14, 0.11);
+  color: var(--color-warning);
+}
+
+.distribusi-status-delivered {
+  background: rgba(5, 122, 85, 0.1);
+  color: var(--color-success);
+}
+
+.distribusi-status-failed {
+  background: rgba(155, 28, 28, 0.1);
+  color: var(--color-danger);
+}
+
+.distribusi-delivered-label {
+  color: var(--color-success);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.distribusi-failed-label {
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+@keyframes distribusi-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes distribusi-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes distribusi-modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 900px) {
+  .distribusi-header,
+  .distribusi-filter-row,
+  .distribusi-upload-info {
+    display: grid;
+  }
+
+  .distribusi-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .distribusi-field-wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .distribusi-card,
+  .distribusi-upload-card {
+    padding: 14px;
+  }
+
+  .distribusi-summary {
+    justify-content: stretch;
+  }
+
+  .distribusi-summary span,
+  .distribusi-btn {
+    width: 100%;
+  }
+
+  .distribusi-action-row {
+    width: 100%;
+  }
+
+  .distribusi-modal {
+    padding: 20px;
+  }
+}

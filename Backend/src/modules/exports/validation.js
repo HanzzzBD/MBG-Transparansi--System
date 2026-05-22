@@ -17,7 +17,8 @@ const exportFiltersSchema = z.object({
 const createExportSchema = z.object({
   body: z.object({
     type: exportTypeEnum,
-    filters: exportFiltersSchema.optional().default({})
+    filters: exportFiltersSchema.optional().default({}),
+    filterParams: z.record(z.string(), z.unknown()).optional()
   }),
   params: z.object({}).optional().default({}),
   query: z.object({}).optional().default({})

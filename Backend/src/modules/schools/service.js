@@ -6,6 +6,15 @@ const { buildPaginationMeta, parsePagination } = require("../../utils/pagination
 
 const prisma = getPrismaClient();
 
+const normalizeOptionalText = (value) => {
+  if (typeof value !== "string") {
+    return value ?? null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || null;
+};
+
 const buildSchoolWhere = (query = {}) => ({
   deletedAt: null,
   sppg: {
@@ -13,6 +22,20 @@ const buildSchoolWhere = (query = {}) => ({
   },
   ...(query.province ? { province: { contains: query.province, mode: "insensitive" } } : {}),
   ...(query.city ? { city: { contains: query.city, mode: "insensitive" } } : {}),
+  ...(query.district ? { district: { contains: query.district, mode: "insensitive" } } : {}),
+  ...(query.search
+    ? {
+        OR: [
+          { name: { contains: query.search, mode: "insensitive" } },
+          { npsn: { contains: query.search, mode: "insensitive" } },
+          { city: { contains: query.search, mode: "insensitive" } },
+          { district: { contains: query.search, mode: "insensitive" } }
+        ]
+      }
+    : {}),
+  ...(query.npsn ? { npsn: query.npsn } : {}),
+  ...(query.educationLevel ? { educationLevel: { equals: query.educationLevel, mode: "insensitive" } } : {}),
+  ...(query.schoolStatus ? { schoolStatus: { equals: query.schoolStatus, mode: "insensitive" } } : {}),
   ...(query.sppgId ? { sppgId: Number(query.sppgId) } : {})
 });
 
@@ -44,7 +67,12 @@ const getActiveSchoolById = async (id) => {
       }
     },
     include: {
-      sppg: true
+      sppg: true,
+      dapodikLink: {
+        include: {
+          dapodikSchool: true
+        }
+      }
     }
   });
 
@@ -63,7 +91,12 @@ const listSchools = async ({ query }) => {
     prisma.school.findMany({
       where,
       include: {
-        sppg: true
+        sppg: true,
+        dapodikLink: {
+          include: {
+            dapodikSchool: true
+          }
+        }
       },
       skip: pagination.skip,
       take: pagination.limit,
@@ -103,12 +136,23 @@ const createSchool = async ({ payload, actorUserId, ipAddress }) => {
         name: payload.name.trim(),
         province: payload.province.trim(),
         city: payload.city.trim(),
-        address: payload.address ?? null,
+        district: normalizeOptionalText(payload.district),
+        address: normalizeOptionalText(payload.address),
         sppgId: payload.sppgId,
-        totalStudents: payload.totalStudents ?? 0
+        totalStudents: payload.totalStudents ?? 0,
+        npsn: normalizeOptionalText(payload.npsn),
+        dapodikSchoolId: normalizeOptionalText(payload.dapodikSchoolId),
+        educationLevel: normalizeOptionalText(payload.educationLevel),
+        schoolStatus: normalizeOptionalText(payload.schoolStatus),
+        dapodikSyncedAt: payload.dapodikSyncedAt ?? null
       },
       include: {
-        sppg: true
+        sppg: true,
+        dapodikLink: {
+          include: {
+            dapodikSchool: true
+          }
+        }
       }
     });
 
@@ -141,9 +185,15 @@ const updateSchool = async ({ id, payload, actorUserId, ipAddress }) => {
     ...(payload.name !== undefined ? { name: payload.name.trim() } : {}),
     ...(payload.province !== undefined ? { province: payload.province.trim() } : {}),
     ...(payload.city !== undefined ? { city: payload.city.trim() } : {}),
-    ...(payload.address !== undefined ? { address: payload.address } : {}),
+    ...(payload.district !== undefined ? { district: normalizeOptionalText(payload.district) } : {}),
+    ...(payload.address !== undefined ? { address: normalizeOptionalText(payload.address) } : {}),
     ...(payload.sppgId !== undefined ? { sppgId: payload.sppgId } : {}),
-    ...(payload.totalStudents !== undefined ? { totalStudents: payload.totalStudents } : {})
+    ...(payload.totalStudents !== undefined ? { totalStudents: payload.totalStudents } : {}),
+    ...(payload.npsn !== undefined ? { npsn: normalizeOptionalText(payload.npsn) } : {}),
+    ...(payload.dapodikSchoolId !== undefined ? { dapodikSchoolId: normalizeOptionalText(payload.dapodikSchoolId) } : {}),
+    ...(payload.educationLevel !== undefined ? { educationLevel: normalizeOptionalText(payload.educationLevel) } : {}),
+    ...(payload.schoolStatus !== undefined ? { schoolStatus: normalizeOptionalText(payload.schoolStatus) } : {}),
+    ...(payload.dapodikSyncedAt !== undefined ? { dapodikSyncedAt: payload.dapodikSyncedAt } : {})
   };
 
   const school = await prisma.$transaction(async (tx) => {
@@ -153,7 +203,12 @@ const updateSchool = async ({ id, payload, actorUserId, ipAddress }) => {
       },
       data: updateData,
       include: {
-        sppg: true
+        sppg: true,
+        dapodikLink: {
+          include: {
+            dapodikSchool: true
+          }
+        }
       }
     });
 
@@ -188,7 +243,12 @@ const deleteSchool = async ({ id, actorUserId, ipAddress }) => {
         deletedAt: new Date()
       },
       include: {
-        sppg: true
+        sppg: true,
+        dapodikLink: {
+          include: {
+            dapodikSchool: true
+          }
+        }
       }
     });
 

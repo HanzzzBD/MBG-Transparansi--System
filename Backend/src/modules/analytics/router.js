@@ -6,6 +6,7 @@ const {
   budgetSchema,
   byProvinceSchema,
   distributionsSchema,
+  priceAnomaliesSchema,
   successRateSchema,
   summarySchema
 } = require("./validation");
@@ -36,6 +37,34 @@ router.get(
   authorize("pemerintah", "admin"),
   validateRequest(budgetSchema),
   controller.getBudget
+);
+router.get(
+  "/budget-summary",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(budgetSchema),
+  controller.getBudgetSummary
+);
+router.get(
+  "/price-per-province",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(budgetSchema),
+  controller.getPricePerProvince
+);
+router.get(
+  "/price-anomalies",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(priceAnomaliesSchema),
+  controller.getPriceAnomalies
+);
+router.get(
+  "/costing",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(budgetSchema),
+  controller.getCostingAnalytics
 );
 router.get(
   "/by-province",

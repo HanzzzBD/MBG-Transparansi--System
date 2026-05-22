@@ -43,12 +43,14 @@ const ensureExportAccess = (user, exportRecord) => {
 };
 
 const createExport = async ({ payload, user, ipAddress }) => {
+  const filterParams = payload.filterParams || payload.filters || {};
+
   const exportRecord = await prisma.$transaction(async (tx) => {
     const created = await tx.export.create({
       data: {
         userId: user.userId,
         type: payload.type,
-        filterParams: payload.filters || {},
+        filterParams,
         status: "pending"
       },
       include: exportInclude

@@ -83,6 +83,27 @@ const buildDistributionWhere = (filters = {}) => ({
   ...buildDistributionDateFilter(filters)
 });
 
+const buildProductionBatchDateFilter = (filters = {}) => {
+  if (!filters.start_date && !filters.end_date) {
+    return {};
+  }
+
+  return {
+    productionDate: {
+      ...(filters.start_date ? { gte: startOfDayUtc(filters.start_date) } : {}),
+      ...(filters.end_date ? { lte: endOfDayUtc(filters.end_date) } : {})
+    }
+  };
+};
+
+const buildProductionBatchWhere = (filters = {}) => ({
+  sppg: {
+    deletedAt: null,
+    ...buildRegionFilter(filters)
+  },
+  ...buildProductionBatchDateFilter(filters)
+});
+
 const buildDistributionSqlWhere = (filters = {}) => {
   const conditions = [Prisma.sql`s.deleted_at IS NULL`, Prisma.sql`sc.deleted_at IS NULL`];
 
@@ -107,10 +128,19 @@ const buildDistributionSqlWhere = (filters = {}) => {
 
 const buildAnomalySqlWhere = (filters = {}) => {
   const conditions = [
-    Prisma.sql`a.is_resolved = FALSE`,
     Prisma.sql`s.deleted_at IS NULL`,
     Prisma.sql`sc.deleted_at IS NULL`
   ];
+
+  if (filters.is_resolved !== undefined) {
+    conditions.push(Prisma.sql`a.is_resolved = ${filters.is_resolved}`);
+  } else {
+    conditions.push(Prisma.sql`a.is_resolved = FALSE`);
+  }
+
+  if (filters.anomaly_type) {
+    conditions.push(Prisma.sql`a.anomaly_type = ${filters.anomaly_type}::"AnomalyType"`);
+  }
 
   if (filters.province) {
     conditions.push(Prisma.sql`s.province ILIKE ${`%${filters.province}%`}`);
@@ -358,6 +388,217 @@ const getBudget = async ({ filters }) => {
   };
 };
 
+const getBudgetSummary = async ({ filters }) => {
+  const batchWhere = buildProductionBatchWhere(filters);
+  const [batchAgg, totalBatches, priceAnomalyCount, rawMaterialAnomalyCount, publicReportCount] = await Promise.all([
+    prisma.productionBatch.aggregate({
+      where: batchWhere,
+      _sum: {
+        totalCost: true,
+        totalPortions: true,
+        rawMaterialCost: true,
+        operationalCost: true,
+        packagingCost: true,
+        distributionCost: true
+      },
+      _avg: {
+        costPerPortion: true,
+        rawMaterialCost: true,
+        operationalCost: true,
+        packagingCost: true,
+        distributionCost: true
+      }
+    }),
+    prisma.productionBatch.count({
+      where: batchWhere
+    }),
+    prisma.anomalyLog.count({
+      where: {
+        anomalyType: "PRICE_ANOMALY",
+        isResolved: false
+      }
+    }),
+    prisma.anomalyLog.count({
+      where: {
+        anomalyType: "RAW_MATERIAL_PRICE_ANOMALY",
+        isResolved: false
+      }
+    }),
+    prisma.publicReport.count()
+  ]);
+
+  return {
+    data: {
+      total_batches: totalBatches,
+      total_portions: Number(batchAgg._sum.totalPortions || 0),
+      total_budget_used: Number(batchAgg._sum.totalCost || 0),
+      total_raw_material_cost: Number(batchAgg._sum.rawMaterialCost || 0),
+      total_operational_cost: Number(batchAgg._sum.operationalCost || 0),
+      total_packaging_cost: Number(batchAgg._sum.packagingCost || 0),
+      total_distribution_cost: Number(batchAgg._sum.distributionCost || 0),
+      avg_cost_per_portion: Number(batchAgg._avg.costPerPortion || 0),
+      avg_price_per_portion: Number(batchAgg._avg.costPerPortion || 0),
+      avg_raw_material_cost: Number(batchAgg._avg.rawMaterialCost || 0),
+      avg_operational_cost: Number(batchAgg._avg.operationalCost || 0),
+      avg_packaging_cost: Number(batchAgg._avg.packagingCost || 0),
+      avg_distribution_cost: Number(batchAgg._avg.distributionCost || 0),
+      price_anomaly_count: priceAnomalyCount,
+      raw_material_anomaly_count: rawMaterialAnomalyCount,
+      savings_vs_target: 0,
+      public_report_count: publicReportCount
+    }
+  };
+};
+
+const getPricePerProvince = async ({ filters }) => {
+  const batchRows = await prisma.productionBatch.findMany({
+    where: buildProductionBatchWhere(filters),
+    include: {
+      sppg: {
+        select: {
+          province: true
+        }
+      }
+    }
+  });
+  const thresholdWhere = filters.province
+    ? {
+        province: {
+          contains: filters.province,
+          mode: "insensitive"
+        }
+      }
+    : {};
+  const thresholds = await prisma.priceThreshold.findMany({
+    where: thresholdWhere,
+    orderBy: {
+      province: "asc"
+    }
+  });
+
+  const provinceMap = new Map();
+
+  for (const batch of batchRows) {
+    const province = batch.sppg?.province;
+    if (!province) {
+      continue;
+    }
+
+    const current = provinceMap.get(province) || {
+      province,
+      minHarga: Number(batch.costPerPortion),
+      maxHarga: Number(batch.costPerPortion),
+      costTotal: 0,
+      totalBudget: 0,
+      totalDistributions: 0
+    };
+    const costPerPortion = Number(batch.costPerPortion);
+    current.minHarga = Math.min(current.minHarga, costPerPortion);
+    current.maxHarga = Math.max(current.maxHarga, costPerPortion);
+    current.costTotal += costPerPortion;
+    current.totalBudget += Number(batch.totalCost || 0);
+    current.totalDistributions += 1;
+    current.avgHarga = current.totalDistributions ? current.costTotal / current.totalDistributions : 0;
+    provinceMap.set(province, current);
+  }
+
+  for (const threshold of normalizeRows(thresholds)) {
+    const current = provinceMap.get(threshold.province) || {
+      province: threshold.province,
+      minHarga: 0,
+      maxHarga: 0,
+      avgHarga: Number(threshold.avgReferencePrice || 0),
+      totalBudget: 0,
+      totalDistributions: 0
+    };
+
+    provinceMap.set(threshold.province, {
+      ...current,
+      thresholdMin: Number(threshold.minPrice || 0),
+      thresholdMax: Number(threshold.maxPrice || 0),
+      avgReferencePrice: Number(threshold.avgReferencePrice || 0),
+      source: threshold.source,
+      generatedFromFoodPrices: threshold.generatedFromFoodPrices,
+      generatedAt: threshold.generatedAt
+    });
+  }
+
+  return {
+    data: Array.from(provinceMap.values()).sort((a, b) => b.totalBudget - a.totalBudget)
+  };
+};
+
+const getPriceAnomalies = async ({ filters, pagination }) => {
+  const where = {
+    anomalyType: "PRICE_ANOMALY",
+    ...(filters.is_resolved !== undefined ? { isResolved: filters.is_resolved } : {}),
+    distribution: {
+      sppg: {
+        deletedAt: null,
+        ...buildRegionFilter(filters)
+      },
+      school: {
+        deletedAt: null
+      },
+      ...buildDistributionDateFilter(filters)
+    }
+  };
+
+  const [items, total] = await Promise.all([
+    prisma.anomalyLog.findMany({
+      where,
+      include: {
+        distribution: {
+          include: {
+            sppg: true,
+            school: true
+          }
+        },
+        resolver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        }
+      },
+      skip: pagination.skip,
+      take: pagination.limit,
+      orderBy: {
+        createdAt: "desc"
+      }
+    }),
+    prisma.anomalyLog.count({ where })
+  ]);
+
+  return {
+    data: normalizeRows(items),
+    meta: buildPaginationMeta({
+      page: pagination.page,
+      limit: pagination.limit,
+      total
+    })
+  };
+};
+
+const getCostingAnalytics = async ({ filters }) => {
+  const [summary, byProvince] = await Promise.all([
+    getBudgetSummary({ filters }),
+    getPricePerProvince({ filters })
+  ]);
+
+  return {
+    data: {
+      summary: summary.data,
+      byProvince: byProvince.data,
+      topExpensiveProvinces: [...byProvince.data]
+        .sort((a, b) => Number(b.avgHarga || 0) - Number(a.avgHarga || 0))
+        .slice(0, 10)
+    }
+  };
+};
+
 const getByProvince = async ({ filters, limit }) => {
   const whereSql = buildDistributionSqlWhere(filters);
   const safeLimit = Number(limit) || 10;
@@ -461,8 +702,12 @@ const getAnomaly = async ({ filters, pagination }) => {
 module.exports = {
   getAnomaly,
   getBudget,
+  getBudgetSummary,
   getByProvince,
+  getCostingAnalytics,
   getDistributionTrend,
+  getPriceAnomalies,
+  getPricePerProvince,
   getSuccessRate,
   getSummary,
   parseAnalyticsPagination: parsePagination

@@ -49,8 +49,19 @@ const anomalySchema = z.object({
   body: z.object({}).optional().default({}),
   params: z.object({}).optional().default({}),
   query: baseAnalyticsQuerySchema.extend({
+    is_resolved: z.coerce.boolean().optional(),
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().optional()
+  })
+});
+
+const priceAnomaliesSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({}).optional().default({}),
+  query: baseAnalyticsQuerySchema.extend({
+    is_resolved: z.coerce.boolean().optional(),
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().max(100).optional()
   })
 });
 
@@ -59,6 +70,7 @@ module.exports = {
   budgetSchema,
   byProvinceSchema,
   distributionsSchema,
+  priceAnomaliesSchema,
   successRateSchema,
   summarySchema
 };

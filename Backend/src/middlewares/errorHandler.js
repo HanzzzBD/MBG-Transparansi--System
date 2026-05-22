@@ -17,6 +17,12 @@ const errorHandler = (err, _req, res, _next) => {
     details = err.flatten ? err.flatten() : err.issues;
   }
 
+  if (err.name === "MulterError") {
+    statusCode = 400;
+    code = "FILE_UPLOAD_ERROR";
+    message = err.message || "File upload failed.";
+  }
+
   if (err.code === "P2002") {
     statusCode = 409;
     code = "RESOURCE_CONFLICT";

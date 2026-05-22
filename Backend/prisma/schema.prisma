@@ -66,6 +66,7 @@ enum AuditAction {
 enum AnomalyType {
   OVER_CAPACITY
   PRICE_ANOMALY
+  RAW_MATERIAL_PRICE_ANOMALY
   VALIDATION_CONFLICT
   PENDING_TIMEOUT
 }
@@ -164,6 +165,7 @@ model Sppg {
   distributions Distribution[]
   menus         Menu[]
   issues        Issue[]
+  productionBatches ProductionBatch[]
 
   @@index([province, city], map: "idx_sppg_location")
   @@index([status], map: "idx_sppg_status")
@@ -176,9 +178,15 @@ model School {
   name            String
   province        String
   city            String
+  district        String?
   address         String?
   sppgId          Int            @map("sppg_id")
   totalStudents   Int            @default(0) @map("total_students")
+  npsn            String?        @unique
+  dapodikSchoolId String?        @unique @map("dapodik_school_id")
+  educationLevel  String?        @map("education_level")
+  schoolStatus    String?        @map("school_status")
+  dapodikSyncedAt DateTime?      @map("dapodik_synced_at")
   deletedAt       DateTime?      @map("deleted_at")
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
@@ -187,17 +195,171 @@ model School {
   distributions   Distribution[]
   validations     Validation[]
   schoolReports   SchoolReport[]
+  dapodikLink     SchoolDapodikLink?
 
   @@index([sppgId], map: "idx_schools_sppg")
   @@index([province, city], map: "idx_schools_location")
+  @@index([district], map: "idx_schools_district")
+  @@index([educationLevel], map: "idx_schools_education_level")
+  @@index([schoolStatus], map: "idx_schools_school_status")
   @@index([deletedAt], map: "idx_schools_deleted_at")
   @@map("schools")
+}
+
+model DapodikProvince {
+  id            Int               @id @default(autoincrement())
+  semesterId    String?           @map("semester_id")
+  kodeWilayah   String            @unique @map("kode_wilayah")
+  name          String
+  idLevelWilayah Int              @map("id_level_wilayah")
+  url           String?
+  summary       Json?
+  rawData       Json?             @map("raw_data")
+  importBatchId String?           @map("import_batch_id")
+  sourceHash    String?           @map("source_hash")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+  cities        DapodikCity[]     @relation("DapodikProvinceCities")
+  districts     DapodikDistrict[] @relation("DapodikProvinceDistricts")
+
+  @@index([semesterId], map: "idx_dapodik_provinces_semester")
+  @@map("dapodik_provinces")
+}
+
+model DapodikCity {
+  id                 Int               @id @default(autoincrement())
+  semesterId         String?           @map("semester_id")
+  kodeWilayah        String            @unique @map("kode_wilayah")
+  provinceKodeWilayah String?          @map("province_kode_wilayah")
+  name               String
+  provinceName       String?           @map("province_name")
+  idLevelWilayah     Int               @map("id_level_wilayah")
+  url                String?
+  summary            Json?
+  rawData            Json?             @map("raw_data")
+  importBatchId      String?           @map("import_batch_id")
+  sourceHash         String?           @map("source_hash")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+  province           DapodikProvince?  @relation("DapodikProvinceCities", fields: [provinceKodeWilayah], references: [kodeWilayah], onDelete: SetNull)
+  districts          DapodikDistrict[] @relation("DapodikCityDistricts")
+
+  @@index([semesterId], map: "idx_dapodik_cities_semester")
+  @@index([provinceKodeWilayah], map: "idx_dapodik_cities_province_kode")
+  @@map("dapodik_cities")
+}
+
+model DapodikDistrict {
+  id                 Int              @id @default(autoincrement())
+  semesterId         String?          @map("semester_id")
+  kodeWilayah        String           @unique @map("kode_wilayah")
+  provinceKodeWilayah String?         @map("province_kode_wilayah")
+  cityKodeWilayah    String?          @map("city_kode_wilayah")
+  name               String
+  provinceName       String?          @map("province_name")
+  cityName           String?          @map("city_name")
+  idLevelWilayah     Int              @map("id_level_wilayah")
+  url                String?
+  summary            Json?
+  rawData            Json?            @map("raw_data")
+  importBatchId      String?          @map("import_batch_id")
+  sourceHash         String?          @map("source_hash")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  province           DapodikProvince? @relation("DapodikProvinceDistricts", fields: [provinceKodeWilayah], references: [kodeWilayah], onDelete: SetNull)
+  city               DapodikCity?     @relation("DapodikCityDistricts", fields: [cityKodeWilayah], references: [kodeWilayah], onDelete: SetNull)
+  schools            DapodikSchool[]
+
+  @@index([semesterId], map: "idx_dapodik_districts_semester")
+  @@index([provinceKodeWilayah], map: "idx_dapodik_districts_province_kode")
+  @@index([cityKodeWilayah], map: "idx_dapodik_districts_city_kode")
+  @@map("dapodik_districts")
+}
+
+model DapodikSchool {
+  id              Int       @id @default(autoincrement())
+  semesterId      String    @map("semester_id")
+  dapodikSchoolId String?   @map("dapodik_school_id")
+  npsn            String?
+  name            String
+  bp              String?
+  bentukPendidikan String?  @map("bentuk_pendidikan")
+  province        String?
+  city            String?
+  district        String?
+  provinceKodeWilayah String? @map("province_kode_wilayah")
+  cityKodeWilayah String?  @map("city_kode_wilayah")
+  districtKodeWilayah String? @map("district_kode_wilayah")
+  educationLevel  String?   @map("education_level")
+  schoolStatus    String?   @map("school_status")
+  studentCount    Int?      @map("student_count")
+  kodeWilayah     String?   @map("kode_wilayah")
+  idLevelWilayah  Int?      @map("id_level_wilayah")
+  rawData         Json      @map("raw_data")
+  fetchedAt       DateTime  @map("fetched_at")
+  lastSyncAt      DateTime? @map("last_sync_at")
+  importBatchId   String?   @map("import_batch_id")
+  sourceHash      String?   @map("source_hash")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  districtRef     DapodikDistrict?   @relation(fields: [districtKodeWilayah], references: [kodeWilayah], onDelete: SetNull)
+  schoolLink      SchoolDapodikLink?
+
+  @@unique([semesterId, dapodikSchoolId], map: "dapodik_schools_semester_dapodik_school_key")
+  @@unique([semesterId, npsn], map: "dapodik_schools_semester_npsn_key")
+  @@index([province, city, district], map: "idx_dapodik_schools_location")
+  @@index([kodeWilayah], map: "idx_dapodik_schools_kode_wilayah")
+  @@index([provinceKodeWilayah], map: "idx_dapodik_schools_province_kode")
+  @@index([cityKodeWilayah], map: "idx_dapodik_schools_city_kode")
+  @@index([districtKodeWilayah], map: "idx_dapodik_schools_district_kode")
+  @@index([educationLevel], map: "idx_dapodik_schools_education_level")
+  @@index([schoolStatus], map: "idx_dapodik_schools_school_status")
+  @@index([fetchedAt], map: "idx_dapodik_schools_fetched_at")
+  @@index([importBatchId], map: "idx_dapodik_schools_import_batch")
+  @@map("dapodik_schools")
+}
+
+model DapodikSyncLog {
+  id             Int       @id @default(autoincrement())
+  endpoint       String
+  status         String
+  semesterId     String?   @map("semester_id")
+  kodeWilayah    String?   @map("kode_wilayah")
+  idLevelWilayah Int?      @map("id_level_wilayah")
+  educationLevel String?   @map("education_level")
+  requestParams  Json      @map("request_params")
+  resultMeta     Json?     @map("result_meta")
+  errorCode      String?   @map("error_code")
+  errorMessage   String?   @map("error_message")
+  startedAt      DateTime  @map("started_at")
+  finishedAt     DateTime? @map("finished_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  @@index([endpoint, kodeWilayah], map: "idx_dapodik_sync_logs_endpoint_kode")
+  @@index([status], map: "idx_dapodik_sync_logs_status")
+  @@index([createdAt], map: "idx_dapodik_sync_logs_created_at")
+  @@map("dapodik_sync_logs")
+}
+
+model SchoolDapodikLink {
+  id                    Int           @id @default(autoincrement())
+  schoolId              Int           @unique @map("school_id")
+  dapodikSchoolRecordId Int           @unique @map("dapodik_school_id")
+  linkedBy              Int?          @map("linked_by")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+  school                School        @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  dapodikSchool         DapodikSchool @relation(fields: [dapodikSchoolRecordId], references: [id], onDelete: Cascade)
+
+  @@index([linkedBy], map: "idx_school_dapodik_links_linked_by")
+  @@map("school_dapodik_links")
 }
 
 model Distribution {
   id               Int                @id @default(autoincrement())
   sppgId           Int                @map("sppg_id")
   schoolId         Int                @map("school_id")
+  productionBatchId Int?              @map("production_batch_id")
   portions         Int
   pricePerPortion  Decimal            @map("price_per_portion") @db.Decimal(10, 2)
   /// SDD requires this column to be a stored generated field in PostgreSQL.
@@ -211,12 +373,14 @@ model Distribution {
   updatedAt        DateTime           @updatedAt @map("updated_at")
   sppg             Sppg               @relation(fields: [sppgId], references: [id], onDelete: Restrict)
   school           School             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  productionBatch  ProductionBatch?    @relation(fields: [productionBatchId], references: [id], onDelete: SetNull)
   validation       Validation?        @relation("DistributionValidation")
   proofs           Proof[]
   anomalyLogs      AnomalyLog[]
 
   @@index([sppgId], map: "idx_distributions_sppg")
   @@index([schoolId], map: "idx_distributions_school")
+  @@index([productionBatchId], map: "idx_distributions_production_batch")
   @@index([distributionDate], map: "idx_distributions_date")
   @@index([status], map: "idx_distributions_status")
   @@index([unlockedUntil], map: "idx_distributions_unlocked_until")
@@ -255,10 +419,62 @@ model Menu {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
   sppg       Sppg     @relation(fields: [sppgId], references: [id], onDelete: Cascade)
+  productionBatches ProductionBatch[]
 
   @@unique([sppgId, menuDate], map: "menus_sppg_id_menu_date_key")
   @@index([deletedAt], map: "idx_menus_deleted_at")
   @@map("menus")
+}
+
+model ProductionBatch {
+  id               Int                   @id @default(autoincrement())
+  sppgId           Int                   @map("sppg_id")
+  menuId           Int?                  @map("menu_id")
+  productionDate   DateTime              @map("production_date") @db.Date
+  totalPortions    Int                   @map("total_portions")
+  rawMaterialCost  Decimal               @default(0) @map("raw_material_cost") @db.Decimal(14, 2)
+  operationalCost  Decimal               @default(0) @map("operational_cost") @db.Decimal(14, 2)
+  packagingCost    Decimal               @default(0) @map("packaging_cost") @db.Decimal(14, 2)
+  distributionCost Decimal               @default(0) @map("distribution_cost") @db.Decimal(14, 2)
+  totalCost        Decimal               @default(0) @map("total_cost") @db.Decimal(14, 2)
+  costPerPortion   Decimal               @default(0) @map("cost_per_portion") @db.Decimal(10, 2)
+  notes            String?
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
+  sppg             Sppg                  @relation(fields: [sppgId], references: [id], onDelete: Cascade)
+  menu             Menu?                 @relation(fields: [menuId], references: [id], onDelete: SetNull)
+  items            ProductionBatchItem[]
+  distributions    Distribution[]
+  anomalyLogs      AnomalyLog[]
+
+  @@index([sppgId, productionDate], map: "idx_production_batches_sppg_date")
+  @@index([menuId], map: "idx_production_batches_menu")
+  @@map("production_batches")
+}
+
+model ProductionBatchItem {
+  id                     Int              @id @default(autoincrement())
+  productionBatchId      Int              @map("production_batch_id")
+  commodityName          String           @map("commodity_name")
+  variantId              Int?             @map("variant_id")
+  quantity               Float
+  unit                   String
+  unitPrice              Decimal          @map("unit_price") @db.Decimal(12, 2)
+  totalPrice             Decimal          @map("total_price") @db.Decimal(14, 2)
+  sourcePrice            String?          @map("source_price")
+  sourcePriceId          Int?             @map("source_price_id")
+  marketReferencePrice   Decimal?         @map("market_reference_price") @db.Decimal(12, 2)
+  priceDifferencePercent Decimal?         @map("price_difference_percent") @db.Decimal(8, 2)
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+  productionBatch        ProductionBatch  @relation(fields: [productionBatchId], references: [id], onDelete: Cascade)
+  sourceFoodPrice        FoodPrice?       @relation(fields: [sourcePriceId], references: [id], onDelete: SetNull)
+  anomalyLogs            AnomalyLog[]
+
+  @@index([productionBatchId], map: "idx_production_batch_items_batch")
+  @@index([variantId], map: "idx_production_batch_items_variant")
+  @@index([sourcePriceId], map: "idx_production_batch_items_source_price")
+  @@map("production_batch_items")
 }
 
 model Proof {
@@ -342,17 +558,24 @@ model AuditLog {
 
 model AnomalyLog {
   id             Int          @id @default(autoincrement())
-  distributionId Int          @map("distribution_id")
+  distributionId Int?         @map("distribution_id")
+  productionBatchId Int?      @map("production_batch_id")
+  productionBatchItemId Int?  @map("production_batch_item_id")
   anomalyType    AnomalyType  @map("anomaly_type")
   description    String
+  metadata       Json?
   isResolved     Boolean      @default(false) @map("is_resolved")
   resolvedBy     Int?         @map("resolved_by")
   resolvedAt     DateTime?    @map("resolved_at")
   createdAt      DateTime     @default(now()) @map("created_at")
-  distribution   Distribution @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  distribution   Distribution? @relation(fields: [distributionId], references: [id], onDelete: Cascade)
+  productionBatch ProductionBatch? @relation(fields: [productionBatchId], references: [id], onDelete: Cascade)
+  productionBatchItem ProductionBatchItem? @relation(fields: [productionBatchItemId], references: [id], onDelete: Cascade)
   resolver       User?        @relation("AnomalyResolver", fields: [resolvedBy], references: [id])
 
   @@index([distributionId], map: "idx_anomaly_logs_distribution")
+  @@index([productionBatchId], map: "idx_anomaly_logs_production_batch")
+  @@index([productionBatchItemId], map: "idx_anomaly_logs_production_batch_item")
   @@index([anomalyType, isResolved], map: "idx_anomaly_logs_type_resolved")
   @@map("anomaly_logs")
 }
@@ -395,16 +618,51 @@ model Export {
 }
 
 model PriceThreshold {
-  id            Int      @id @default(autoincrement())
-  province      String   @unique
-  minPrice      Decimal  @map("min_price") @db.Decimal(10, 2)
-  maxPrice      Decimal  @map("max_price") @db.Decimal(10, 2)
-  updatedBy     Int?     @map("updated_by")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  updatedByUser User?    @relation("PriceThresholdUpdater", fields: [updatedBy], references: [id])
+  id                      Int      @id @default(autoincrement())
+  province                String   @unique
+  minPrice                Decimal  @map("min_price") @db.Decimal(10, 2)
+  maxPrice                Decimal  @map("max_price") @db.Decimal(10, 2)
+  avgReferencePrice       Decimal? @map("avg_reference_price") @db.Decimal(10, 2)
+  source                  String?
+  generatedFromFoodPrices Boolean  @default(false) @map("generated_from_food_prices")
+  generatedAt             DateTime? @map("generated_at")
+  updatedBy               Int?     @map("updated_by")
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
+  updatedByUser           User?    @relation("PriceThresholdUpdater", fields: [updatedBy], references: [id])
 
   @@map("price_thresholds")
+}
+
+model FoodPrice {
+  id             Int      @id @default(autoincrement())
+  date           DateTime @db.Date
+  source         String
+  scope          String
+  level          String?
+  provinceCode   String?  @map("province_code")
+  province       String?
+  cityCode       String?  @map("city_code")
+  city           String?
+  variantId      Int      @map("variant_id")
+  variant        String
+  unit           String
+  quantity       Float    @default(1)
+  price          Decimal  @db.Decimal(12, 2)
+  sourceEndpoint String?  @map("source_endpoint")
+  rawData        Json?    @map("raw_data")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  productionBatchItems ProductionBatchItem[]
+
+  @@unique([date, scope, provinceCode, cityCode, variantId], map: "food_prices_date_scope_province_city_variant_key")
+  @@index([date], map: "idx_food_prices_date")
+  @@index([province], map: "idx_food_prices_province")
+  @@index([city], map: "idx_food_prices_city")
+  @@index([variant], map: "idx_food_prices_variant")
+  @@index([scope], map: "idx_food_prices_scope")
+  @@index([variantId], map: "idx_food_prices_variant_id")
+  @@map("food_prices")
 }
 
 model SystemConfig {

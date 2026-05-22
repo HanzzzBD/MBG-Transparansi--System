@@ -1,6 +1,17 @@
 const { z } = require("zod");
 
 const sppgStatusEnum = z.enum(["active", "inactive", "problem"]);
+const booleanQuerySchema = z.preprocess((value) => {
+  if (value === "true") {
+    return true;
+  }
+
+  if (value === "false") {
+    return false;
+  }
+
+  return value;
+}, z.boolean());
 
 const listSppgSchema = z.object({
   body: z.object({}).optional().default({}),
@@ -11,7 +22,8 @@ const listSppgSchema = z.object({
     province: z.string().trim().optional(),
     city: z.string().trim().optional(),
     status: sppgStatusEnum.optional(),
-    fields: z.string().trim().optional()
+    fields: z.string().trim().optional(),
+    all: booleanQuerySchema.optional()
   })
 });
 

@@ -53,7 +53,7 @@ const getActiveSppgById = async (id) => {
 };
 
 const listSppg = async ({ query }) => {
-  const pagination = parsePagination(query);
+  const pagination = query.all ? null : parsePagination(query);
   const where = buildSppgWhere(query);
   const select = buildSppgSelect(query.fields);
 
@@ -61,8 +61,7 @@ const listSppg = async ({ query }) => {
     prisma.sppg.findMany({
       where,
       ...(select ? { select } : {}),
-      skip: pagination.skip,
-      take: pagination.limit,
+      ...(pagination ? { skip: pagination.skip, take: pagination.limit } : {}),
       orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
     }),
     prisma.sppg.count({ where })
@@ -70,11 +69,19 @@ const listSppg = async ({ query }) => {
 
   return {
     data: items,
-    meta: buildPaginationMeta({
-      page: pagination.page,
-      limit: pagination.limit,
-      total
-    })
+    meta: pagination
+      ? buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total
+        })
+      : {
+          page: 1,
+          limit: total,
+          total,
+          totalPages: total === 0 ? 0 : 1,
+          all: true
+        }
   };
 };
 

@@ -1,0 +1,190 @@
+.monitor-page {
+  --sky: #b5e0ea;
+  --primary: #0071e4;
+  --navy: #0f4c81;
+  --white: #ffffff;
+  --light-gray: #f4f8fb;
+  --text-dark: #111928;
+  --text-muted: #6b7280;
+  --success: #057a55;
+  --warning: #92400e;
+  --danger: #9b1c1c;
+  min-height: 100vh;
+  padding: 24px;
+  background: var(--light-gray);
+  color: var(--text-dark);
+}
+
+.monitor-header,
+.monitor-health,
+.monitor-card {
+  background: var(--white);
+  border: 1px solid var(--sky);
+  border-radius: 16px;
+  box-shadow: 0 16px 35px rgba(15, 76, 129, 0.08);
+}
+
+.monitor-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px;
+}
+
+.monitor-subtitle {
+  margin: 0 0 6px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.monitor-title {
+  margin: 0;
+  color: var(--navy);
+  font-size: clamp(24px, 3vw, 34px);
+  font-weight: 900;
+}
+
+.monitor-desc {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+}
+
+.monitor-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  align-self: flex-start;
+  border: 1px solid var(--sky);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: var(--navy);
+  background: #eef9fc;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.monitor-error,
+.monitor-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  font-weight: 800;
+}
+
+.monitor-error {
+  color: var(--warning);
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+}
+
+.monitor-loading {
+  color: var(--primary);
+  background: var(--white);
+  border: 1px solid var(--sky);
+}
+
+.monitor-loading svg {
+  animation: monitor-spin 900ms linear infinite;
+}
+
+.monitor-health {
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 18px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 20px;
+}
+
+.monitor-health > svg {
+  width: 34px;
+  height: 34px;
+}
+
+.monitor-health-success > svg {
+  color: var(--success);
+}
+
+.monitor-health-warning > svg {
+  color: var(--warning);
+}
+
+.monitor-health-danger > svg {
+  color: var(--danger);
+}
+
+.monitor-health span,
+.monitor-card span {
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.monitor-health strong,
+.monitor-card strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-dark);
+  font-size: 24px;
+}
+
+.monitor-health small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.monitor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.monitor-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px;
+}
+
+.monitor-card svg {
+  width: 24px;
+  height: 24px;
+  color: var(--primary);
+}
+
+.monitor-card-danger svg {
+  color: var(--danger);
+}
+
+.monitor-card-warning svg {
+  color: var(--warning);
+}
+
+@keyframes monitor-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 900px) {
+  .monitor-page {
+    padding: 16px;
+  }
+
+  .monitor-header {
+    flex-direction: column;
+  }
+
+  .monitor-health,
+  .monitor-grid {
+    grid-template-columns: 1fr;
+  }
+}

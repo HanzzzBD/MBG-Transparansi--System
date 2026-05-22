@@ -43,8 +43,48 @@ const listPublicReports = async ({ query }) => {
     prisma.publicReport.count({ where })
   ]);
 
+  const reportIds = items.map((item) => item.id);
+  const statusLogs =
+    reportIds.length > 0
+      ? await prisma.auditLog.findMany({
+          where: {
+            tableName: "public_reports",
+            recordId: {
+              in: reportIds
+            },
+            action: "UPDATE"
+          },
+          orderBy: [{ createdAt: "desc" }]
+        })
+      : [];
+
+  const latestStatusByReportId = new Map();
+
+  statusLogs.forEach((log) => {
+    if (!latestStatusByReportId.has(log.recordId) && log.newData?.status) {
+      latestStatusByReportId.set(log.recordId, log);
+    }
+  });
+
   return {
-    data: items,
+    data: items.map((item) => {
+      const statusLog = latestStatusByReportId.get(item.id);
+
+      if (!statusLog) {
+        return {
+          ...item,
+          status: "baru"
+        };
+      }
+
+      return {
+        ...item,
+        status: statusLog.newData.status,
+        followUpNote: statusLog.newData.followUpNote ?? null,
+        updatedBy: statusLog.userId ?? statusLog.newData.updatedBy ?? null,
+        updatedAt: statusLog.createdAt
+      };
+    }),
     meta: buildPaginationMeta({
       page: pagination.page,
       limit: pagination.limit,

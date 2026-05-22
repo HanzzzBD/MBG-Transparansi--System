@@ -6,18 +6,27 @@ const {
 
 const createAnomalyIfNeeded = async ({
   prisma,
-  distributionId,
+  distributionId = null,
+  productionBatchId = null,
+  productionBatchItemId = null,
   anomalyType,
   description,
+  metadata = null,
   actorUserId = null,
   ipAddress = null,
   notificationTitle,
   notificationMessage,
   notificationPayload
 }) => {
+  const scopeWhere = {
+    ...(distributionId ? { distributionId } : {}),
+    ...(productionBatchId ? { productionBatchId } : {}),
+    ...(productionBatchItemId ? { productionBatchItemId } : {})
+  };
+
   const existing = await prisma.anomalyLog.findFirst({
     where: {
-      distributionId,
+      ...scopeWhere,
       anomalyType,
       isResolved: false
     },
@@ -36,8 +45,11 @@ const createAnomalyIfNeeded = async ({
   const anomaly = await prisma.anomalyLog.create({
     data: {
       distributionId,
+      productionBatchId,
+      productionBatchItemId,
       anomalyType,
-      description
+      description,
+      metadata
     }
   });
 
@@ -62,16 +74,22 @@ const createAnomalyIfNeeded = async ({
     payload: {
       anomalyId: anomaly.id,
       distributionId,
+      productionBatchId,
+      productionBatchItemId,
       anomalyType,
       description,
+      metadata,
       ...(notificationPayload || {})
     },
     eventName: "anomaly:detected",
     eventPayload: {
       anomalyId: anomaly.id,
       distributionId,
+      productionBatchId,
+      productionBatchItemId,
       anomalyType,
       description,
+      metadata,
       ...(notificationPayload || {})
     }
   });

@@ -8,6 +8,11 @@ const listSchoolsSchema = z.object({
     limit: z.coerce.number().int().positive().optional(),
     province: z.string().trim().optional(),
     city: z.string().trim().optional(),
+    district: z.string().trim().optional(),
+    search: z.string().trim().optional(),
+    npsn: z.string().trim().optional(),
+    educationLevel: z.string().trim().optional(),
+    schoolStatus: z.string().trim().optional(),
     sppgId: z.coerce.number().int().positive().optional()
   })
 });
@@ -25,9 +30,15 @@ const createSchoolSchema = z.object({
     name: z.string().trim().min(1).max(255),
     province: z.string().trim().min(1).max(255),
     city: z.string().trim().min(1).max(255),
+    district: z.string().trim().max(255).optional().nullable(),
     address: z.string().trim().max(500).optional().nullable(),
     sppgId: z.coerce.number().int().positive(),
-    totalStudents: z.coerce.number().int().nonnegative().default(0)
+    totalStudents: z.coerce.number().int().nonnegative().default(0),
+    npsn: z.string().trim().max(50).optional().nullable(),
+    dapodikSchoolId: z.string().trim().max(100).optional().nullable(),
+    educationLevel: z.string().trim().max(50).optional().nullable(),
+    schoolStatus: z.string().trim().max(50).optional().nullable(),
+    dapodikSyncedAt: z.coerce.date().optional().nullable()
   }),
   params: z.object({}).optional().default({}),
   query: z.object({}).optional().default({})

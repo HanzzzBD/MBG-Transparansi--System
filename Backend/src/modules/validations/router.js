@@ -32,5 +32,11 @@ router.put(
   validateRequest(updateValidationSchema),
   controller.updateValidation
 );
+router.patch(
+  "/:id",
+  authorize("sekolah", "admin"),
+  validateRequest(updateValidationSchema),
+  controller.updateValidation
+);
 
 module.exports = router;

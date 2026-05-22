@@ -2,6 +2,7 @@ const { getPrismaClient } = require("../../config/prisma");
 const AppError = require("../../utils/appError");
 const { createAnomalyIfNeeded } = require("../../utils/anomaly");
 const { createAuditLog } = require("../../utils/auditLog");
+const { checkDistributionPriceAnomaly } = require("../../utils/distributionPriceAnomaly");
 const {
   assertSchoolOwnership,
   assertSppgOwnership,
@@ -14,6 +15,7 @@ const {
   findUserIdsBySchoolId,
   findUserIdsBySppgId
 } = require("../../utils/notification");
+const productionBatchService = require("../productionBatches/service");
 
 const prisma = getPrismaClient();
 
@@ -94,6 +96,7 @@ const getDistributionById = async (id) => {
     include: {
       sppg: true,
       school: true,
+      productionBatch: true,
       validation: true,
       proofs: {
         include: {
@@ -148,26 +151,13 @@ const detectDistributionAnomalies = async ({ tx, distribution, sppg, actorUserId
     });
   }
 
-  const priceThreshold = await tx.priceThreshold.findUnique({
-    where: {
-      province: sppg.province
-    }
+  await checkDistributionPriceAnomaly({
+    prisma: tx,
+    distribution,
+    province: sppg.province,
+    actorUserId,
+    ipAddress
   });
-
-  if (
-    priceThreshold &&
-    (Number(distribution.pricePerPortion) < Number(priceThreshold.minPrice) ||
-      Number(distribution.pricePerPortion) > Number(priceThreshold.maxPrice))
-  ) {
-    await createAnomalyIfNeeded({
-      prisma: tx,
-      distributionId: distribution.id,
-      anomalyType: "PRICE_ANOMALY",
-      description: `Price per portion ${distribution.pricePerPortion} is outside threshold range ${priceThreshold.minPrice}-${priceThreshold.maxPrice} for ${sppg.province}.`,
-      actorUserId,
-      ipAddress
-    });
-  }
 };
 
 const createDeliveredNotification = async ({ tx, distribution }) => {
@@ -307,6 +297,7 @@ const listDistributions = async ({ query, user }) => {
       include: {
         sppg: true,
         school: true,
+        productionBatch: true,
         validation: true
       },
       skip: pagination.skip,
@@ -356,12 +347,34 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
   const shouldLock = nextStatus === "delivered";
 
   const distribution = await prisma.$transaction(async (tx) => {
+    const productionBatch = await productionBatchService.findBatchForDistribution({
+      sppgId: sppg.id,
+      distributionDate: payload.distributionDate,
+      productionBatchId: payload.productionBatchId,
+      client: tx
+    });
+
+    if (payload.productionBatchId && !productionBatch) {
+      throw new AppError("Production batch not found for this SPPG.", 404, "PRODUCTION_BATCH_NOT_FOUND");
+    }
+
+    const pricePerPortion = payload.pricePerPortion ?? (productionBatch ? Number(productionBatch.costPerPortion) : null);
+
+    if (!pricePerPortion) {
+      throw new AppError(
+        "pricePerPortion is required when no production batch costing is available.",
+        400,
+        "PRICE_PER_PORTION_REQUIRED"
+      );
+    }
+
     const created = await tx.distribution.create({
       data: {
         sppgId: sppg.id,
         schoolId: school.id,
+        productionBatchId: productionBatch?.id ?? null,
         portions: payload.portions,
-        pricePerPortion: payload.pricePerPortion,
+        pricePerPortion,
         distributionDate: new Date(payload.distributionDate),
         status: nextStatus,
         failureReason: payload.failureReason ?? null,
@@ -371,6 +384,7 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
       include: {
         sppg: true,
         school: true,
+        productionBatch: true,
         validation: true,
         proofs: true
       }
@@ -440,6 +454,7 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
       include: {
         sppg: true,
         school: true,
+        productionBatch: true,
         validation: true,
         proofs: {
           include: {
@@ -503,6 +518,22 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
   const nextUnlockedUntil = becameDelivered ? null : existing.unlockedUntil;
 
   const distribution = await prisma.$transaction(async (tx) => {
+    const productionBatch = await productionBatchService.findBatchForDistribution({
+      sppgId: targetSppgId,
+      distributionDate: payload.distributionDate ?? existing.distributionDate,
+      productionBatchId: payload.productionBatchId,
+      client: tx
+    });
+
+    if (payload.productionBatchId && !productionBatch) {
+      throw new AppError("Production batch not found for this SPPG.", 404, "PRODUCTION_BATCH_NOT_FOUND");
+    }
+
+    const shouldUseBatchPrice = payload.pricePerPortion === undefined && payload.productionBatchId !== undefined;
+    const nextPricePerPortion = shouldUseBatchPrice && productionBatch
+      ? Number(productionBatch.costPerPortion)
+      : payload.pricePerPortion;
+
     const updated = await tx.distribution.update({
       where: {
         id: existing.id
@@ -510,8 +541,9 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
       data: {
         ...(payload.sppgId !== undefined ? { sppgId: targetSppgId } : {}),
         ...(payload.schoolId !== undefined ? { schoolId: targetSchoolId } : {}),
+        ...(payload.productionBatchId !== undefined ? { productionBatchId: productionBatch?.id ?? null } : {}),
         ...(payload.portions !== undefined ? { portions: payload.portions } : {}),
-        ...(payload.pricePerPortion !== undefined ? { pricePerPortion: payload.pricePerPortion } : {}),
+        ...(nextPricePerPortion !== undefined ? { pricePerPortion: nextPricePerPortion } : {}),
         ...(payload.distributionDate !== undefined ? { distributionDate: new Date(payload.distributionDate) } : {}),
         ...(payload.status !== undefined ? { status: payload.status } : {}),
         ...(payload.failureReason !== undefined ? { failureReason: payload.failureReason } : {}),
@@ -574,6 +606,7 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
       include: {
         sppg: true,
         school: true,
+        productionBatch: true,
         validation: true,
         proofs: {
           include: {

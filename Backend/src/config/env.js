@@ -28,7 +28,16 @@ const rawEnv = {
   CAPTCHA_PROVIDER: normalizeEnvValue(process.env.CAPTCHA_PROVIDER),
   TURNSTILE_SECRET_KEY: normalizeEnvValue(process.env.TURNSTILE_SECRET_KEY),
   RECAPTCHA_SECRET_KEY: normalizeEnvValue(process.env.RECAPTCHA_SECRET_KEY),
-  RECAPTCHA_MIN_SCORE: normalizeEnvValue(process.env.RECAPTCHA_MIN_SCORE, "0.5")
+  RECAPTCHA_MIN_SCORE: normalizeEnvValue(process.env.RECAPTCHA_MIN_SCORE, "0.5"),
+  DAPODIK_DATA_DIR: normalizeEnvValue(process.env.DAPODIK_DATA_DIR),
+  SPPG_IMPORT_PATH: normalizeEnvValue(process.env.SPPG_IMPORT_PATH),
+  SPPG_DEFAULT_CAPACITY: normalizeEnvValue(process.env.SPPG_DEFAULT_CAPACITY, "1"),
+  FOOD_PRICES_PATH: normalizeEnvValue(process.env.FOOD_PRICES_PATH),
+  DAPODIK_BASE_URL: normalizeEnvValue(process.env.DAPODIK_BASE_URL, "https://dapo.kemendikdasmen.go.id"),
+  DAPODIK_DEFAULT_SEMESTER_ID: normalizeEnvValue(process.env.DAPODIK_DEFAULT_SEMESTER_ID, "20252"),
+  DAPODIK_CACHE_TTL_SECONDS: normalizeEnvValue(process.env.DAPODIK_CACHE_TTL_SECONDS, "600"),
+  DAPODIK_TIMEOUT_MS: normalizeEnvValue(process.env.DAPODIK_TIMEOUT_MS, "10000"),
+  DAPODIK_UPSTREAM_LIMIT_PER_MINUTE: normalizeEnvValue(process.env.DAPODIK_UPSTREAM_LIMIT_PER_MINUTE, "30")
 };
 
 const envSchema = z.object({
@@ -47,7 +56,16 @@ const envSchema = z.object({
   CAPTCHA_PROVIDER: z.enum(["turnstile", "recaptcha"]).optional(),
   TURNSTILE_SECRET_KEY: z.string().optional(),
   RECAPTCHA_SECRET_KEY: z.string().optional(),
-  RECAPTCHA_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.5)
+  RECAPTCHA_MIN_SCORE: z.coerce.number().min(0).max(1).default(0.5),
+  DAPODIK_DATA_DIR: z.string().optional(),
+  SPPG_IMPORT_PATH: z.string().optional(),
+  SPPG_DEFAULT_CAPACITY: z.coerce.number().int().positive().default(1),
+  FOOD_PRICES_PATH: z.string().optional(),
+  DAPODIK_BASE_URL: z.string().url().default("https://dapo.kemendikdasmen.go.id"),
+  DAPODIK_DEFAULT_SEMESTER_ID: z.string().regex(/^\d{5}$/).default("20252"),
+  DAPODIK_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(600),
+  DAPODIK_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+  DAPODIK_UPSTREAM_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(30)
 });
 
 const parsedEnv = envSchema.safeParse(rawEnv);

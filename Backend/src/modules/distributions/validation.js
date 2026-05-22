@@ -27,8 +27,9 @@ const createDistributionSchema = z.object({
   body: z.object({
     sppgId: z.coerce.number().int().positive().optional(),
     schoolId: z.coerce.number().int().positive(),
+    productionBatchId: z.coerce.number().int().positive().optional().nullable(),
     portions: z.coerce.number().int().positive(),
-    pricePerPortion: z.coerce.number().positive(),
+    pricePerPortion: z.coerce.number().positive().optional(),
     distributionDate: z.iso.date(),
     status: distributionStatusEnum.optional(),
     failureReason: z.string().trim().max(1000).optional().nullable()
