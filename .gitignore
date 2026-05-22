@@ -1,6 +1,3 @@
 # Local Playwright MCP artifacts
 .playwright-mcp/
 playwright-mcp/
-
-# Local/internal documentation drafts
-docs/

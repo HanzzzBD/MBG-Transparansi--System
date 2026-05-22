@@ -1,0 +1,178 @@
+<mxfile host="app.diagrams.net" modified="2026-05-18T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="Diagram Kasus Penggunaan" name="Diagram Kasus Penggunaan">
+    <mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="t" value="Diagram Kasus Penggunaan - API Sistem Transparansi MBG" style="whiteSpace=wrap;html=1;strokeColor=none;fillColor=none;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="30" y="20" width="760" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="sys" value="Boundary Sistem: Backend REST API MBG" style="whiteSpace=wrap;html=1;rounded=0;dashed=1;dashPattern=8 4;fillColor=none;strokeColor=#666666;fontStyle=1;verticalAlign=top;align=left;spacing=12;" vertex="1" parent="1">
+      <mxGeometry x="300" y="90" width="980" height="760" as="geometry" />
+    </mxCell>
+    <mxCell id="pub" value="Pengunjung Publik" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#ffffff;strokeColor=#2f5597;" vertex="1" parent="1">
+      <mxGeometry x="80" y="130" width="120" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="admin" value="Admin" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#ffffff;strokeColor=#2f5597;" vertex="1" parent="1">
+      <mxGeometry x="80" y="340" width="120" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="gov" value="Pemerintah" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#ffffff;strokeColor=#2f5597;" vertex="1" parent="1">
+      <mxGeometry x="80" y="560" width="120" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="sppg" value="Petugas SPPG" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#ffffff;strokeColor=#2f5597;" vertex="1" parent="1">
+      <mxGeometry x="1330" y="190" width="120" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="school" value="Petugas Sekolah" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;fillColor=#ffffff;strokeColor=#2f5597;" vertex="1" parent="1">
+      <mxGeometry x="1330" y="500" width="120" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_pub_sum" value="Melihat ringkasan publik" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="350" y="135" width="190" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_pub_ref" value="Melihat daftar SPPG dan menu" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="575" y="135" width="210" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_pub_report" value="Mengirim laporan publik" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="820" y="135" width="190" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_auth" value="Login, refresh token, logout, profil" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="525" y="255" width="250" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_user" value="Kelola pengguna" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="350" y="385" width="180" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_config" value="Kelola konfigurasi, threshold, lock" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="560" y="385" width="240" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_master" value="Kelola SPPG dan sekolah" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="835" y="385" width="210" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_dapodik" value="Import, link, dan promote Dapodik" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="350" y="525" width="250" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_dist" value="Kelola distribusi MBG" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="635" y="525" width="210" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_proof" value="Unggah dan lihat bukti distribusi" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="880" y="525" width="250" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_valid" value="Validasi distribusi sekolah" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="350" y="665" width="225" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_analytics" value="Pantau analitik dan ekspor" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="610" y="665" width="220" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_issue" value="Laporkan dan tangani isu" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="865" y="665" width="210" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_notif" value="Baca notifikasi real-time" style="whiteSpace=wrap;html=1;ellipse;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="1090" y="590" width="170" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="n" value="Sumber: router/controller/service di Backend/src/modules, middleware auth/rbac/rateLimiter, dan Prisma schema." style="whiteSpace=wrap;html=1;rounded=1;fillColor=#fff8dc;strokeColor=#d6b656;align=left;spacing=10;" vertex="1" parent="1">
+      <mxGeometry x="325" y="805" width="900" height="45" as="geometry" />
+    </mxCell>
+    <mxCell id="e1" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="pub" target="uc_pub_sum">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="pub" target="uc_pub_ref">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="pub" target="uc_pub_report">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="pub" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e5" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e6" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_user">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e7" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_config">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e8" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_master">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e9" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_dapodik">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e10" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_dist">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e11" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_proof">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e12" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_valid">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e13" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_analytics">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e14" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="admin" target="uc_issue">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e15" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="gov" target="uc_analytics">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e16" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="gov" target="uc_dist">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e17" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="gov" target="uc_valid">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e18" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="gov" target="uc_issue">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e19" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="sppg" target="uc_dist">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e20" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="sppg" target="uc_proof">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e21" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="sppg" target="uc_issue">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e22" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="sppg" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e23" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="school" target="uc_valid">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e24" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="school" target="uc_proof">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e25" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="school" target="uc_dist">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e26" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="school" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e27" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="school" target="uc_notif">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e28" value="" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="sppg" target="uc_notif">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="inc1" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="uc_user" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="inc2" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="uc_dist" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="inc3" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="uc_valid" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="inc4" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="uc_analytics" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="inc5" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="uc_dapodik" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="inc6" value="&amp;lt;&amp;lt;include&amp;gt;&amp;gt;" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="uc_proof" target="uc_auth">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

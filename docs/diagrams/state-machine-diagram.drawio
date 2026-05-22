@@ -1,0 +1,133 @@
+<mxfile host="app.diagrams.net" modified="2026-05-18T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="Diagram Mesin Status" name="Diagram Mesin Status">
+    <mxGraphModel dx="1180" dy="880" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1180" pageHeight="880" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="t" value="Diagram Mesin Status - Status Utama Sistem" style="whiteSpace=wrap;html=1;strokeColor=none;fillColor=none;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="30" y="20" width="760" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="distBox" value="Wilayah Status: Distribution" style="whiteSpace=wrap;html=1;rounded=0;dashed=1;dashPattern=8 4;fillColor=none;strokeColor=#666666;fontStyle=1;verticalAlign=top;align=left;spacing=12;" vertex="1" parent="1">
+      <mxGeometry x="40" y="90" width="520" height="360" as="geometry" />
+    </mxCell>
+    <mxCell id="ds" value="" style="ellipse;html=1;shape=ellipse;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="90" y="160" width="30" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="d_in" value="in_progress&lt;br&gt;isLocked=false" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="170" y="140" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="d_del" value="delivered&lt;br&gt;isLocked=true" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="380" y="140" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="d_fail" value="failed&lt;br&gt;failureReason" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="380" y="300" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="d_un" value="unlocked window&lt;br&gt;isLocked=false" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="170" y="300" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="de1" value="create" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="ds" target="d_in">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="de2" value="update status delivered / lock" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="d_in" target="d_del">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="de3" value="update status failed" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="d_in" target="d_fail">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="de4" value="admin unlock" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="d_del" target="d_un">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="de5" value="auto-lock / window expired" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="d_un" target="d_del">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="valBox" value="Wilayah Status: Validation" style="whiteSpace=wrap;html=1;rounded=0;dashed=1;dashPattern=8 4;fillColor=none;strokeColor=#666666;fontStyle=1;verticalAlign=top;align=left;spacing=12;" vertex="1" parent="1">
+      <mxGeometry x="610" y="90" width="520" height="360" as="geometry" />
+    </mxCell>
+    <mxCell id="vs" value="" style="ellipse;html=1;shape=ellipse;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="660" y="160" width="30" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="v_p" value="pending&lt;br&gt;validatedAt=null" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="740" y="140" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="v_ok" value="verified&lt;br&gt;validatedAt terisi" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="950" y="140" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="v_c" value="conflict&lt;br&gt;notifikasi admin" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="950" y="300" width="150" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="ve1" value="dibuat bersama distribusi" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="vs" target="v_p">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ve2" value="sekolah/admin validasi sesuai" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="v_p" target="v_ok">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ve3" value="sekolah/admin tandai konflik" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="v_p" target="v_c">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ve4" value="reset status pending" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="v_ok" target="v_p">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ve5" value="reset status pending" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="v_c" target="v_p">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="exportBox" value="Wilayah Status: Export" style="whiteSpace=wrap;html=1;rounded=0;dashed=1;dashPattern=8 4;fillColor=none;strokeColor=#666666;fontStyle=1;verticalAlign=top;align=left;spacing=12;" vertex="1" parent="1">
+      <mxGeometry x="40" y="500" width="520" height="330" as="geometry" />
+    </mxCell>
+    <mxCell id="es" value="" style="ellipse;html=1;shape=ellipse;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="90" y="570" width="30" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="e_p" value="pending" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="170" y="550" width="120" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="e_proc" value="processing" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="340" y="550" width="130" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="e_done" value="done&lt;br&gt;file ready" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="340" y="700" width="130" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="e_fail" value="failed&lt;br&gt;errorMsg" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="170" y="700" width="120" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="ee1" value="createExport" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="es" target="e_p">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ee2" value="worker mulai" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="e_p" target="e_proc">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ee3" value="file dibuat" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="e_proc" target="e_done">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ee4" value="error" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="e_proc" target="e_fail">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="issueBox" value="Wilayah Status: Issue" style="whiteSpace=wrap;html=1;rounded=0;dashed=1;dashPattern=8 4;fillColor=none;strokeColor=#666666;fontStyle=1;verticalAlign=top;align=left;spacing=12;" vertex="1" parent="1">
+      <mxGeometry x="610" y="500" width="520" height="330" as="geometry" />
+    </mxCell>
+    <mxCell id="is" value="" style="ellipse;html=1;shape=ellipse;fillColor=#000000;strokeColor=#000000;" vertex="1" parent="1">
+      <mxGeometry x="660" y="570" width="30" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="i_open" value="open" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="740" y="550" width="120" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="i_prog" value="in_progress" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="910" y="550" width="130" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="i_res" value="resolved" style="whiteSpace=wrap;html=1;rounded=1;arcSize=20;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="910" y="700" width="130" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="ie1" value="SPPG/admin buat isu" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="is" target="i_open">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ie2" value="admin update status" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="i_open" target="i_prog">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ie3" value="admin selesaikan" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="i_prog" target="i_res">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ie4" value="langsung resolved" style="endArrow=block;html=1;rounded=0;strokeWidth=2;" edge="1" parent="1" source="i_open" target="i_res">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,70 @@
+<mxfile host="app.diagrams.net" modified="2026-05-18T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="Diagram Deployment" name="Diagram Deployment">
+    <mxGraphModel dx="1260" dy="820" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1260" pageHeight="820" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+    <mxCell id="t" value="Diagram Deployment - Runtime Backend MBG" style="whiteSpace=wrap;html=1;strokeColor=none;fillColor=none;fontSize=20;fontStyle=1;align=left;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="30" y="20" width="760" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="browser" value="&amp;lt;&amp;lt;device&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Browser / Client&lt;/b&gt;&lt;br&gt;Frontend tidak ada di repo ini&lt;br&gt;mengakses REST dan Socket.IO" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+      <mxGeometry x="60" y="130" width="260" height="140" as="geometry" />
+    </mxCell>
+    <mxCell id="node" value="&amp;lt;&amp;lt;node&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Server Node.js &gt;=20&lt;/b&gt;&lt;br&gt;src/server.js&lt;br&gt;HTTP server Express" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+      <mxGeometry x="430" y="90" width="360" height="210" as="geometry" />
+    </mxCell>
+    <mxCell id="artifact" value="&amp;lt;&amp;lt;artifact&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Backend App&lt;/b&gt;&lt;br&gt;app.js&lt;br&gt;routes&lt;br&gt;modules&lt;br&gt;middlewares&lt;br&gt;utils" style="whiteSpace=wrap;html=1;rounded=1;arcSize=12;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="490" y="160" width="240" height="110" as="geometry" />
+    </mxCell>
+    <mxCell id="runtime" value="&amp;lt;&amp;lt;executionEnvironment&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Runtime Latar Belakang&lt;/b&gt;&lt;br&gt;Worker export / job lokal&lt;br&gt;Cron kunci otomatis&lt;br&gt;Cron timeout validasi" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+      <mxGeometry x="430" y="380" width="360" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="pg" value="&amp;lt;&amp;lt;database&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;PostgreSQL&lt;/b&gt;&lt;br&gt;Prisma schema tables" style="whiteSpace=wrap;html=1;shape=cylinder;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="900" y="120" width="300" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="redis" value="&amp;lt;&amp;lt;node&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Redis opsional&lt;/b&gt;&lt;br&gt;Rate limit store&lt;br&gt;BullMQ queue" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+      <mxGeometry x="900" y="340" width="300" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="storage" value="&amp;lt;&amp;lt;node&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Storage&lt;/b&gt;&lt;br&gt;local ./storage atau Cloudflare R2" style="whiteSpace=wrap;html=1;rounded=0;fillColor=#e1d5e7;strokeColor=#9673a6;align=left;verticalAlign=top;spacing=10;" vertex="1" parent="1">
+      <mxGeometry x="900" y="560" width="300" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="dapodik" value="&amp;lt;&amp;lt;artifact&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Dataset Dapodik lokal&lt;/b&gt;&lt;br&gt;provinces.json, cities.json,&lt;br&gt;districts.json, schools-lite.json" style="whiteSpace=wrap;html=1;rounded=1;arcSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="60" y="500" width="300" height="150" as="geometry" />
+    </mxCell>
+    <mxCell id="cli" value="&amp;lt;&amp;lt;artifact&amp;gt;&amp;gt;&lt;br&gt;&lt;b&gt;Script Import&lt;/b&gt;&lt;br&gt;npm run import:dapodik&lt;br&gt;npm run import:sppg" style="whiteSpace=wrap;html=1;rounded=1;arcSize=12;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="430" y="620" width="360" height="120" as="geometry" />
+    </mxCell>
+    <mxCell id="e1" value="HTTPS REST / WebSocket" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="browser" target="node">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" value="DATABASE_URL" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="node" target="pg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" value="REDIS_URL opsional" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="node" target="redis">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" value="file upload, proof, export" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="node" target="storage">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e5" value="job update status/log" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="runtime" target="pg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e6" value="BullMQ worker" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="runtime" target="redis">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e7" value="tulis export dan hapus expired" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="runtime" target="storage">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e8" value="baca JSON" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="cli" target="dapodik">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e9" value="upsert staging" style="endArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#444444;" edge="1" parent="1" source="cli" target="pg">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e10" value="inisialisasi saat server start" style="endArrow=open;html=1;rounded=0;dashed=1;dashPattern=6 4;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="node" target="runtime">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
