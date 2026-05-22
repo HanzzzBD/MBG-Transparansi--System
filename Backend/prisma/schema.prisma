@@ -53,6 +53,13 @@ enum ReportCategory {
   lainnya
 }
 
+enum PublicReportStatus {
+  baru
+  ditinjau
+  ditindak
+  ditutup
+}
+
 enum AuditAction {
   INSERT
   UPDATE
@@ -121,6 +128,7 @@ model User {
   updatedPriceThresholds PriceThreshold[] @relation("PriceThresholdUpdater")
   updatedSystemConfigs   SystemConfig[]   @relation("SystemConfigUpdater")
   notifications          Notification[]   @relation("UserNotifications")
+  followedUpPublicReports PublicReport[]   @relation("PublicReportFollower")
 
   @@index([deletedAt], map: "idx_users_deleted_at")
   @@index([sppgId], map: "idx_users_sppg")
@@ -526,16 +534,23 @@ model SchoolReport {
 }
 
 model PublicReport {
-  id           Int            @id @default(autoincrement())
-  reporterName String?        @map("reporter_name")
-  category     ReportCategory
-  message      String
-  province     String?
-  city         String?
-  createdAt    DateTime       @default(now()) @map("created_at")
+  id             Int                @id @default(autoincrement())
+  reporterName   String?            @map("reporter_name")
+  category       ReportCategory
+  message        String
+  province       String?
+  city           String?
+  status         PublicReportStatus @default(baru)
+  followUpNote   String?            @map("follow_up_note")
+  followedUpBy   Int?               @map("followed_up_by")
+  followedUpAt   DateTime?          @map("followed_up_at")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  follower       User?              @relation("PublicReportFollower", fields: [followedUpBy], references: [id], onDelete: SetNull)
 
   @@index([category], map: "idx_public_reports_category")
   @@index([province, city], map: "idx_public_reports_location")
+  @@index([status], map: "idx_public_reports_status")
+  @@index([followedUpBy], map: "idx_public_reports_followed_up_by")
   @@map("public_reports")
 }
 

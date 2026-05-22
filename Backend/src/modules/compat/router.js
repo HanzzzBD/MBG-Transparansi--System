@@ -4,7 +4,6 @@ const { getPrismaClient } = require("../../config/prisma");
 const { authenticate } = require("../../middlewares/auth");
 const { authorize } = require("../../middlewares/rbac");
 const AppError = require("../../utils/appError");
-const { createAuditLog } = require("../../utils/auditLog");
 const { getClientIp } = require("../../utils/request");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 const adminService = require("../admin/service");
@@ -265,46 +264,6 @@ router.get(
       user: req.user
     });
     sendSuccess(res, result);
-  })
-);
-
-router.patch(
-  "/public-reports/:id/status",
-  authenticate,
-  authorize("pemerintah", "admin"),
-  asyncHandler(async (req, res) => {
-    const report = await prisma.publicReport.findUnique({
-      where: {
-        id: Number(req.params.id)
-      }
-    });
-
-    if (!report) {
-      throw new AppError("Public report not found.", 404, "PUBLIC_REPORT_NOT_FOUND");
-    }
-
-    const status = req.body.status || "ditindak";
-    const followUpNote = req.body.followUpNote || req.body.note || null;
-    const updated = {
-      ...report,
-      status,
-      followUpNote,
-      updatedBy: req.user.userId,
-      updatedAt: new Date()
-    };
-
-    await createAuditLog({
-      prisma,
-      userId: req.user.userId,
-      action: "UPDATE",
-      tableName: "public_reports",
-      recordId: report.id,
-      oldData: report,
-      newData: updated,
-      ipAddress: getClientIp(req)
-    });
-
-    sendSuccess(res, { data: updated });
   })
 );
 

@@ -7,6 +7,93 @@ const { buildPaginationMeta, parsePagination } = require("../../utils/pagination
 
 const prisma = getPrismaClient();
 
+const publicReportInclude = {
+  follower: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true
+    }
+  }
+};
+
+const publicReportStatuses = new Set(["baru", "ditinjau", "ditindak", "ditutup"]);
+
+const parseStatusFilter = (status) => {
+  if (!status) return [];
+
+  return String(status)
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => publicReportStatuses.has(item));
+};
+
+const parseDateBoundary = (value, endOfDay = false) => {
+  if (!value) return null;
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return null;
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    date.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  }
+
+  return date;
+};
+
+const buildPublicReportWhere = (query = {}) => {
+  const statusFilter = parseStatusFilter(query.status);
+  const dateFrom = parseDateBoundary(query.dateFrom);
+  const dateTo = parseDateBoundary(query.dateTo, true);
+
+  return {
+    ...(query.category ? { category: query.category } : {}),
+    ...(query.province ? { province: { contains: query.province, mode: "insensitive" } } : {}),
+    ...(query.city ? { city: { contains: query.city, mode: "insensitive" } } : {}),
+    ...(statusFilter.length > 0 ? { status: { in: statusFilter } } : {}),
+    ...(dateFrom || dateTo
+      ? {
+          createdAt: {
+            ...(dateFrom ? { gte: dateFrom } : {}),
+            ...(dateTo ? { lte: dateTo } : {})
+          }
+        }
+      : {})
+  };
+};
+
+const serializePublicReport = (report) => {
+  if (!report) return null;
+
+  const { follower, ...data } = report;
+  const followedUpByUser = follower
+    ? {
+        id: follower.id,
+        name: follower.name,
+        email: follower.email,
+        role: follower.role
+      }
+    : null;
+
+  return {
+    ...data,
+    status: data.status ?? "baru",
+    followUpNote: data.followUpNote ?? null,
+    follow_up_note: data.followUpNote ?? null,
+    followedUpBy: data.followedUpBy ?? null,
+    followed_up_by: data.followedUpBy ?? null,
+    followedUpAt: data.followedUpAt ?? null,
+    followed_up_at: data.followedUpAt ?? null,
+    followedUpByUser,
+    followed_up_by_user: followedUpByUser,
+    updatedBy: followedUpByUser?.name ?? data.followedUpBy ?? null,
+    updated_at: data.followedUpAt ?? null,
+    updatedAt: data.followedUpAt ?? null
+  };
+};
+
 const getActiveSchool = async (id) => {
   const school = await prisma.school.findFirst({
     where: {
@@ -27,15 +114,12 @@ const getActiveSchool = async (id) => {
 
 const listPublicReports = async ({ query }) => {
   const pagination = parsePagination(query);
-  const where = {
-    ...(query.category ? { category: query.category } : {}),
-    ...(query.province ? { province: { contains: query.province, mode: "insensitive" } } : {}),
-    ...(query.city ? { city: { contains: query.city, mode: "insensitive" } } : {})
-  };
+  const where = buildPublicReportWhere(query);
 
   const [items, total] = await Promise.all([
     prisma.publicReport.findMany({
       where,
+      include: publicReportInclude,
       skip: pagination.skip,
       take: pagination.limit,
       orderBy: [{ createdAt: "desc" }]
@@ -43,53 +127,30 @@ const listPublicReports = async ({ query }) => {
     prisma.publicReport.count({ where })
   ]);
 
-  const reportIds = items.map((item) => item.id);
-  const statusLogs =
-    reportIds.length > 0
-      ? await prisma.auditLog.findMany({
-          where: {
-            tableName: "public_reports",
-            recordId: {
-              in: reportIds
-            },
-            action: "UPDATE"
-          },
-          orderBy: [{ createdAt: "desc" }]
-        })
-      : [];
-
-  const latestStatusByReportId = new Map();
-
-  statusLogs.forEach((log) => {
-    if (!latestStatusByReportId.has(log.recordId) && log.newData?.status) {
-      latestStatusByReportId.set(log.recordId, log);
-    }
-  });
-
   return {
-    data: items.map((item) => {
-      const statusLog = latestStatusByReportId.get(item.id);
-
-      if (!statusLog) {
-        return {
-          ...item,
-          status: "baru"
-        };
-      }
-
-      return {
-        ...item,
-        status: statusLog.newData.status,
-        followUpNote: statusLog.newData.followUpNote ?? null,
-        updatedBy: statusLog.userId ?? statusLog.newData.updatedBy ?? null,
-        updatedAt: statusLog.createdAt
-      };
-    }),
+    data: items.map(serializePublicReport),
     meta: buildPaginationMeta({
       page: pagination.page,
       limit: pagination.limit,
       total
     })
+  };
+};
+
+const getPublicReportDetail = async ({ id }) => {
+  const report = await prisma.publicReport.findUnique({
+    where: {
+      id: Number(id)
+    },
+    include: publicReportInclude
+  });
+
+  if (!report) {
+    throw new AppError("Public report not found.", 404, "PUBLIC_REPORT_NOT_FOUND");
+  }
+
+  return {
+    data: serializePublicReport(report)
   };
 };
 
@@ -114,7 +175,8 @@ const createPublicReport = async ({ payload, ipAddress }) => {
         message: payload.message.trim(),
         province: payload.province ?? null,
         city: payload.city ?? null
-      }
+      },
+      include: publicReportInclude
     });
 
     await createAuditLog({
@@ -130,8 +192,54 @@ const createPublicReport = async ({ payload, ipAddress }) => {
   });
 
   return {
-    data: report,
+    data: serializePublicReport(report),
     statusCode: 201
+  };
+};
+
+const updatePublicReportStatus = async ({ id, payload, user, ipAddress }) => {
+  const reportId = Number(id);
+  const existing = await prisma.publicReport.findUnique({
+    where: {
+      id: reportId
+    },
+    include: publicReportInclude
+  });
+
+  if (!existing) {
+    throw new AppError("Public report not found.", 404, "PUBLIC_REPORT_NOT_FOUND");
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const saved = await tx.publicReport.update({
+      where: {
+        id: reportId
+      },
+      data: {
+        status: payload.status,
+        followUpNote: payload.followUpNote,
+        followedUpBy: user.userId,
+        followedUpAt: new Date()
+      },
+      include: publicReportInclude
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: user.userId,
+      action: "UPDATE",
+      tableName: "public_reports",
+      recordId: saved.id,
+      oldData: serializePublicReport(existing),
+      newData: serializePublicReport(saved),
+      ipAddress
+    });
+
+    return saved;
+  });
+
+  return {
+    data: serializePublicReport(updated)
   };
 };
 
@@ -236,6 +344,8 @@ const createSchoolReport = async ({ payload, user, ipAddress }) => {
 module.exports = {
   createPublicReport,
   createSchoolReport,
+  getPublicReportDetail,
   listPublicReports,
-  listSchoolReports
+  listSchoolReports,
+  updatePublicReportStatus
 };

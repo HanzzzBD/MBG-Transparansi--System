@@ -1,6 +1,23 @@
 const { z } = require("zod");
 
 const reportCategoryEnum = z.enum(["kualitas_makanan", "keterlambatan", "kekurangan_porsi", "lainnya"]);
+const publicReportStatusEnum = z.enum(["baru", "ditinjau", "ditindak", "ditutup"]);
+const commaSeparatedPublicReportStatuses = z
+  .string()
+  .trim()
+  .optional()
+  .refine(
+    (value) => {
+      if (!value) return true;
+      return value
+        .split(",")
+        .map((item) => item.trim())
+        .every((item) => publicReportStatusEnum.safeParse(item).success);
+    },
+    {
+      message: "Invalid public report status filter."
+    }
+  );
 
 const listPublicReportsSchema = z.object({
   body: z.object({}).optional().default({}),
@@ -10,8 +27,37 @@ const listPublicReportsSchema = z.object({
     limit: z.coerce.number().int().positive().optional(),
     category: reportCategoryEnum.optional(),
     province: z.string().trim().optional(),
-    city: z.string().trim().optional()
+    city: z.string().trim().optional(),
+    status: commaSeparatedPublicReportStatuses,
+    dateFrom: z.string().trim().optional(),
+    dateTo: z.string().trim().optional()
   })
+});
+
+const publicReportIdParamsSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({
+    id: z.coerce.number().int().positive()
+  }),
+  query: z.object({}).optional().default({})
+});
+
+const updatePublicReportStatusSchema = z.object({
+  body: z
+    .object({
+      status: publicReportStatusEnum,
+      followUpNote: z.string().trim().min(10).max(4000).optional().nullable(),
+      follow_up_note: z.string().trim().min(10).max(4000).optional().nullable(),
+      note: z.string().trim().min(10).max(4000).optional().nullable()
+    })
+    .transform((value) => ({
+      status: value.status,
+      followUpNote: value.followUpNote ?? value.follow_up_note ?? value.note ?? null
+    })),
+  params: z.object({
+    id: z.coerce.number().int().positive()
+  }),
+  query: z.object({}).optional().default({})
 });
 
 const createPublicReportSchema = z.object({
@@ -76,5 +122,7 @@ module.exports = {
   createPublicReportSchema,
   createSchoolReportSchema,
   listPublicReportsSchema,
-  listSchoolReportsSchema
+  listSchoolReportsSchema,
+  publicReportIdParamsSchema,
+  updatePublicReportStatusSchema
 };

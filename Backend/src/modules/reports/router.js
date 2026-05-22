@@ -5,7 +5,9 @@ const {
   createPublicReportSchema,
   createSchoolReportSchema,
   listPublicReportsSchema,
-  listSchoolReportsSchema
+  listSchoolReportsSchema,
+  publicReportIdParamsSchema,
+  updatePublicReportStatusSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
 const { publicReportLimiter } = require("../../middlewares/rateLimiter");
@@ -26,6 +28,20 @@ router.get(
   authorize("pemerintah", "admin"),
   validateRequest(listPublicReportsSchema),
   controller.listPublicReports
+);
+router.get(
+  "/public-reports/:id",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(publicReportIdParamsSchema),
+  controller.getPublicReportDetail
+);
+router.patch(
+  "/public-reports/:id/status",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(updatePublicReportStatusSchema),
+  controller.updatePublicReportStatus
 );
 router.post(
   "/school-reports",
