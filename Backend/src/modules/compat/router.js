@@ -217,6 +217,16 @@ router.delete(
 );
 
 router.get(
+  "/audit-logs/summary",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  asyncHandler(async (_req, res) => {
+    const result = await adminService.getAuditLogsSummary();
+    sendSuccess(res, result);
+  })
+);
+
+router.get(
   "/audit-logs",
   authenticate,
   authorize("pemerintah", "admin"),
@@ -315,6 +325,18 @@ router.patch(
       payload,
       actorUserId: req.user.userId,
       ipAddress: getClientIp(req)
+    });
+    sendSuccess(res, result);
+  })
+);
+
+router.get(
+  "/system-configs/export_max_rows",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  asyncHandler(async (_req, res) => {
+    const result = await adminService.getReadableSystemConfig({
+      key: "export_max_rows"
     });
     sendSuccess(res, result);
   })

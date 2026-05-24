@@ -8,6 +8,13 @@ const BCRYPT_ROUNDS = 12;
 const DEFAULT_ADMIN_EMAIL = "admin@mbg.local";
 const DEFAULT_ADMIN_NAME = "Super Admin";
 const DEFAULT_ADMIN_PASSWORD = "Admin12345!";
+const DEFAULT_SYSTEM_CONFIGS = [
+  {
+    key: "export_max_rows",
+    value: 50000,
+    description: "Maximum rows allowed for generated export files."
+  }
+];
 
 const normalizeText = (value, fallback) => {
   if (typeof value !== "string") {
@@ -74,8 +81,29 @@ const seedAdmin = async () => {
   };
 };
 
+const seedSystemConfigs = async () => {
+  const configs = [];
+
+  for (const config of DEFAULT_SYSTEM_CONFIGS) {
+    const saved = await prisma.systemConfig.upsert({
+      where: {
+        key: config.key
+      },
+      update: {},
+      create: config
+    });
+
+    configs.push(saved);
+  }
+
+  return configs;
+};
+
 const run = async () => {
-  const result = await seedAdmin();
+  const result = {
+    admin: await seedAdmin(),
+    systemConfigs: await seedSystemConfigs()
+  };
 
   console.log("Seed admin selesai.");
   console.log(JSON.stringify(result, null, 2));
@@ -93,5 +121,6 @@ if (require.main === module) {
 }
 
 module.exports = {
-  seedAdmin
+  seedAdmin,
+  seedSystemConfigs
 };

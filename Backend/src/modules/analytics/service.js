@@ -3,6 +3,7 @@ const { Prisma } = require("@prisma/client");
 const { getPrismaClient } = require("../../config/prisma");
 const { endOfDayUtc, startOfDayUtc } = require("../../utils/date");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
+const reportService = require("../reports/service");
 
 const prisma = getPrismaClient();
 
@@ -123,7 +124,7 @@ const buildDistributionSqlWhere = (filters = {}) => {
     conditions.push(Prisma.sql`d.distribution_date <= ${endOfDayUtc(filters.end_date)}`);
   }
 
-  return Prisma.sql`WHERE ${Prisma.join(conditions, Prisma.sql` AND `)}`;
+  return Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
 };
 
 const buildAnomalySqlWhere = (filters = {}) => {
@@ -158,7 +159,7 @@ const buildAnomalySqlWhere = (filters = {}) => {
     conditions.push(Prisma.sql`a.created_at <= ${endOfDayUtc(filters.end_date)}`);
   }
 
-  return Prisma.sql`WHERE ${Prisma.join(conditions, Prisma.sql` AND `)}`;
+  return Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
 };
 
 const getSummary = async ({ filters }) => {
@@ -699,6 +700,22 @@ const getAnomaly = async ({ filters, pagination }) => {
   };
 };
 
+const getPublicReportsSummary = async ({ filters }) =>
+  reportService.getPublicReportsSummary({
+    query: filters
+  });
+
+const getPublicReportsTrend = async ({ filters }) =>
+  reportService.getPublicReportsTrend({
+    query: filters
+  });
+
+const getPublicReportsTopRegions = async ({ filters, limit }) =>
+  reportService.getPublicReportsTopRegions({
+    query: filters,
+    limit
+  });
+
 module.exports = {
   getAnomaly,
   getBudget,
@@ -708,6 +725,9 @@ module.exports = {
   getDistributionTrend,
   getPriceAnomalies,
   getPricePerProvince,
+  getPublicReportsSummary,
+  getPublicReportsTopRegions,
+  getPublicReportsTrend,
   getSuccessRate,
   getSummary,
   parseAnalyticsPagination: parsePagination

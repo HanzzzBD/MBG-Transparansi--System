@@ -135,6 +135,16 @@ const publicReportLimiter = createLimiter({
   code: "PUBLIC_REPORT_RATE_LIMIT_EXCEEDED"
 });
 
+const publicSppgLimiter = createLimiter({
+  prefix: "rl:public-sppg:",
+  windowMs: MINUTE_MS,
+  limit: 60,
+  requestPropertyName: "publicSppgRateLimit",
+  keyGenerator: (req) => getIpRateLimitKey(req),
+  message: "Public SPPG rate limit exceeded. Please try again shortly.",
+  code: "PUBLIC_SPPG_RATE_LIMIT_EXCEEDED"
+});
+
 const exportLimiter = createLimiter({
   prefix: "rl:exports:",
   windowMs: HOUR_MS,
@@ -174,5 +184,6 @@ module.exports = {
   fileUploadLimiter,
   loginLimiter: [loginIpLimiter, loginEmailLimiter],
   publicLimiter: publicGetLimiter,
-  publicReportLimiter
+  publicReportLimiter,
+  publicSppgLimiter
 };

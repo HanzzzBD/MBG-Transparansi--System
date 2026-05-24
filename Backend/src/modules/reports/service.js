@@ -18,7 +18,9 @@ const publicReportInclude = {
   }
 };
 
-const publicReportStatuses = new Set(["baru", "ditinjau", "ditindak", "ditutup"]);
+const publicReportStatusValues = ["baru", "ditinjau", "ditindak", "ditutup"];
+const publicReportCategoryValues = ["kualitas_makanan", "keterlambatan", "kekurangan_porsi", "lainnya"];
+const publicReportStatuses = new Set(publicReportStatusValues);
 
 const parseStatusFilter = (status) => {
   if (!status) return [];
@@ -62,6 +64,45 @@ const buildPublicReportWhere = (query = {}) => {
         }
       : {})
   };
+};
+
+const normalizePublicReportQuery = (query = {}) => ({
+  ...query,
+  dateFrom: query.dateFrom || query.start_date,
+  dateTo: query.dateTo || query.end_date
+});
+
+const withoutDateFilters = (query = {}) => {
+  const { dateFrom, dateTo, start_date: startDate, end_date: endDate, ...rest } = query;
+  return rest;
+};
+
+const toDateKey = (value) => value.toISOString().slice(0, 10);
+
+const getCurrentMonthRange = () => {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+
+  return { start, end };
+};
+
+const emptyCountMap = (keys) =>
+  keys.reduce((result, key) => {
+    result[key] = 0;
+    return result;
+  }, {});
+
+const groupRowsToCountMap = ({ rows, keyField, allowedKeys }) => {
+  const counts = emptyCountMap(allowedKeys);
+
+  for (const row of rows) {
+    if (Object.prototype.hasOwnProperty.call(counts, row[keyField])) {
+      counts[row[keyField]] = row._count._all;
+    }
+  }
+
+  return counts;
 };
 
 const serializePublicReport = (report) => {
@@ -134,6 +175,175 @@ const listPublicReports = async ({ query }) => {
       limit: pagination.limit,
       total
     })
+  };
+};
+
+const getPublicReportsSummary = async ({ query = {} } = {}) => {
+  const normalizedQuery = normalizePublicReportQuery(query);
+  const where = buildPublicReportWhere(normalizedQuery);
+  const baseWhere = buildPublicReportWhere(withoutDateFilters(normalizedQuery));
+  const currentMonthRange = getCurrentMonthRange();
+
+  const [totalReports, thisMonth, needFollowUp, statusRows, categoryRows] = await Promise.all([
+    prisma.publicReport.count({ where }),
+    prisma.publicReport.count({
+      where: {
+        ...baseWhere,
+        createdAt: {
+          gte: currentMonthRange.start,
+          lte: currentMonthRange.end
+        }
+      }
+    }),
+    prisma.publicReport.count({
+      where: {
+        ...where,
+        status: {
+          in: ["baru", "ditinjau"]
+        }
+      }
+    }),
+    prisma.publicReport.groupBy({
+      by: ["status"],
+      where,
+      _count: {
+        _all: true
+      }
+    }),
+    prisma.publicReport.groupBy({
+      by: ["category"],
+      where,
+      _count: {
+        _all: true
+      }
+    })
+  ]);
+
+  const byStatus = groupRowsToCountMap({
+    rows: statusRows,
+    keyField: "status",
+    allowedKeys: publicReportStatusValues
+  });
+  const byCategory = groupRowsToCountMap({
+    rows: categoryRows,
+    keyField: "category",
+    allowedKeys: publicReportCategoryValues
+  });
+  const openReports = byStatus.baru + byStatus.ditinjau;
+  const resolvedReports = byStatus.ditindak;
+  const closedReports = byStatus.ditutup;
+
+  return {
+    data: {
+      totalReports,
+      total_reports: totalReports,
+      thisMonth,
+      this_month: thisMonth,
+      needFollowUp,
+      need_follow_up: needFollowUp,
+      openReports,
+      open_reports: openReports,
+      pendingReports: openReports,
+      pending_reports: openReports,
+      resolvedReports,
+      resolved_reports: resolvedReports,
+      closedReports,
+      closed_reports: closedReports,
+      rejectedReports: 0,
+      rejected_reports: 0,
+      byStatus,
+      by_status: byStatus,
+      byCategory,
+      by_category: byCategory
+    }
+  };
+};
+
+const getPublicReportsTrend = async ({ query = {} } = {}) => {
+  const where = buildPublicReportWhere(normalizePublicReportQuery(query));
+  const rows = await prisma.publicReport.findMany({
+    where,
+    select: {
+      category: true,
+      createdAt: true
+    },
+    orderBy: {
+      createdAt: "asc"
+    }
+  });
+
+  const buckets = new Map();
+
+  for (const row of rows) {
+    const date = toDateKey(row.createdAt);
+    const current = buckets.get(date) || {
+      date,
+      ...emptyCountMap(publicReportCategoryValues),
+      totalReports: 0,
+      total_reports: 0
+    };
+
+    if (Object.prototype.hasOwnProperty.call(current, row.category)) {
+      current[row.category] += 1;
+    }
+
+    current.totalReports += 1;
+    current.total_reports += 1;
+    buckets.set(date, current);
+  }
+
+  return {
+    data: Array.from(buckets.values())
+  };
+};
+
+const getPublicReportsTopRegions = async ({ query = {}, limit = 10 } = {}) => {
+  const where = buildPublicReportWhere(normalizePublicReportQuery(query));
+  const safeLimit = Math.min(Math.max(Number(limit) || 10, 1), 50);
+  const rows = await prisma.publicReport.findMany({
+    where,
+    select: {
+      province: true,
+      city: true
+    }
+  });
+
+  const regionMap = new Map();
+
+  for (const row of rows) {
+    if (!row.province && !row.city) {
+      continue;
+    }
+
+    const province = row.province || "-";
+    const city = row.city || "-";
+    const key = `${province}||${city}`;
+    const current = regionMap.get(key) || {
+      province,
+      city,
+      totalReports: 0,
+      total_reports: 0,
+      total: 0
+    };
+
+    current.totalReports += 1;
+    current.total_reports += 1;
+    current.total += 1;
+    regionMap.set(key, current);
+  }
+
+  return {
+    data: Array.from(regionMap.values())
+      .sort(
+        (first, second) =>
+          second.totalReports - first.totalReports ||
+          first.province.localeCompare(second.province) ||
+          first.city.localeCompare(second.city)
+      )
+      .slice(0, safeLimit),
+    meta: {
+      limit: safeLimit
+    }
   };
 };
 
@@ -345,6 +555,9 @@ module.exports = {
   createPublicReport,
   createSchoolReport,
   getPublicReportDetail,
+  getPublicReportsSummary,
+  getPublicReportsTopRegions,
+  getPublicReportsTrend,
   listPublicReports,
   listSchoolReports,
   updatePublicReportStatus

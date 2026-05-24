@@ -127,6 +127,53 @@ const getCostingAnalytics = async (req, res, next) => {
   }
 };
 
+const getPublicReportsSummary = async (req, res, next) => {
+  try {
+    const result = await analyticsService.getPublicReportsSummary({
+      filters: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPublicReportsTrend = async (req, res, next) => {
+  try {
+    const result = await analyticsService.getPublicReportsTrend({
+      filters: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPublicReportsTopRegions = async (req, res, next) => {
+  try {
+    const result = await analyticsService.getPublicReportsTopRegions({
+      filters: req.query,
+      limit: req.query.limit
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getByProvince = async (req, res, next) => {
   try {
     const result = await analyticsService.getByProvince({
@@ -171,6 +218,9 @@ module.exports = {
   getDistributionTrend,
   getPriceAnomalies,
   getPricePerProvince,
+  getPublicReportsSummary,
+  getPublicReportsTopRegions,
+  getPublicReportsTrend,
   getSuccessRate,
   getSummary
 };

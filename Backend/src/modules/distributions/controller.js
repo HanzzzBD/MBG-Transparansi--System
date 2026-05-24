@@ -34,6 +34,19 @@ const getDistributionDetail = async (req, res, next) => {
   }
 };
 
+const getLockSummary = async (_req, res, next) => {
+  try {
+    const result = await distributionService.getLockSummary();
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createDistribution = async (req, res, next) => {
   try {
     const result = await distributionService.createDistribution({
@@ -72,6 +85,7 @@ const updateDistribution = async (req, res, next) => {
 module.exports = {
   createDistribution,
   getDistributionDetail,
+  getLockSummary,
   listDistributions,
   updateDistribution
 };

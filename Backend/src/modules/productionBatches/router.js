@@ -15,7 +15,7 @@ const { validateRequest } = require("../../middlewares/validateRequest");
 
 const router = express.Router();
 
-router.use(authenticate);
+router.use(["/production-batches", "/production-batch-items"], authenticate);
 
 router.get(
   "/production-batches",

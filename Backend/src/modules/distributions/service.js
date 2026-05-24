@@ -317,6 +317,40 @@ const listDistributions = async ({ query, user }) => {
   };
 };
 
+const getLockSummary = async () => {
+  const now = new Date();
+  const [totalCount, lockedCount, autoLockPendingCount] = await Promise.all([
+    prisma.distribution.count(),
+    prisma.distribution.count({
+      where: {
+        isLocked: true
+      }
+    }),
+    prisma.distribution.count({
+      where: {
+        isLocked: false,
+        unlockedUntil: {
+          gt: now
+        }
+      }
+    })
+  ]);
+  const editableCount = totalCount - lockedCount;
+
+  return {
+    data: {
+      totalCount,
+      total_count: totalCount,
+      lockedCount,
+      locked_count: lockedCount,
+      editableCount,
+      editable_count: editableCount,
+      autoLockPendingCount,
+      auto_lock_pending_count: autoLockPendingCount
+    }
+  };
+};
+
 const getDistributionDetail = async ({ id, user }) => {
   const distribution = await getDistributionById(id);
   ensureDistributionAccess(user, distribution);
@@ -633,6 +667,7 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
 module.exports = {
   createDistribution,
   getDistributionDetail,
+  getLockSummary,
   listDistributions,
   updateDistribution
 };

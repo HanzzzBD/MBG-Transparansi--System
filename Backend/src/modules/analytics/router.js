@@ -18,6 +18,27 @@ const router = express.Router();
 
 router.get("/summary", validateRequest(summarySchema), controller.getSummary);
 router.get(
+  "/public-reports-summary",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(summarySchema),
+  controller.getPublicReportsSummary
+);
+router.get(
+  "/public-reports-trend",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(summarySchema),
+  controller.getPublicReportsTrend
+);
+router.get(
+  "/public-reports-top-regions",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(byProvinceSchema),
+  controller.getPublicReportsTopRegions
+);
+router.get(
   "/distributions",
   authenticate,
   authorize("pemerintah", "admin"),

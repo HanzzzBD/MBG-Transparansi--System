@@ -19,6 +19,7 @@ const { BCRYPT_ROUNDS } = require("../../utils/auth");
 const prisma = getPrismaClient();
 
 const DISTRIBUTION_UNLOCK_WINDOW_MS = 60 * 60 * 1000;
+const DEFAULT_EXPORT_MAX_ROWS = 50000;
 
 const userSelect = {
   id: true,
@@ -490,6 +491,64 @@ const listAuditLogs = async ({ query }) => {
       limit: pagination.limit,
       total
     })
+  };
+};
+
+const getAuditLogsSummary = async () => {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayRange = {
+    gte: startOfDayUtc(todayKey),
+    lte: endOfDayUtc(todayKey)
+  };
+
+  const [totalLogs, totalToday, highSeverity, activeUserRows, actionRows] = await Promise.all([
+    prisma.auditLog.count(),
+    prisma.auditLog.count({
+      where: {
+        createdAt: todayRange
+      }
+    }),
+    prisma.auditLog.count({
+      where: {
+        action: {
+          in: ["DELETE", "LOCK", "UNLOCK"]
+        }
+      }
+    }),
+    prisma.auditLog.groupBy({
+      by: ["userId"],
+      where: {
+        userId: {
+          not: null
+        },
+        createdAt: todayRange
+      }
+    }),
+    prisma.auditLog.groupBy({
+      by: ["action"],
+      _count: {
+        _all: true
+      }
+    })
+  ]);
+  const byAction = actionRows.reduce((result, row) => {
+    result[row.action] = row._count._all;
+    return result;
+  }, {});
+
+  return {
+    data: {
+      totalLogs,
+      total_logs: totalLogs,
+      totalToday,
+      total_today: totalToday,
+      highSeverity,
+      high_severity: highSeverity,
+      activeUsers: activeUserRows.length,
+      active_users: activeUserRows.length,
+      byAction,
+      by_action: byAction
+    }
   };
 };
 
@@ -1014,6 +1073,28 @@ const listSystemConfigs = async ({ query }) => {
   };
 };
 
+const getReadableSystemConfig = async ({ key }) => {
+  if (key !== "export_max_rows") {
+    throw new AppError("System config not found.", 404, "SYSTEM_CONFIG_NOT_FOUND");
+  }
+
+  const config = await prisma.systemConfig.upsert({
+    where: {
+      key
+    },
+    update: {},
+    create: {
+      key,
+      value: DEFAULT_EXPORT_MAX_ROWS,
+      description: "Maximum rows allowed for generated export files."
+    }
+  });
+
+  return {
+    data: config
+  };
+};
+
 const updateSystemConfig = async ({ key, payload, actorUserId, ipAddress }) => {
   const normalizedKey = key.trim();
   const existing = await prisma.systemConfig.findUnique({
@@ -1095,6 +1176,8 @@ const updateSystemConfig = async ({ key, payload, actorUserId, ipAddress }) => {
 module.exports = {
   createUser,
   deleteUser,
+  getAuditLogsSummary,
+  getReadableSystemConfig,
   listAnomalyLogs,
   listAuditLogs,
   listPriceThresholds,

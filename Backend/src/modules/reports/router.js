@@ -30,6 +30,13 @@ router.get(
   controller.listPublicReports
 );
 router.get(
+  "/public-reports/summary",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  validateRequest(listPublicReportsSchema),
+  controller.getPublicReportsSummary
+);
+router.get(
   "/public-reports/:id",
   authenticate,
   authorize("pemerintah", "admin"),

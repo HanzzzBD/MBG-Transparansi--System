@@ -14,7 +14,13 @@ const { validateRequest } = require("../../middlewares/validateRequest");
 const router = express.Router();
 
 router.get("/", validateRequest(listSppgSchema), controller.listSppg);
-router.get("/:id", validateRequest(sppgIdParamsSchema), controller.getSppgDetail);
+router.get(
+  "/:id",
+  authenticate,
+  authorize("sppg", "pemerintah", "admin"),
+  validateRequest(sppgIdParamsSchema),
+  controller.getSppgDetail
+);
 router.post("/", authenticate, authorize("admin"), validateRequest(createSppgSchema), controller.createSppg);
 router.put("/:id", authenticate, authorize("admin"), validateRequest(updateSppgSchema), controller.updateSppg);
 router.delete("/:id", authenticate, authorize("admin"), validateRequest(sppgIdParamsSchema), controller.deleteSppg);

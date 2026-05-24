@@ -33,6 +33,21 @@ const listPublicReports = async (req, res, next) => {
   }
 };
 
+const getPublicReportsSummary = async (req, res, next) => {
+  try {
+    const result = await reportService.getPublicReportsSummary({
+      query: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getPublicReportDetail = async (req, res, next) => {
   try {
     const result = await reportService.getPublicReportDetail({
@@ -104,6 +119,7 @@ module.exports = {
   createPublicReport,
   createSchoolReport,
   getPublicReportDetail,
+  getPublicReportsSummary,
   listPublicReports,
   listSchoolReports,
   updatePublicReportStatus

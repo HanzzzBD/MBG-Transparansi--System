@@ -22,6 +22,11 @@ router.get(
   controller.listDistributions
 );
 router.get(
+  "/lock-summary",
+  authorize("admin"),
+  controller.getLockSummary
+);
+router.get(
   "/:id",
   authorize("sppg", "sekolah", "pemerintah", "admin"),
   validateRequest(distributionIdParamsSchema),
