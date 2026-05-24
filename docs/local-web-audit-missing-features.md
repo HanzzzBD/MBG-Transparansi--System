@@ -1,0 +1,19 @@
+# Local Web Audit Missing Features
+
+| Prioritas | Halaman | Fitur belum ada / belum nyambung | Dampak | Rekomendasi |
+|---|---|---|---|---|
+| P0 - fixed 2026-05-22 | Landing | Public report submit tanpa auth | Sebelumnya live `POST /api/public-reports` 401. Setelah hotfix, guest invalid payload mencapai validation dan mengembalikan 400 `VALIDATION_ERROR`. | Remaining follow-up: uji CAPTCHA valid/invalid end-to-end dengan provider/secret yang valid. |
+| P0 - fixed 2026-05-22 | Login demo | Demo SPPG/Sekolah belum terhubung ke `sppgId`/`schoolId` | Sebelumnya role login sukses tetapi dashboard, distribusi, validasi, dan laporan sekolah 403. Setelah hotfix seed, `sppgId`/`schoolId` valid dan endpoint scoped 200. | Remaining follow-up: browser re-test dashboard SPPG/Sekolah setelah analytics/high issues lain selesai. |
+| P1 - fixed 2026-05-23 | Dashboard Nasional | Endpoint chart analytics stabil dan fallback frontend prioritas dibersihkan | Sebelumnya dashboard memakai `API parsial + fallback` karena analytics 500. Setelah hotfix, `/api/analytics/distributions`, `/success-rate`, `/budget`, `/by-province`, `/anomaly` return 200 dan UI tidak lagi menampilkan dummy saat API kosong/gagal. | Remaining follow-up: tambah summary scoped jika KPI SPPG/Sekolah perlu kontrak endpoint khusus. |
+| P1 | Dashboard SPPG | Summary scoped per dapur | Frontend masih memakai fallback agregasi dari distributions. | Tambah `GET /api/dashboard/sppg-summary` atau analytics scoped by user. |
+| P1 | Dashboard Sekolah | Summary scoped per sekolah | Frontend masih memakai fallback/derived data. | Tambah `GET /api/dashboard/school-summary`. |
+| P1 | Peta SPPG | Detail panel backend lengkap | Side panel masih fallback untuk menu/distribusi sebagian. | Tambah detail SPPG dengan menu hari ini, distribusi terakhir, PIC, KPI. |
+| P1 | Distribusi | Endpoint sekolah tujuan dan threshold untuk SPPG | Role SPPG tidak bisa memilih sekolah/threshold tanpa fallback/TODO. | Tambah endpoint read-only scoped SPPG: schools tujuan dan price threshold. |
+| P1 | Konfirmasi | School report/validation submit end-to-end | Demo sekolah scope fixed; submit validation/report masih perlu diuji terpisah. | Uji PATCH validation dan POST school report end-to-end. |
+| P1 - fixed 2026-05-23 | Audit Log | Summary audit log dan list fallback dummy | Sebelumnya KPI/list audit memakai fallback. Setelah cleanup, API kosong menjadi empty state dan API gagal menjadi error state. | Remaining follow-up: uji browser full page dengan dataset audit log besar. |
+| P1 - partial fixed 2026-05-23 | Export | Config max rows read-only dan retry job | `export_max_rows` read-only fixed; fallback history/preview/simulasi retry sudah dihapus. Retry endpoint masih belum tersedia/stabil. | Tambah `POST /api/exports/:id/retry` pada PR terpisah. |
+| P1 - fixed 2026-05-23 | Laporan Masyarakat | Summary/trend/top-region backend dan fallback agregasi | Sebelumnya page memakai fallback untuk agregasi. Setelah cleanup, list/summary/chart memakai API atau empty/error state. | Remaining follow-up: formalisasi kolom/status follow-up lanjutan bila dibutuhkan. |
+| P1 - fixed 2026-05-22 | Lock/Unlock | Lock summary endpoint | Sebelumnya `/api/distributions/lock-summary` 400. | Remaining follow-up: hapus fallback summary setelah E2E browser stabil. |
+| P2 | Override | Audit action override formal | Source menyebut override dicatat sebagai UPDATE + marker. | Tambah enum/action `OVERRIDE` agar history konsisten. |
+| P2 | API Monitoring | Monitoring SP2KP sync detail | Page hanya punya backend totals umum. | Tambah endpoint job/sync status, last run, failures, dan latency. |
+| P2 | Responsive/modal flows | Modal open-state belum diuji penuh | Pass otomatis tidak membuka semua modal/file upload. | Tambah Playwright E2E untuk modal create/edit/upload. |

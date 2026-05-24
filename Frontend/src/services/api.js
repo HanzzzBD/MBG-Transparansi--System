@@ -191,7 +191,31 @@ export const getSppg = (params) => apiRequest('/sppg', { params })
 
 export const getSppgDetail = (id) => apiRequest(`/sppg/${id}`)
 
+export const getPublicSppgDetail = (id) => apiRequest(`/public/sppg/${id}`)
+
 export const getSchools = (params) => apiRequest('/schools', { params })
+
+export const getDapodikStagedSchools = (params) => apiRequest('/dapodik/staged-schools', { params })
+
+export const getDapodikStagedSchoolDetail = (id) => apiRequest(`/dapodik/staged-schools/${id}`)
+
+export const importDapodikSchools = (payload) =>
+  apiRequest('/dapodik/import-schools', {
+    method: 'POST',
+    body: payload,
+  })
+
+export const promoteDapodikSchool = (id, payload) =>
+  apiRequest(`/dapodik/staged-schools/${id}/promote`, {
+    method: 'POST',
+    body: payload,
+  })
+
+export const linkDapodikSchool = (id, payload) =>
+  apiRequest(`/dapodik/staged-schools/${id}/link`, {
+    method: 'POST',
+    body: payload,
+  })
 
 export const getDistributions = (params) => apiRequest('/distributions', { params })
 

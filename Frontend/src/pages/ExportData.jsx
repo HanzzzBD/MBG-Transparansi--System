@@ -16,7 +16,6 @@ import DashboardLayout from '../layouts/DashboardLayout.jsx'
 import { apiBlobRequest as requestBlob, apiRequest as requestJson } from '../services/api'
 import './ExportData.css'
 
-const DEFAULT_MAX_ROWS = 50000
 const PAGE_SIZE = 10
 const RETENTION_DAYS = 7
 const EXPORT_POLL_MS = 2500
@@ -84,69 +83,6 @@ const STATUS_LABELS = {
   expired: 'Kedaluwarsa',
 }
 
-const FALLBACK_HISTORY = [
-  {
-    id: 'fallback-1',
-    type: 'pdf',
-    fileName: 'Laporan_Distribusi_Nasional_2026-05.pdf',
-    createdAt: '2026-05-21T08:20:00+07:00',
-    rows: 18420,
-    sizeBytes: 4300000,
-    status: 'done',
-    progress: 100,
-    expiresAt: '2026-05-28T08:20:00+07:00',
-    fileUrl: '',
-  },
-  {
-    id: 'fallback-2',
-    type: 'excel',
-    fileName: 'Anggaran_Wilayah_2026-05.xlsx',
-    createdAt: '2026-05-20T14:05:00+07:00',
-    rows: 9270,
-    sizeBytes: 8900000,
-    status: 'done',
-    progress: 100,
-    expiresAt: '2026-05-27T14:05:00+07:00',
-    fileUrl: '',
-  },
-  {
-    id: 'fallback-3',
-    type: 'excel',
-    fileName: 'Food_Prices_SP2KP_2026-05.xlsx',
-    createdAt: '2026-05-21T09:15:00+07:00',
-    rows: 41800,
-    sizeBytes: 18700000,
-    status: 'processing',
-    progress: 62,
-    expiresAt: '2026-05-28T09:15:00+07:00',
-    fileUrl: '',
-  },
-  {
-    id: 'fallback-4',
-    type: 'pdf',
-    fileName: 'Audit_Log_Admin_2026-05.pdf',
-    createdAt: '2026-05-19T16:45:00+07:00',
-    rows: 1220,
-    sizeBytes: 1600000,
-    status: 'failed',
-    progress: 0,
-    expiresAt: '2026-05-26T16:45:00+07:00',
-    errorMsg: 'Job queue timeout',
-  },
-  {
-    id: 'fallback-5',
-    type: 'excel',
-    fileName: 'Anomali_Harga_2026-05.xlsx',
-    createdAt: '2026-05-15T10:30:00+07:00',
-    rows: 680,
-    sizeBytes: 980000,
-    status: 'done',
-    progress: 100,
-    expiresAt: '2026-05-22T10:30:00+07:00',
-    fileUrl: '',
-  },
-]
-
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
   return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
@@ -178,10 +114,9 @@ function getConfiguredValue(result) {
     result?.data?.value ??
     result?.data?.config?.value ??
     result?.config?.value ??
-    result?.value ??
-    DEFAULT_MAX_ROWS
+    result?.value
 
-  return Number(value) || DEFAULT_MAX_ROWS
+  return Number(value) || 0
 }
 
 function todayInput() {
@@ -301,10 +236,6 @@ function calculateEstimate({ checkedData, filters, maxRows }) {
   }
 }
 
-function getInitialHistory() {
-  return FALLBACK_HISTORY.map(normalizeExport)
-}
-
 function ExportData({ userRole, userName, onLogout }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -330,7 +261,7 @@ function ExportData({ userRole, userName, onLogout }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [toast, setToast] = useState(null)
-  const [maxRows, setMaxRows] = useState(DEFAULT_MAX_ROWS)
+  const [maxRows, setMaxRows] = useState(0)
   const [retryingId, setRetryingId] = useState('')
   const [downloadingId, setDownloadingId] = useState('')
 
@@ -365,19 +296,8 @@ function ExportData({ userRole, userName, onLogout }) {
     try {
       const result = await requestJson('/system-configs/export_max_rows', { signal })
       setMaxRows(getConfiguredValue(result))
-    } catch {
-      try {
-        const result = await requestJson('/admin/system-configs', {
-          signal,
-          params: { search: 'export_max_rows', limit: 1 },
-        })
-        const rows = result.data?.items || result.data || []
-        const config = Array.isArray(rows) ? rows.find((item) => item.key === 'export_max_rows') : null
-        setMaxRows(Number(config?.value) || DEFAULT_MAX_ROWS)
-      } catch {
-        // TODO: Tambahkan endpoint publik GET /api/system-configs/export_max_rows agar pemerintah tidak perlu fallback.
-        setMaxRows(DEFAULT_MAX_ROWS)
-      }
+    } catch (configError) {
+      setError(configError.message || 'Konfigurasi export_max_rows gagal dimuat dari API.')
     }
   }, [])
 
@@ -390,20 +310,17 @@ function ExportData({ userRole, userName, onLogout }) {
         return
       }
 
-      // TODO: Hapus fallback ini saat GET /api/exports mengembalikan riwayat export pengguna.
-      setError('Riwayat export dari API masih kosong. Fallback preview ditampilkan.')
-      setHistory(getInitialHistory())
+      setHistory([])
     } catch (historyError) {
-      // TODO: Backend saat ini belum menyediakan GET /api/exports untuk list history.
-      setError(historyError.message || 'Riwayat export gagal dimuat dari API. Fallback preview ditampilkan.')
-      setHistory(getInitialHistory())
+      setHistory([])
+      setError(historyError.message || 'Riwayat export gagal dimuat dari API.')
     }
   }, [])
 
   const pollExportStatus = useCallback(
     (exportId) => {
       const key = String(exportId)
-      if (!exportId || key.startsWith('local') || key.startsWith('fallback')) return
+      if (!exportId || key.startsWith('local')) return
 
       stopPolling(key)
       let attempts = 0
@@ -466,8 +383,8 @@ function ExportData({ userRole, userName, onLogout }) {
       try {
         await Promise.all([fetchMaxRows(controller.signal), fetchHistory(controller.signal)])
       } catch (fetchError) {
-        setError(fetchError.message || 'Data export gagal dimuat dari API. Fallback preview ditampilkan.')
-        setHistory(getInitialHistory())
+        setError(fetchError.message || 'Data export gagal dimuat dari API.')
+        setHistory([])
       } finally {
         setLoading(false)
       }
@@ -515,6 +432,7 @@ function ExportData({ userRole, userName, onLogout }) {
     if (!checkedData.length) return 'Pilih minimal 1 dataset.'
     if (!filters.dateFrom || !filters.dateTo) return 'Tanggal awal dan akhir wajib diisi.'
     if (filters.dateFrom > filters.dateTo) return 'Tanggal awal tidak boleh lebih besar dari tanggal akhir.'
+    if (!maxRows) return 'Konfigurasi export_max_rows belum tersedia.'
     if (!filters.distributionStatuses.length && checkedData.includes('distributions')) {
       return 'Pilih minimal 1 status distribusi.'
     }
@@ -555,24 +473,6 @@ function ExportData({ userRole, userName, onLogout }) {
     }
   }
 
-  const simulateGeneratedExport = async () => {
-    await new Promise((resolve) => window.setTimeout(resolve, 3000))
-    const createdAt = new Date().toISOString()
-    const generated = normalizeExport({
-      id: `local-${Date.now()}`,
-      type: format,
-      fileName: `Export_MBG_${format === 'excel' ? 'XLSX' : 'PDF'}_${createdAt.slice(0, 10)}.${format === 'excel' ? 'xlsx' : 'pdf'}`,
-      createdAt,
-      rows: estimate.rows,
-      sizeBytes: Math.round(estimate.sizeMb * 1000000),
-      status: 'done',
-      progress: 100,
-      expiresAt: addDays(createdAt, RETENTION_DAYS),
-      filterParams: buildExportPayload().filterParams,
-    })
-    setHistory((current) => [generated, ...current].slice(0, PAGE_SIZE))
-  }
-
   const handleGenerate = async (event) => {
     event.preventDefault()
     const validationMessage = validateForm()
@@ -607,15 +507,9 @@ function ExportData({ userRole, userName, onLogout }) {
         setProgress(0)
       }, 700)
     } catch (generateError) {
-      // TODO: Hapus fallback simulasi ini jika endpoint queue/list export sudah lengkap di backend production.
-      showToast(generateError.message || 'API export belum siap. Menjalankan fallback preview.', 'warning')
-      await simulateGeneratedExport()
-      setProgress(100)
-      showToast('Laporan preview berhasil dibuat.', 'success')
-      window.setTimeout(() => {
-        setIsGenerating(false)
-        setProgress(0)
-      }, 700)
+      showToast(generateError.message || 'Export gagal dibuat dari API.', 'danger')
+      setIsGenerating(false)
+      setProgress(0)
     }
   }
 
@@ -625,12 +519,6 @@ function ExportData({ userRole, userName, onLogout }) {
       if (record.fileUrl) {
         window.open(record.fileUrl, '_blank', 'noopener,noreferrer')
         showToast('Mengunduh file export.', 'success')
-        return
-      }
-
-      if (String(record.id).startsWith('fallback') || String(record.id).startsWith('local')) {
-        console.log('Download fallback export:', record)
-        showToast('Mengunduh file preview...', 'success')
         return
       }
 
@@ -655,27 +543,14 @@ function ExportData({ userRole, userName, onLogout }) {
   const handleRetry = async (record) => {
     setRetryingId(record.id)
     try {
-      if (String(record.id).startsWith('fallback') || String(record.id).startsWith('local')) {
-        throw new Error('Fallback retry')
-      }
       const result = await requestJson(`/exports/${record.id}/retry`, { method: 'POST' })
       const updated = normalizeExport(result.data || result.export || result)
       updateHistoryRecord({ ...updated, status: 'processing', progress: 28 })
       pollExportStatus(updated.id)
       showToast('Export dikirim ulang ke queue.', 'success')
-    } catch {
+    } catch (retryError) {
       // TODO: Backend saat ini belum menyediakan POST /api/exports/:id/retry.
-      setHistory((current) => current.map((item) => (item.id === record.id ? { ...item, status: 'processing', progress: 45 } : item)))
-      showToast('Retry fallback berjalan. Export diproses ulang.', 'warning')
-      window.setTimeout(() => {
-        setHistory((current) =>
-          current.map((item) =>
-            item.id === record.id
-              ? { ...item, status: 'done', progress: 100, errorMsg: '', expiresAt: addDays(new Date().toISOString(), RETENTION_DAYS) }
-              : item,
-          ),
-        )
-      }, 2200)
+      showToast(retryError.message || 'Retry export belum tersedia dari API.', 'danger')
     } finally {
       setRetryingId('')
     }
@@ -873,6 +748,9 @@ function ExportData({ userRole, userName, onLogout }) {
             ) : null}
 
             <div className="export-history-list">
+              {!loading && history.length === 0 ? (
+                <div className="export-loading">Belum ada riwayat export dari backend.</div>
+              ) : null}
               {history.map((record) => {
                 const status = getStatus(record)
                 const isDone = status === 'done'

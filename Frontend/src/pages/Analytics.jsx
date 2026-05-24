@@ -14,30 +14,12 @@ import {
 import { apiRequest, getAnomalies, getDashboardSummary, getProductionBatches } from '../services/api'
 import './Analytics.css'
 
-const FALLBACK_SUMMARY = {
-  totalActiveSppg: 2847,
-  distributionsToday: 18432,
-  successRate: 94.7,
-  problematicSppg: 7,
+const EMPTY_SUMMARY = {
+  totalActiveSppg: 0,
+  distributionsToday: 0,
+  successRate: 0,
+  problematicSppg: 0,
 }
-
-const FALLBACK_COST_TREND = [
-  { label: 'H-6', costPerPortion: 9700, rawMaterialCost: 6600, operationalCost: 1300 },
-  { label: 'H-5', costPerPortion: 9820, rawMaterialCost: 6710, operationalCost: 1320 },
-  { label: 'H-4', costPerPortion: 9610, rawMaterialCost: 6420, operationalCost: 1280 },
-  { label: 'H-3', costPerPortion: 10020, rawMaterialCost: 6900, operationalCost: 1350 },
-  { label: 'H-2', costPerPortion: 9920, rawMaterialCost: 6810, operationalCost: 1330 },
-  { label: 'H-1', costPerPortion: 10150, rawMaterialCost: 7040, operationalCost: 1360 },
-  { label: 'Hari ini', costPerPortion: 9850, rawMaterialCost: 6700, operationalCost: 1310 },
-]
-
-const FALLBACK_PROVINCES = [
-  { province: 'Jawa Barat', totalDistributions: 3220 },
-  { province: 'Jawa Timur', totalDistributions: 2940 },
-  { province: 'Jawa Tengah', totalDistributions: 2680 },
-  { province: 'DKI Jakarta', totalDistributions: 980 },
-  { province: 'Sulawesi Selatan', totalDistributions: 760 },
-]
 
 function safeNumber(value) {
   const number = Number(value)
@@ -53,7 +35,7 @@ function formatRupiah(value) {
 }
 
 function normalizeBatchTrend(items) {
-  if (!Array.isArray(items) || !items.length) return FALLBACK_COST_TREND
+  if (!Array.isArray(items) || !items.length) return []
 
   return items.slice(0, 12).reverse().map((item) => ({
     label: new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short' }).format(
@@ -66,7 +48,7 @@ function normalizeBatchTrend(items) {
 }
 
 function normalizeProvinceRows(rows) {
-  if (!Array.isArray(rows) || !rows.length) return FALLBACK_PROVINCES
+  if (!Array.isArray(rows) || !rows.length) return []
   return rows.slice(0, 10).map((row) => ({
     province: row.province || '-',
     totalDistributions: safeNumber(row.total_distributions ?? row.totalDistributions ?? row.total),
@@ -84,9 +66,9 @@ function MetricCard({ icon: Icon, label, value, tone = 'primary' }) {
 }
 
 function Analytics({ userRole = 'pemerintah' }) {
-  const [summary, setSummary] = useState(FALLBACK_SUMMARY)
-  const [costTrend, setCostTrend] = useState(FALLBACK_COST_TREND)
-  const [provinceRows, setProvinceRows] = useState(FALLBACK_PROVINCES)
+  const [summary, setSummary] = useState(EMPTY_SUMMARY)
+  const [costTrend, setCostTrend] = useState([])
+  const [provinceRows, setProvinceRows] = useState([])
   const [anomalyCount, setAnomalyCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -103,7 +85,9 @@ function Analytics({ userRole = 'pemerintah' }) {
     ])
 
     if (summaryResult.status === 'fulfilled') {
-      setSummary(summaryResult.value.data || FALLBACK_SUMMARY)
+      setSummary(summaryResult.value.data || EMPTY_SUMMARY)
+    } else {
+      setSummary(EMPTY_SUMMARY)
     }
 
     if (batchResult.status === 'fulfilled') {
@@ -120,7 +104,7 @@ function Analytics({ userRole = 'pemerintah' }) {
     }
 
     if ([summaryResult, batchResult, provinceResult, anomalyResult].some((result) => result.status === 'rejected')) {
-      setError('Sebagian data analytics belum tersedia dari API. Fallback preview ditampilkan untuk bagian terkait.')
+      setError('Sebagian data analytics gagal dimuat dari API.')
     }
 
     setLoading(false)
@@ -175,6 +159,7 @@ function Analytics({ userRole = 'pemerintah' }) {
       <section className="analytics-chart-grid">
         <article className="analytics-chart-card">
           <h2>Tren Cost Per Portion</h2>
+          {!costTrend.length && !loading ? <p className="analytics-desc">Belum ada data costing dari backend.</p> : null}
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={costTrend}>
               <CartesianGrid stroke="#f4f8fb" vertical={false} />
@@ -189,6 +174,7 @@ function Analytics({ userRole = 'pemerintah' }) {
 
         <article className="analytics-chart-card">
           <h2>Distribusi per Provinsi</h2>
+          {!provinceRows.length && !loading ? <p className="analytics-desc">Belum ada data provinsi dari backend.</p> : null}
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={provinceRows} layout="vertical" margin={{ left: 16, right: 16 }}>
               <CartesianGrid stroke="#f4f8fb" horizontal={false} />

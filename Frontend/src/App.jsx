@@ -6,6 +6,7 @@ import ApiMonitoring from './pages/ApiMonitoring.jsx'
 import AuditLog from './pages/AuditLog.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Distribusi from './pages/Distribusi.jsx'
+import DapodikImport from './pages/DapodikImport.jsx'
 import ExportData from './pages/ExportData.jsx'
 import Konfirmasi from './pages/Konfirmasi.jsx'
 import Landing from './pages/Landing.jsx'
@@ -14,6 +15,7 @@ import LockUnlock from './pages/LockUnlock.jsx'
 import Login from './pages/Login.jsx'
 import OverrideData from './pages/OverrideData.jsx'
 import PetaSPPG from './pages/PetaSPPG.jsx'
+import PublicPetaSPPG from './pages/PublicPetaSPPG.jsx'
 import ProductionBatches from './pages/ProductionBatches.jsx'
 import UserManagement from './pages/UserManagement.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
@@ -35,6 +37,7 @@ const routeAccess = {
   '/lock-unlock': ['admin'],
   '/override': ['admin'],
   '/api-monitoring': ['admin'],
+  '/dapodik': ['admin'],
 }
 
 const legacyRouteRedirects = [
@@ -154,6 +157,7 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<LoginRoute />} />
+      <Route path="/peta-publik" element={<PublicPetaSPPG />} />
 
       <Route
         path="/dashboard"
@@ -248,6 +252,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={routeAccess['/users']}>
             {(props) => <UserManagement {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/dapodik"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/dapodik']}>
+            {(props) => <DapodikImport {...props} />}
           </ProtectedRoute>
         }
       />

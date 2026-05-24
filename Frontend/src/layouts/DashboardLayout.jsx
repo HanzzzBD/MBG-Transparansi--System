@@ -83,6 +83,7 @@ const pemerintahMenus = [
 
 const adminExtraMenus = [
   { label: 'Data SPPG & Sekolah', icon: Database, path: '/dashboard/master-data' },
+  { label: 'Import Dapodik', icon: Database, path: '/dapodik' },
   { label: 'User & Role', icon: Users, path: '/users' },
   { label: 'Lock / Unlock Data', icon: Lock, path: '/lock-unlock' },
   { label: 'Override Data', icon: ShieldAlert, path: '/override' },

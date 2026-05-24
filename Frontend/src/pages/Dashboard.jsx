@@ -98,169 +98,44 @@ const PROVINCES = [
   'Papua Barat',
 ]
 
-const NATIONAL_FALLBACK = {
+const EMPTY_NATIONAL_DATA = {
   summary: {
-    totalActiveSppg: 2847,
-    distributionsToday: 18432,
-    successRate: 94.7,
-    problematicSppg: 7,
+    totalActiveSppg: 0,
+    distributionsToday: 0,
+    successRate: 0,
+    problematicSppg: 0,
   },
   budget: {
     summary: {
-      total_budget: 2400000000,
+      total_budget: 0,
     },
   },
   publicReportsMeta: {
-    total: 43,
+    total: 0,
   },
-  distributionTrend: [
-    { label: 'Sen', verified: 14820, conflict: 210, pending: 920 },
-    { label: 'Sel', verified: 15340, conflict: 188, pending: 760 },
-    { label: 'Rab', verified: 16120, conflict: 176, pending: 680 },
-    { label: 'Kam', verified: 16980, conflict: 198, pending: 640 },
-    { label: 'Jum', verified: 17440, conflict: 164, pending: 590 },
-    { label: 'Sab', verified: 12880, conflict: 120, pending: 410 },
-    { label: 'Min', verified: 8420, conflict: 88, pending: 310 },
-  ],
-  successRateTrend: [
-    { label: 'H-6', successRate: 92.8 },
-    { label: 'H-5', successRate: 93.2 },
-    { label: 'H-4', successRate: 93.6 },
-    { label: 'H-3', successRate: 94.1 },
-    { label: 'H-2', successRate: 94.3 },
-    { label: 'H-1', successRate: 94.4 },
-    { label: 'Hari ini', successRate: 94.7 },
-  ],
-  provinceRanking: [
-    { province: 'Jawa Barat', totalDistributions: 3220 },
-    { province: 'Jawa Timur', totalDistributions: 2940 },
-    { province: 'Jawa Tengah', totalDistributions: 2680 },
-    { province: 'Sumatera Utara', totalDistributions: 1420 },
-    { province: 'Banten', totalDistributions: 1210 },
-    { province: 'Sulawesi Selatan', totalDistributions: 1060 },
-    { province: 'DKI Jakarta', totalDistributions: 980 },
-    { province: 'Lampung', totalDistributions: 740 },
-    { province: 'Bali', totalDistributions: 520 },
-    { province: 'Papua', totalDistributions: 410 },
-  ],
-  anomalyItems: [
-    {
-      id: 'fallback-anomaly-1',
-      sppg_name: 'SPPG Bandung Timur',
-      school_name: 'SDN Melati 01',
-      anomaly_type: 'OVER_CAPACITY',
-      created_at: new Date().toISOString(),
-      distribution_status: 'in_progress',
-    },
-    {
-      id: 'fallback-anomaly-2',
-      sppg_name: 'SPPG Semarang Barat',
-      school_name: 'SMP Negeri 12',
-      anomaly_type: 'PRICE_ANOMALY',
-      created_at: new Date().toISOString(),
-      distribution_status: 'pending',
-    },
-    {
-      id: 'fallback-anomaly-3',
-      sppg_name: 'SPPG Makassar Utara',
-      school_name: 'SD Inpres Paotere',
-      anomaly_type: 'PENDING_TIMEOUT',
-      created_at: new Date().toISOString(),
-      distribution_status: 'delivered',
-    },
-  ],
+  distributionTrend: [],
+  successRateTrend: [],
+  provinceRanking: [],
+  anomalyItems: [],
   anomalyMeta: {
-    total: 7,
+    total: 0,
   },
 }
 
-const SPPG_FALLBACK = {
-  // TODO: Ganti fallback ini dengan endpoint agregasi SPPG khusus saat backend menyediakan summary per dapur.
-  distributionsToday: [
-    {
-      id: 'sppg-row-1',
-      school: { name: 'SDN Nusantara 01' },
-      portions: 420,
-      pricePerPortion: 15000,
-      status: 'delivered',
-      distributionDate: new Date().toISOString(),
-      validation: { status: 'verified' },
-    },
-    {
-      id: 'sppg-row-2',
-      school: { name: 'SMP Negeri 5' },
-      portions: 350,
-      pricePerPortion: 15000,
-      status: 'delivered',
-      distributionDate: new Date().toISOString(),
-      validation: { status: 'pending' },
-    },
-    {
-      id: 'sppg-row-3',
-      school: { name: 'SDN Merdeka 03' },
-      portions: 280,
-      pricePerPortion: 15000,
-      status: 'in_progress',
-      distributionDate: new Date().toISOString(),
-      validation: { status: 'pending' },
-    },
-    {
-      id: 'sppg-row-4',
-      school: { name: 'MI Al Amanah' },
-      portions: 200,
-      pricePerPortion: 15000,
-      status: 'failed',
-      distributionDate: new Date().toISOString(),
-      validation: { status: 'pending' },
-    },
-  ],
-  portionsTrend: [
-    { label: 'Sen', portions: 1100 },
-    { label: 'Sel', portions: 1250 },
-    { label: 'Rab', portions: 980 },
-    { label: 'Kam', portions: 1300 },
-    { label: 'Jum', portions: 1200 },
-    { label: 'Sab', portions: 800 },
-    { label: 'Min', portions: 0 },
-  ],
+const EMPTY_SPPG_DATA = {
+  distributionsToday: [],
+  distributionsRecent: [],
+  portionsTrend: [],
 }
 
-const SCHOOL_FALLBACK = {
-  // TODO: Ganti fallback ini dengan endpoint agregasi sekolah khusus saat backend menyediakan summary per sekolah.
-  distributionsToday: [
-    {
-      id: 'school-distribution-1',
-      sppg: { name: 'SPPG Kecamatan Cempaka' },
-      portions: 450,
-      distributionDate: new Date().toISOString(),
-      status: 'delivered',
-      validation: { status: 'pending', receivedPortions: 0 },
-    },
-  ],
-  pendingValidations: [
-    {
-      id: 'validation-1',
-      distribution: {
-        sppg: { name: 'SPPG Kecamatan Cempaka' },
-        portions: 450,
-        distributionDate: new Date().toISOString(),
-      },
-      status: 'pending',
-      receivedPortions: 0,
-    },
-  ],
+const EMPTY_SCHOOL_DATA = {
+  distributionsToday: [],
+  pendingValidations: [],
+  validationsRecent: [],
   schoolReportsMeta: {
-    total: 2,
+    total: 0,
   },
-  acceptanceTrend: [
-    { label: 'H-6', received: 430 },
-    { label: 'H-5', received: 445 },
-    { label: 'H-4', received: 450 },
-    { label: 'H-3', received: 448 },
-    { label: 'H-2', received: 452 },
-    { label: 'H-1', received: 450 },
-    { label: 'Hari ini', received: 450 },
-  ],
+  acceptanceTrend: [],
 }
 
 function getDefaultDateRange() {
@@ -278,9 +153,9 @@ function toInputDate(date) {
   return date.toISOString().slice(0, 10)
 }
 
-function safeNumber(value, fallback = 0) {
+function safeNumber(value, defaultValue = 0) {
   const number = Number(value)
-  return Number.isFinite(number) ? number : fallback
+  return Number.isFinite(number) ? number : defaultValue
 }
 
 function formatNumber(value) {
@@ -384,13 +259,13 @@ function getAnalyticsParams(filters) {
   }
 }
 
-function getLabelByDate(dateValue, fallbackLabel) {
-  return dateValue ? formatChartDate(dateValue) : fallbackLabel
+function getLabelByDate(dateValue, defaultLabel) {
+  return dateValue ? formatChartDate(dateValue) : defaultLabel
 }
 
 function buildDistributionTrend(distributionRows = [], successRows = []) {
   if (!Array.isArray(distributionRows) || distributionRows.length === 0) {
-    return NATIONAL_FALLBACK.distributionTrend
+    return []
   }
 
   const successByBucket = new Map(
@@ -414,7 +289,7 @@ function buildDistributionTrend(distributionRows = [], successRows = []) {
 }
 
 function buildSuccessTrend(rows = []) {
-  if (!Array.isArray(rows) || rows.length === 0) return NATIONAL_FALLBACK.successRateTrend
+  if (!Array.isArray(rows) || rows.length === 0) return []
 
   return rows.slice(-30).map((row, index) => ({
     label: getLabelByDate(row.bucket, row.label || `H-${29 - index}`),
@@ -423,7 +298,7 @@ function buildSuccessTrend(rows = []) {
 }
 
 function buildProvinceRanking(rows = []) {
-  if (!Array.isArray(rows) || rows.length === 0) return NATIONAL_FALLBACK.provinceRanking
+  if (!Array.isArray(rows) || rows.length === 0) return []
 
   return rows.slice(0, 10).map((row) => ({
     province: row.province || '-',
@@ -455,7 +330,7 @@ function buildLastDaysSeries(days, mapper) {
 }
 
 function buildPortionsTrend(distributions = []) {
-  if (!Array.isArray(distributions) || distributions.length === 0) return SPPG_FALLBACK.portionsTrend
+  if (!Array.isArray(distributions) || distributions.length === 0) return []
 
   const portionsByDate = distributions.reduce((accumulator, item) => {
     const dateKey = getDateKey(item.distributionDate)
@@ -469,7 +344,7 @@ function buildPortionsTrend(distributions = []) {
 }
 
 function buildSchoolAcceptanceTrend(validations = []) {
-  if (!Array.isArray(validations) || validations.length === 0) return SCHOOL_FALLBACK.acceptanceTrend
+  if (!Array.isArray(validations) || validations.length === 0) return []
 
   const receivedByDate = validations.reduce((accumulator, item) => {
     const dateKey = getDateKey(item.validatedAt || item.distribution?.distributionDate || item.createdAt)
@@ -501,36 +376,30 @@ function getAnomalyClass(type) {
 function makeInitialData(role) {
   if (role === 'sppg') {
     return {
-      distributionsToday: SPPG_FALLBACK.distributionsToday,
-      distributionsRecent: SPPG_FALLBACK.distributionsToday,
-      portionsTrend: SPPG_FALLBACK.portionsTrend,
-      usingFallback: true,
+      ...EMPTY_SPPG_DATA,
+      hasRequestError: false,
     }
   }
 
   if (role === 'sekolah') {
     return {
-      distributionsToday: SCHOOL_FALLBACK.distributionsToday,
-      pendingValidations: SCHOOL_FALLBACK.pendingValidations,
-      validationsRecent: SCHOOL_FALLBACK.pendingValidations,
-      schoolReportsMeta: SCHOOL_FALLBACK.schoolReportsMeta,
-      acceptanceTrend: SCHOOL_FALLBACK.acceptanceTrend,
-      usingFallback: true,
+      ...EMPTY_SCHOOL_DATA,
+      hasRequestError: false,
     }
   }
 
   return {
-    ...NATIONAL_FALLBACK,
-    usingFallback: true,
+    ...EMPTY_NATIONAL_DATA,
+    hasRequestError: false,
   }
 }
 
 function buildNationalData(results) {
-  const summary = results.summary?.ok ? results.summary.value.data : NATIONAL_FALLBACK.summary
+  const summary = results.summary?.ok ? results.summary.value.data : EMPTY_NATIONAL_DATA.summary
   const distributionRows = results.distributionTrend?.ok ? results.distributionTrend.value.data : []
   const successPayload = results.successRate?.ok ? results.successRate.value.data : {}
   const successRows = Array.isArray(successPayload.timeSeries) ? successPayload.timeSeries : []
-  const budget = results.budget?.ok ? results.budget.value.data : NATIONAL_FALLBACK.budget
+  const budget = results.budget?.ok ? results.budget.value.data : EMPTY_NATIONAL_DATA.budget
   const provinceRows = results.byProvince?.ok ? results.byProvince.value.data : []
   const anomalyPayload = results.anomaly?.ok ? results.anomaly.value.data : {}
 
@@ -538,16 +407,16 @@ function buildNationalData(results) {
     summary,
     budget,
     publicReports: results.publicReports?.ok ? results.publicReports.value.data : [],
-    publicReportsMeta: results.publicReports?.ok ? results.publicReports.value.meta : NATIONAL_FALLBACK.publicReportsMeta,
+    publicReportsMeta: results.publicReports?.ok ? results.publicReports.value.meta : EMPTY_NATIONAL_DATA.publicReportsMeta,
     distributionTrend: buildDistributionTrend(distributionRows, successRows),
     successRateTrend: buildSuccessTrend(successRows),
     provinceRanking: buildProvinceRanking(provinceRows),
     anomalyItems:
       Array.isArray(anomalyPayload.items) && anomalyPayload.items.length
         ? anomalyPayload.items
-        : NATIONAL_FALLBACK.anomalyItems,
-    anomalyMeta: results.anomaly?.ok ? results.anomaly.value.meta : NATIONAL_FALLBACK.anomalyMeta,
-    usingFallback: Object.values(results).some((result) => !result.ok),
+        : [],
+    anomalyMeta: results.anomaly?.ok ? results.anomaly.value.meta : EMPTY_NATIONAL_DATA.anomalyMeta,
+    hasRequestError: Object.values(results).some((result) => !result.ok),
   }
 }
 
@@ -555,7 +424,7 @@ function buildSppgData(results) {
   const distributionsToday =
     results.distributionsToday?.ok && Array.isArray(results.distributionsToday.value.data)
       ? results.distributionsToday.value.data
-      : SPPG_FALLBACK.distributionsToday
+      : []
   const distributionsRecent =
     results.distributionsRecent?.ok && Array.isArray(results.distributionsRecent.value.data)
       ? results.distributionsRecent.value.data
@@ -565,7 +434,7 @@ function buildSppgData(results) {
     distributionsToday,
     distributionsRecent,
     portionsTrend: buildPortionsTrend(distributionsRecent),
-    usingFallback: Object.values(results).some((result) => !result.ok),
+    hasRequestError: Object.values(results).some((result) => !result.ok),
   }
 }
 
@@ -573,11 +442,11 @@ function buildSchoolData(results) {
   const distributionsToday =
     results.distributionsToday?.ok && Array.isArray(results.distributionsToday.value.data)
       ? results.distributionsToday.value.data
-      : SCHOOL_FALLBACK.distributionsToday
+      : []
   const pendingValidations =
     results.pendingValidations?.ok && Array.isArray(results.pendingValidations.value.data)
       ? results.pendingValidations.value.data
-      : SCHOOL_FALLBACK.pendingValidations
+      : []
   const validationsRecent =
     results.validationsRecent?.ok && Array.isArray(results.validationsRecent.value.data)
       ? results.validationsRecent.value.data
@@ -588,9 +457,9 @@ function buildSchoolData(results) {
     pendingValidations,
     validationsRecent,
     schoolReports: results.schoolReports?.ok ? results.schoolReports.value.data : [],
-    schoolReportsMeta: results.schoolReports?.ok ? results.schoolReports.value.meta : SCHOOL_FALLBACK.schoolReportsMeta,
+    schoolReportsMeta: results.schoolReports?.ok ? results.schoolReports.value.meta : EMPTY_SCHOOL_DATA.schoolReportsMeta,
     acceptanceTrend: buildSchoolAcceptanceTrend(validationsRecent),
-    usingFallback: Object.values(results).some((result) => !result.ok),
+    hasRequestError: Object.values(results).some((result) => !result.ok),
   }
 }
 
@@ -609,9 +478,9 @@ function getRoleSubtitle(role) {
 }
 
 function getNationalKpis(data) {
-  const anomalyTotal = data.anomalyMeta?.total ?? data.summary?.problematicSppg ?? NATIONAL_FALLBACK.anomalyMeta.total
+  const anomalyTotal = data.anomalyMeta?.total ?? data.summary?.problematicSppg ?? 0
   const publicReportTotal =
-    data.publicReportsMeta?.total ?? data.publicReports?.length ?? NATIONAL_FALLBACK.publicReportsMeta.total
+    data.publicReportsMeta?.total ?? data.publicReports?.length ?? 0
 
   return [
     {
@@ -1253,7 +1122,7 @@ function Dashboard({ userRole, userName, onLogout }) {
 
           setDashboardData(buildNationalData(results))
           if (Object.values(results).some((result) => !result.ok)) {
-            setError('Sebagian data nasional gagal dimuat dari API. Fallback preview ditampilkan untuk bagian yang belum tersedia.')
+            setError('Sebagian data nasional gagal dimuat dari API. Periksa koneksi backend atau filter yang dipakai.')
           }
           return
         }
@@ -1272,7 +1141,7 @@ function Dashboard({ userRole, userName, onLogout }) {
 
           setDashboardData(buildSppgData(results))
           if (Object.values(results).some((result) => !result.ok)) {
-            setError('Data operasional SPPG belum lengkap dari API. Fallback preview ditampilkan sementara.')
+            setError('Data operasional SPPG gagal dimuat dari API.')
           }
           return
         }
@@ -1298,7 +1167,7 @@ function Dashboard({ userRole, userName, onLogout }) {
 
         setDashboardData(buildSchoolData(results))
         if (Object.values(results).some((result) => !result.ok)) {
-          setError('Data validasi sekolah belum lengkap dari API. Fallback preview ditampilkan sementara.')
+          setError('Data validasi sekolah gagal dimuat dari API.')
         }
       } catch (fetchError) {
         if (fetchError.name !== 'AbortError') {
@@ -1329,11 +1198,11 @@ function Dashboard({ userRole, userName, onLogout }) {
 
   const notifCount = useMemo(() => {
     if (normalizedRole === 'sppg') {
-      return (dashboardData.distributionsToday || []).filter((item) => item.validation?.status === 'pending').length || 3
+      return (dashboardData.distributionsToday || []).filter((item) => item.validation?.status === 'pending').length
     }
 
     if (normalizedRole === 'sekolah') {
-      return (dashboardData.pendingValidations || []).length || 1
+      return (dashboardData.pendingValidations || []).length
     }
 
     return dashboardData.anomalyMeta?.total || dashboardData.summary?.problematicSppg || 0
@@ -1369,7 +1238,7 @@ function Dashboard({ userRole, userName, onLogout }) {
           </div>
           <div className="dashboard-header-meta">
             <Database aria-hidden="true" />
-            <span>{dashboardData.usingFallback ? 'API parsial + fallback' : 'Data backend aktif'}</span>
+            <span>{dashboardData.hasRequestError ? 'Data backend parsial' : 'Data backend aktif'}</span>
           </div>
         </header>
 
@@ -1450,7 +1319,7 @@ function Dashboard({ userRole, userName, onLogout }) {
                     render: (row) => <StatusBadge status={row.status} />,
                   },
                 ]}
-                rows={(dashboardData.validationsRecent || SCHOOL_FALLBACK.pendingValidations).slice(0, 5)}
+                rows={(dashboardData.validationsRecent || []).slice(0, 5)}
                 emptyText="Riwayat validasi belum tersedia."
               />
             </div>

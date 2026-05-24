@@ -92,72 +92,6 @@ const PROVINCES = [
   'Papua Barat',
 ]
 
-const FALLBACK_REPORTS = [
-  ['RPT-1001', 'Anonim', 'kualitas_makanan', 'Jawa Barat', 'Bandung', 'Makanan yang diterima berbau kurang segar dan beberapa lauk terlihat berubah warna.', 'baru'],
-  ['RPT-1002', 'Siti Aminah', 'keterlambatan', 'DKI Jakarta', 'Jakarta Timur', 'Distribusi makanan terlambat hampir dua jam dari jadwal makan siang sekolah.', 'ditinjau'],
-  ['RPT-1003', '', 'kekurangan_porsi', 'Jawa Timur', 'Surabaya', 'Jumlah porsi yang datang kurang sekitar 35 paket dari kebutuhan siswa hari ini.', 'ditindak'],
-  ['RPT-1004', 'Budi Santoso', 'lainnya', 'Sulawesi Selatan', 'Makassar', 'Kemasan makanan beberapa kali datang dalam kondisi rusak dan sulit ditata ulang.', 'ditutup'],
-  ['RPT-1005', 'Maya Putri', 'kualitas_makanan', 'Bali', 'Denpasar', 'Sayur terlihat terlalu matang dan sebagian siswa mengeluhkan rasa yang berubah.', 'baru'],
-  ['RPT-1006', '', 'keterlambatan', 'Sumatera Utara', 'Medan', 'Makanan baru tiba setelah kegiatan belajar selesai sehingga harus dibagikan terlambat.', 'ditinjau'],
-  ['RPT-1007', 'Rina Hartati', 'kekurangan_porsi', 'Papua', 'Jayapura', 'Porsi kelas 4 dan 5 tidak lengkap, sekolah harus membagi ulang makanan yang tersedia.', 'baru'],
-  ['RPT-1008', 'Anonim', 'kualitas_makanan', 'Jawa Tengah', 'Semarang', 'Ada beberapa paket yang nasinya terlalu keras dan tidak layak dimakan anak-anak.', 'ditindak'],
-  ['RPT-1009', 'Yusuf Ramadhan', 'lainnya', 'Kalimantan Timur', 'Balikpapan', 'Petugas distribusi tidak membawa daftar penerima sehingga validasi sekolah tertunda.', 'ditutup'],
-  ['RPT-1010', '', 'keterlambatan', 'Nusa Tenggara Timur', 'Kupang', 'Pengiriman terlambat karena kendaraan tidak datang sesuai jadwal yang disampaikan.', 'baru'],
-  ['RPT-1011', 'Dewi Lestari', 'kualitas_makanan', 'Banten', 'Serang', 'Lauk ayam masih kurang matang di beberapa kotak makanan.', 'ditinjau'],
-  ['RPT-1012', 'Anonim', 'kekurangan_porsi', 'Riau', 'Pekanbaru', 'Porsi untuk rombongan belajar tambahan tidak ikut terkirim.', 'ditindak'],
-  ['RPT-1013', 'Agus Wijaya', 'lainnya', 'Kalimantan Barat', 'Pontianak', 'Sekolah belum menerima informasi perubahan menu harian dari SPPG.', 'baru'],
-  ['RPT-1014', '', 'keterlambatan', 'Sulawesi Utara', 'Manado', 'Distribusi terlambat tiga puluh menit dan tidak ada pemberitahuan sebelumnya.', 'ditutup'],
-  ['RPT-1015', 'Lina Marlina', 'kualitas_makanan', 'Maluku', 'Ambon', 'Buah yang dibagikan sebagian sudah terlalu matang dan lembek.', 'ditinjau'],
-].map((item, index) => ({
-  id: item[0],
-  reporterName: item[1],
-  category: item[2],
-  province: item[3],
-  city: item[4],
-  message: item[5],
-  status: item[6],
-  contact: index % 4 === 0 ? '0812-0000-0000' : '',
-  followUpNote: index % 3 === 0 ? 'Sudah diteruskan ke koordinator wilayah untuk verifikasi.' : '',
-  updatedBy: index % 3 === 0 ? 'Admin Nasional' : '',
-  updatedAt: index % 3 === 0 ? new Date(Date.now() - index * 86400000).toISOString() : '',
-  createdAt: new Date(Date.now() - index * 86400000).toISOString(),
-}))
-
-const FALLBACK_CATEGORY_COUNTS = {
-  kualitas_makanan: 89,
-  keterlambatan: 67,
-  kekurangan_porsi: 52,
-  lainnya: 39,
-}
-
-const FALLBACK_TOP_REGIONS = [
-  ['Bandung', 'Jawa Barat', 38],
-  ['Jakarta Timur', 'DKI Jakarta', 35],
-  ['Surabaya', 'Jawa Timur', 31],
-  ['Medan', 'Sumatera Utara', 27],
-  ['Makassar', 'Sulawesi Selatan', 24],
-  ['Semarang', 'Jawa Tengah', 21],
-  ['Denpasar', 'Bali', 19],
-  ['Jayapura', 'Papua', 17],
-  ['Balikpapan', 'Kalimantan Timur', 15],
-  ['Kupang', 'Nusa Tenggara Timur', 12],
-].map(([city, province, totalReports]) => ({ city, province, totalReports }))
-
-function buildFallbackTrend() {
-  const today = new Date()
-  return Array.from({ length: 30 }, (_, index) => {
-    const date = new Date(today)
-    date.setDate(today.getDate() - (29 - index))
-    return {
-      date: new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short' }).format(date),
-      kualitas_makanan: 1 + ((index * 3) % 7),
-      keterlambatan: 1 + ((index * 2) % 6),
-      kekurangan_porsi: index % 5,
-      lainnya: index % 4,
-    }
-  })
-}
-
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
   return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
@@ -214,15 +148,14 @@ function normalizeReport(item) {
   }
 }
 
-function normalizeSummary(data, fallbackRows) {
+function normalizeSummary(data) {
   const byCategory = data?.byCategory || data?.by_category || null
-  const currentMonth = new Date().toISOString().slice(0, 7)
   return {
-    totalReports: Number(data?.totalReports ?? data?.total_reports ?? fallbackRows.length),
-    thisMonth: Number(data?.thisMonth ?? data?.this_month ?? (fallbackRows.filter((item) => item.createdAt?.slice(0, 7) === currentMonth).length || 43)),
-    needFollowUp: Number(data?.needFollowUp ?? data?.need_follow_up ?? fallbackRows.filter((item) => ['baru', 'ditinjau'].includes(item.status)).length),
+    totalReports: Number(data?.totalReports ?? data?.total_reports ?? 0),
+    thisMonth: Number(data?.thisMonth ?? data?.this_month ?? 0),
+    needFollowUp: Number(data?.needFollowUp ?? data?.need_follow_up ?? 0),
     byCategory: byCategory || CATEGORY_OPTIONS.reduce((result, item) => {
-      result[item.value] = fallbackRows.filter((report) => report.category === item.value).length || FALLBACK_CATEGORY_COUNTS[item.value]
+      result[item.value] = 0
       return result
     }, {}),
   }
@@ -285,9 +218,9 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
   const canAccess = ['admin', 'pemerintah'].includes(resolvedRole)
 
   const [reports, setReports] = useState([])
-  const [summary, setSummary] = useState(normalizeSummary(null, FALLBACK_REPORTS))
-  const [trendRows, setTrendRows] = useState(buildFallbackTrend())
-  const [topRegions, setTopRegions] = useState(FALLBACK_TOP_REGIONS)
+  const [summary, setSummary] = useState(normalizeSummary(null))
+  const [trendRows, setTrendRows] = useState([])
+  const [topRegions, setTopRegions] = useState([])
   const [filters, setFilters] = useState({
     category: '',
     province: '',
@@ -305,8 +238,6 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
   const [followUpNote, setFollowUpNote] = useState('')
   const [fieldError, setFieldError] = useState('')
   const [submitLoading, setSubmitLoading] = useState(false)
-
-  const fallbackFiltered = useMemo(() => applyLocalFilters(FALLBACK_REPORTS, filters), [filters])
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
@@ -340,9 +271,8 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
       const normalized = applyLocalFilters(items.map(normalizeReport), filters)
 
       if (!normalized.length) {
-        setReports(fallbackFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
-        setTotal(fallbackFiltered.length)
-        setError('Data laporan masyarakat API kosong. Fallback preview ditampilkan sementara.')
+        setReports([])
+        setTotal(0)
         return
       }
 
@@ -350,14 +280,14 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
       setTotal(result.meta?.total || normalized.length)
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
-        setReports(fallbackFiltered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
-        setTotal(fallbackFiltered.length)
-        setError('Laporan masyarakat gagal dimuat dari API. Fallback preview ditampilkan.')
+        setReports([])
+        setTotal(0)
+        setError(fetchError.message || 'Laporan masyarakat gagal dimuat dari API.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
     }
-  }, [canAccess, fallbackFiltered, filters, page])
+  }, [canAccess, filters, page])
 
   const fetchSummary = useCallback(async (signal) => {
     if (!canAccess) return
@@ -368,9 +298,9 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
       } catch {
         result = await requestJson('/analytics/public-reports-summary', { signal })
       }
-      setSummary(normalizeSummary(result.data, FALLBACK_REPORTS))
+      setSummary(normalizeSummary(result.data))
     } catch {
-      setSummary(normalizeSummary(null, FALLBACK_REPORTS))
+      setSummary(normalizeSummary(null))
     }
   }, [canAccess])
 
@@ -383,16 +313,16 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
 
     if (trendResult.status === 'fulfilled') {
       const normalized = normalizeTrendRows(Array.isArray(trendResult.value.data) ? trendResult.value.data : trendResult.value.data?.items)
-      setTrendRows(normalized.length ? normalized : buildFallbackTrend())
+      setTrendRows(normalized)
     } else {
-      setTrendRows(buildFallbackTrend())
+      setTrendRows([])
     }
 
     if (topResult.status === 'fulfilled') {
       const normalized = normalizeTopRegions(Array.isArray(topResult.value.data) ? topResult.value.data : topResult.value.data?.items)
-      setTopRegions(normalized.length ? normalized : FALLBACK_TOP_REGIONS)
+      setTopRegions(normalized)
     } else {
-      setTopRegions(FALLBACK_TOP_REGIONS)
+      setTopRegions([])
     }
   }, [canAccess])
 
@@ -461,22 +391,6 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
     })
   }
 
-  const updateLocalReport = (report, status, note) => {
-    const updated = {
-      ...report,
-      status,
-      followUpNote: note,
-      updatedBy: displayName,
-      updatedAt: new Date().toISOString(),
-    }
-    setReports((current) => current.map((item) => (item.id === report.id ? updated : item)))
-    setSelectedReport(updated)
-    setSummary((current) => ({
-      ...current,
-      needFollowUp: Math.max(0, current.needFollowUp + (['baru', 'ditinjau'].includes(report.status) && !['baru', 'ditinjau'].includes(status) ? -1 : 0)),
-    }))
-  }
-
   const submitStatusUpdate = async (status = targetStatus, report = selectedReport) => {
     if (!report) return
     if (!status) {
@@ -499,14 +413,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
       closeDetail()
       fetchSummary(new AbortController().signal)
     } catch (statusError) {
-      if (import.meta.env.DEV) {
-        // TODO: Backend saat ini belum memiliki kolom status/follow-up pada public_reports.
-        updateLocalReport(report, status, followUpNote.trim())
-        showToast('Endpoint status belum tersedia penuh. Fallback development memperbarui state lokal.', 'warning')
-        closeDetail()
-      } else {
-        showToast(statusError.message || 'Status laporan gagal diperbarui.', 'danger')
-      }
+      showToast(statusError.message || 'Status laporan gagal diperbarui.', 'danger')
     } finally {
       setSubmitLoading(false)
     }
@@ -616,7 +523,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
             >
               <span className={`laporan-category-icon ${category.className}`} />
               <span className="laporan-category-title">{category.label}</span>
-              <strong className="laporan-category-value">{formatNumber(summary.byCategory?.[category.value] ?? FALLBACK_CATEGORY_COUNTS[category.value])}</strong>
+              <strong className="laporan-category-value">{formatNumber(summary.byCategory?.[category.value] ?? 0)}</strong>
             </button>
           ))}
         </section>
@@ -651,6 +558,11 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
                 </tr>
               </thead>
               <tbody>
+                {!loading && reports.length === 0 ? (
+                  <tr>
+                    <td colSpan="9">Belum ada laporan masyarakat untuk filter ini.</td>
+                  </tr>
+                ) : null}
                 {reports.map((report) => (
                   <tr key={report.id}>
                     <td><strong>#{report.id}</strong></td>
@@ -702,32 +614,40 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
         <section className="laporan-chart-grid">
           <article className="laporan-chart-card">
             <h2 className="laporan-chart-title">Tren Laporan Masuk 30 Hari</h2>
-            <ResponsiveContainer width="100%" height={320}>
-              <AreaChart data={trendRows}>
-                <CartesianGrid stroke="#f4f8fb" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip />
-                <Legend />
-                <Area type="monotone" dataKey="kualitas_makanan" name="Kualitas Makanan" stroke="#f97316" fill="#f97316" fillOpacity={0.14} />
-                <Area type="monotone" dataKey="keterlambatan" name="Keterlambatan" stroke="#9b1c1c" fill="#9b1c1c" fillOpacity={0.12} />
-                <Area type="monotone" dataKey="kekurangan_porsi" name="Kekurangan Porsi" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.18} />
-                <Area type="monotone" dataKey="lainnya" name="Lainnya" stroke="#6b7280" fill="#6b7280" fillOpacity={0.12} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {trendRows.length ? (
+              <ResponsiveContainer width="100%" height={320}>
+                <AreaChart data={trendRows}>
+                  <CartesianGrid stroke="#f4f8fb" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <Tooltip />
+                  <Legend />
+                  <Area type="monotone" dataKey="kualitas_makanan" name="Kualitas Makanan" stroke="#f97316" fill="#f97316" fillOpacity={0.14} />
+                  <Area type="monotone" dataKey="keterlambatan" name="Keterlambatan" stroke="#9b1c1c" fill="#9b1c1c" fillOpacity={0.12} />
+                  <Area type="monotone" dataKey="kekurangan_porsi" name="Kekurangan Porsi" stroke="#fbbf24" fill="#fbbf24" fillOpacity={0.18} />
+                  <Area type="monotone" dataKey="lainnya" name="Lainnya" stroke="#6b7280" fill="#6b7280" fillOpacity={0.12} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="laporan-loading">Belum ada data tren laporan dari backend.</div>
+            )}
           </article>
 
           <article className="laporan-chart-card">
             <h2 className="laporan-chart-title">Wilayah dengan Laporan Terbanyak</h2>
-            <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={topRegions} layout="vertical" margin={{ left: 18, right: 16 }}>
-                <CartesianGrid stroke="#f4f8fb" horizontal={false} />
-                <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis type="category" dataKey="city" width={92} tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
-                <Tooltip formatter={(value, name, item) => [`${formatNumber(value)} laporan`, `${item.payload.city}, ${item.payload.province}`]} />
-                <Bar dataKey="totalReports" name="Jumlah Laporan" fill="#0f4c81" radius={[0, 8, 8, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {topRegions.length ? (
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={topRegions} layout="vertical" margin={{ left: 18, right: 16 }}>
+                  <CartesianGrid stroke="#f4f8fb" horizontal={false} />
+                  <XAxis type="number" tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="city" width={92} tick={{ fill: '#6b7280', fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <Tooltip formatter={(value, name, item) => [`${formatNumber(value)} laporan`, `${item.payload.city}, ${item.payload.province}`]} />
+                  <Bar dataKey="totalReports" name="Jumlah Laporan" fill="#0f4c81" radius={[0, 8, 8, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="laporan-loading">Belum ada data wilayah dari backend.</div>
+            )}
           </article>
         </section>
 

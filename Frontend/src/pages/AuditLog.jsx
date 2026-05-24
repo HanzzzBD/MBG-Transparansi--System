@@ -34,53 +34,6 @@ const ACTION_LABELS = {
   OVERRIDE: 'Override Data',
 }
 
-const FALLBACK_ROWS = [
-  ['Ahmad Suryanto', 'UPDATE', 'Data', 'SDN 1 Jakarta Pusat', 'LOW', { totalStudents: 445 }, { totalStudents: 450 }],
-  ['Siti Nurhaliza', 'INSERT', 'User', 'dewi.l@mbg.go.id', 'MEDIUM', null, { role: 'Viewer', status: 'Active' }],
-  ['Ahmad Suryanto', 'LOCK', 'Security', 'SMPN 5 Jakarta Selatan', 'HIGH', { status: 'Editable' }, { status: 'Locked' }],
-  ['Budi Santoso', 'OVERRIDE', 'Security', 'SMAN 8 Jakarta Barat', 'HIGH', { locked: true }, { forcedUpdate: true }],
-  ['Dewi Lestari', 'LOGIN', 'Security', 'admin@mbg.go.id', 'LOW', null, { status: 'success' }],
-  ['Raka Pratama', 'LOGOUT', 'Security', 'gov@mbg.go.id', 'LOW', { session: 'active' }, { session: 'closed' }],
-  ['Maya Putri', 'UPDATE', 'Data', 'SPPG Bandung Selatan', 'LOW', { capacity: 1200 }, { capacity: 1500 }],
-  ['Admin Nasional', 'DELETE', 'Data', 'Sekolah Demo Soft Delete', 'MEDIUM', { deletedAt: null }, { deletedAt: '2026-05-04T08:10:00Z' }],
-  ['Petugas SPPG', 'INSERT', 'Data', 'Production Batch #204', 'LOW', null, { totalPortions: 1250, costPerPortion: 11200 }],
-  ['Admin Nasional', 'UPDATE', 'System', 'RAW_MATERIAL_PRICE_ANOMALY #88', 'MEDIUM', { isResolved: false }, { isResolved: true }],
-  ['Admin Nasional', 'UPDATE', 'System', 'PRICE_ANOMALY #91', 'HIGH', { isResolved: false }, { isResolved: true }],
-  ['Siti Nurhaliza', 'UNLOCK', 'Security', 'Distribution #152', 'MEDIUM', { isLocked: true }, { isLocked: false }],
-  ['Ahmad Suryanto', 'UPDATE', 'Data', 'Menu Harian #72', 'LOW', { calories: 630 }, { calories: 650 }],
-  ['Budi Santoso', 'INSERT', 'Data', 'SPPG Jayapura Abepura', 'LOW', null, { province: 'Papua', status: 'active' }],
-  ['Dewi Lestari', 'UPDATE', 'User', 'operator.sppg@mbg.go.id', 'MEDIUM', { role: 'umum' }, { role: 'sppg' }],
-  ['Maya Putri', 'LOCK', 'Security', 'Price Threshold Jawa Barat', 'HIGH', { editable: true }, { editable: false }],
-  ['Admin Nasional', 'OVERRIDE', 'Security', 'Distribution #180', 'HIGH', { pricePerPortion: 12000 }, { pricePerPortion: 15000 }],
-  ['Raka Pratama', 'UPDATE', 'Data', 'School Report #44', 'LOW', { status: 'pending' }, { status: 'reviewed' }],
-  ['Petugas SPPG', 'INSERT', 'Data', 'Proof Distribusi #77', 'LOW', null, { file: 'proof-77.jpg' }],
-  ['Siti Nurhaliza', 'DELETE', 'User', 'inactive.user@mbg.go.id', 'MEDIUM', { isActive: true }, { isActive: false }],
-  ['Ahmad Suryanto', 'UPDATE', 'Data', 'Production Batch Item Beras Medium', 'LOW', { unitPrice: 14500 }, { unitPrice: 15000 }],
-  ['Admin Nasional', 'LOGIN', 'Security', 'admin@mbg.go.id', 'MEDIUM', null, { status: 'success', ipAddress: '127.0.0.1' }],
-  ['Budi Santoso', 'LOGOUT', 'Security', 'pemerintah@mbg.go.id', 'LOW', { session: 'active' }, { session: 'closed' }],
-  ['Maya Putri', 'UPDATE', 'System', 'System Config raw_material_price_anomaly_percent', 'HIGH', { value: 25 }, { value: 30 }],
-  ['Dewi Lestari', 'INSERT', 'Data', 'Food Prices 2026-05-18', 'LOW', null, { records: 2014, source: 'SP2KP Kemendag' }],
-].map((item, index) => ({
-  id: `fallback-${index + 1}`,
-  timestamp: new Date(Date.UTC(2026, 4, 4, 10, 30 - index, 15)).toISOString(),
-  user: item[0],
-  userRole: index % 3 === 0 ? 'admin' : index % 3 === 1 ? 'pemerintah' : 'sppg',
-  action: item[1],
-  actionLabel: ACTION_LABELS[item[1]] || item[1],
-  category: item[2],
-  target: item[3],
-  targetTable: item[3].split(' ')[0].toLowerCase(),
-  recordId: index + 100,
-  changes: '',
-  severity: item[4],
-  ipAddress: `192.168.1.${index + 10}`,
-  userAgent: 'Mozilla/5.0 MBG Dashboard',
-  description: `${ACTION_LABELS[item[1]] || item[1]} pada ${item[3]}`,
-  oldData: item[5],
-  newData: item[6],
-  metadata: index % 5 === 0 ? { source: 'fallback-preview' } : null,
-}))
-
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
   return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
@@ -188,22 +141,6 @@ function normalizeAuditRow(item) {
   }
 }
 
-function applyLocalFilters(rows, filters) {
-  return rows.filter((row) => {
-    const keyword = filters.search.trim().toLowerCase()
-    const timestamp = new Date(row.timestamp)
-    const dateFrom = filters.dateFrom ? new Date(`${filters.dateFrom}T00:00:00`) : null
-    const dateTo = filters.dateTo ? new Date(`${filters.dateTo}T23:59:59`) : null
-    const matchesSearch = !keyword || [row.user, row.action, row.target, row.changes].some((value) => String(value).toLowerCase().includes(keyword))
-    const matchesAction = !filters.action || row.action === filters.action
-    const matchesCategory = !filters.category || row.category === filters.category
-    const matchesSeverity = !filters.severity || row.severity === filters.severity
-    const matchesFrom = !dateFrom || timestamp >= dateFrom
-    const matchesTo = !dateTo || timestamp <= dateTo
-    return matchesSearch && matchesAction && matchesCategory && matchesSeverity && matchesFrom && matchesTo
-  })
-}
-
 function prettyJson(data) {
   return JSON.stringify(sanitizeAuditData(data || {}), null, 2)
 }
@@ -217,7 +154,7 @@ function AuditLog({ userRole, userName, onLogout }) {
   const isAdmin = resolvedRole === 'admin'
 
   const [rows, setRows] = useState([])
-  const [summary, setSummary] = useState({ totalToday: 47, highSeverity: 3, activeUsers: 8 })
+  const [summary, setSummary] = useState({ totalToday: 0, highSeverity: 0, activeUsers: 0 })
   const [filters, setFilters] = useState({
     search: '',
     action: '',
@@ -280,20 +217,17 @@ function AuditLog({ userRole, userName, onLogout }) {
       const normalized = items.map(normalizeAuditRow)
 
       if (!normalized.length) {
-        const fallback = applyLocalFilters(FALLBACK_ROWS.map(normalizeAuditRow), filters)
-        setRows(fallback.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
-        setTotal(fallback.length)
-        setError('Data audit log API kosong. Fallback preview ditampilkan sementara.')
+        setRows([])
+        setTotal(0)
       } else {
         setRows(normalized)
         setTotal(result.meta?.total || normalized.length)
       }
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
-        const fallback = applyLocalFilters(FALLBACK_ROWS.map(normalizeAuditRow), filters)
-        setRows(fallback.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
-        setTotal(fallback.length)
-        setError('Audit log gagal dimuat dari API. Fallback preview ditampilkan.')
+        setRows([])
+        setTotal(0)
+        setError(fetchError.message || 'Audit log gagal dimuat dari API.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
@@ -309,13 +243,7 @@ function AuditLog({ userRole, userName, onLogout }) {
         activeUsers: Number(result.data.activeUsers ?? result.data.active_users ?? 0),
       })
     } catch {
-      const today = new Date().toISOString().slice(0, 10)
-      const fallback = FALLBACK_ROWS.map(normalizeAuditRow)
-      setSummary({
-        totalToday: fallback.filter((row) => row.timestamp.slice(0, 10) === today).length || 47,
-        highSeverity: fallback.filter((row) => row.severity === 'HIGH').length,
-        activeUsers: new Set(fallback.map((row) => row.user)).size,
-      })
+      setSummary({ totalToday: 0, highSeverity: 0, activeUsers: 0 })
     }
   }, [])
 
@@ -366,11 +294,7 @@ function AuditLog({ userRole, userName, onLogout }) {
       })
       showToast('Export log siap diproses. Cek menu Export Data.', 'success')
     } catch (exportError) {
-      if (import.meta.env.DEV) {
-        showToast('Endpoint export belum tersedia penuh. Fallback export log siap diproses.', 'warning')
-      } else {
-        showToast(exportError.message || 'Export log gagal.', 'danger')
-      }
+      showToast(exportError.message || 'Export log gagal.', 'danger')
     } finally {
       setExportLoading(false)
     }
@@ -378,8 +302,6 @@ function AuditLog({ userRole, userName, onLogout }) {
 
   const handleOpenDetail = async (row) => {
     setSelectedLog(row)
-
-    if (String(row.id).startsWith('fallback-')) return
 
     try {
       const result = await requestJson(`/audit-logs/${row.id}`)
@@ -535,6 +457,11 @@ function AuditLog({ userRole, userName, onLogout }) {
                 </tr>
               </thead>
               <tbody>
+                {!loading && rows.length === 0 ? (
+                  <tr>
+                    <td colSpan="8">Belum ada audit log untuk filter ini.</td>
+                  </tr>
+                ) : null}
                 {rows.map((row) => {
                   const expanded = expandedId === row.id
                   return (

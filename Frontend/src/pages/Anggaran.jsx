@@ -31,53 +31,14 @@ import DashboardLayout from '../layouts/DashboardLayout.jsx'
 import { apiRequest as requestJson } from '../services/api'
 import './Anggaran.css'
 
-const FALLBACK_PROVINCE_PRICES = [
-  { province: 'DKI Jakarta', minHarga: 9500, maxHarga: 14200, avgHarga: 11800, thresholdMin: 8000, thresholdMax: 15000 },
-  { province: 'Jawa Barat', minHarga: 8200, maxHarga: 12800, avgHarga: 9900, thresholdMin: 7000, thresholdMax: 13000 },
-  { province: 'Jawa Tengah', minHarga: 7800, maxHarga: 11200, avgHarga: 9100, thresholdMin: 7000, thresholdMax: 12000 },
-  { province: 'Jawa Timur', minHarga: 8000, maxHarga: 13500, avgHarga: 10200, thresholdMin: 7000, thresholdMax: 10000 },
-  { province: 'Papua', minHarga: 12000, maxHarga: 19800, avgHarga: 18500, thresholdMin: 9000, thresholdMax: 16000 },
-  { province: 'Kalimantan Timur', minHarga: 9000, maxHarga: 15000, avgHarga: 11200, thresholdMin: 8000, thresholdMax: 15000 },
-  { province: 'Sulawesi Selatan', minHarga: 8500, maxHarga: 13000, avgHarga: 9800, thresholdMin: 7000, thresholdMax: 13000 },
-  { province: 'Sumatra Utara', minHarga: 8000, maxHarga: 12500, avgHarga: 9500, thresholdMin: 7000, thresholdMax: 13000 },
-  { province: 'Bali', minHarga: 9500, maxHarga: 14500, avgHarga: 12000, thresholdMin: 9000, thresholdMax: 15000 },
-  { province: 'NTT', minHarga: 6500, maxHarga: 10000, avgHarga: 7800, thresholdMin: 8000, thresholdMax: 14000 },
-]
-
-const FALLBACK_SPENDING = [
-  { province: 'Jawa Barat', totalSpending: 18400000000 },
-  { province: 'Jawa Timur', totalSpending: 16200000000 },
-  { province: 'DKI Jakarta', totalSpending: 14800000000 },
-  { province: 'Jawa Tengah', totalSpending: 12100000000 },
-  { province: 'Papua', totalSpending: 9600000000 },
-  { province: 'Sumatra Utara', totalSpending: 8700000000 },
-  { province: 'Kalimantan Timur', totalSpending: 7800000000 },
-  { province: 'Sulawesi Selatan', totalSpending: 6900000000 },
-  { province: 'Bali', totalSpending: 5300000000 },
-  { province: 'NTT', totalSpending: 4200000000 },
-]
-
-const FALLBACK_ANOMALIES = [
-  { id: 'anomaly-1', sppg: 'SPPG Surabaya Utara', school: 'SDN Trunojoyo', province: 'Jawa Timur', pricePerPortion: 13500, thresholdMin: 7000, thresholdMax: 10000, date: new Date().toISOString(), isResolved: false },
-  { id: 'anomaly-2', sppg: 'SPPG Jayapura Abepura', school: 'SDN Abepura 01', province: 'Papua', pricePerPortion: 19800, thresholdMin: 9000, thresholdMax: 16000, date: new Date().toISOString(), isResolved: false },
-  { id: 'anomaly-3', sppg: 'SPPG Kupang Oebobo', school: 'SDN Oebobo', province: 'NTT', pricePerPortion: 6500, thresholdMin: 8000, thresholdMax: 14000, date: new Date().toISOString(), isResolved: false },
-  { id: 'anomaly-4', sppg: 'SPPG Bandung Selatan', school: 'SMP Pertiwi', province: 'Jawa Barat', pricePerPortion: 14200, thresholdMin: 7000, thresholdMax: 13000, date: new Date(Date.now() - 86400000).toISOString(), isResolved: true },
-  { id: 'anomaly-5', sppg: 'SPPG Denpasar Timur', school: 'SMP Negeri 3 Denpasar', province: 'Bali', pricePerPortion: 15600, thresholdMin: 9000, thresholdMax: 15000, date: new Date(Date.now() - 172800000).toISOString(), isResolved: false },
-]
-
-const FALLBACK_SUMMARY = {
-  totalBudgetUsed: 127400000000,
-  avgPricePerPortion: 10250,
-  anomalyCount: 47,
+const EMPTY_BUDGET_SUMMARY = {
+  totalBudgetUsed: 0,
+  avgPricePerPortion: 0,
+  anomalyCount: 0,
   rawMaterialAnomalyCount: 0,
   avgRawMaterialCost: 0,
-  savingVsTarget: 3200000000,
+  savingVsTarget: 0,
 }
-
-const FALLBACK_THRESHOLDS = FALLBACK_PROVINCE_PRICES.reduce((map, row) => {
-  map[row.province.toLowerCase()] = { thresholdMin: row.thresholdMin, thresholdMax: row.thresholdMax }
-  return map
-}, {})
 
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
@@ -138,18 +99,18 @@ function sortRows(rows, sortKey, sortDirection) {
 }
 
 function normalizeThresholds(items) {
-  if (!Array.isArray(items)) return FALLBACK_THRESHOLDS
+  if (!Array.isArray(items)) return {}
   return items.reduce((map, item) => {
     map[String(item.province || '').toLowerCase()] = {
-      thresholdMin: Number(item.thresholdMin ?? item.minPrice ?? item.min_price) || FALLBACK_THRESHOLDS[String(item.province || '').toLowerCase()]?.thresholdMin || 7000,
-      thresholdMax: Number(item.thresholdMax ?? item.maxPrice ?? item.max_price) || FALLBACK_THRESHOLDS[String(item.province || '').toLowerCase()]?.thresholdMax || 13000,
+      thresholdMin: Number(item.thresholdMin ?? item.minPrice ?? item.min_price) || 0,
+      thresholdMax: Number(item.thresholdMax ?? item.maxPrice ?? item.max_price) || 0,
     }
     return map
-  }, { ...FALLBACK_THRESHOLDS })
+  }, {})
 }
 
 function normalizeProvincePrices(budgetByProvince, thresholds) {
-  if (!Array.isArray(budgetByProvince) || !budgetByProvince.length) return FALLBACK_PROVINCE_PRICES
+  if (!Array.isArray(budgetByProvince) || !budgetByProvince.length) return []
 
   return budgetByProvince.map((row) => {
     const threshold = thresholds[String(row.province || '').toLowerCase()] || {}
@@ -158,8 +119,8 @@ function normalizeProvincePrices(budgetByProvince, thresholds) {
       minHarga: Number(row.minHarga ?? row.min_price_per_portion) || 0,
       maxHarga: Number(row.maxHarga ?? row.max_price_per_portion) || 0,
       avgHarga: Number(row.avgHarga ?? row.avg_price_per_portion ?? row.avgReferencePrice) || 0,
-      thresholdMin: Number(row.thresholdMin ?? row.minPrice ?? threshold.thresholdMin) || 7000,
-      thresholdMax: Number(row.thresholdMax ?? row.maxPrice ?? threshold.thresholdMax) || 13000,
+      thresholdMin: Number(row.thresholdMin ?? row.minPrice ?? threshold.thresholdMin) || 0,
+      thresholdMax: Number(row.thresholdMax ?? row.maxPrice ?? threshold.thresholdMax) || 0,
       source: row.source || null,
       generatedAt: row.generatedAt || row.generated_at || null,
     }
@@ -167,20 +128,20 @@ function normalizeProvincePrices(budgetByProvince, thresholds) {
 }
 
 function normalizeSpending(byProvince) {
-  if (!Array.isArray(byProvince) || !byProvince.length) return FALLBACK_SPENDING
+  if (!Array.isArray(byProvince) || !byProvince.length) return []
   return byProvince.slice(0, 10).map((row) => ({
     province: row.province || '-',
     totalSpending: Number(row.total_budget ?? row.totalBudget ?? row.totalBudgetUsed ?? 0),
   }))
 }
 
-function normalizeAnomaly(item, thresholdSource = FALLBACK_THRESHOLDS) {
+function normalizeAnomaly(item, thresholdSource = {}) {
   const distribution = item.distribution || {}
   const sppg = distribution.sppg || {}
   const school = distribution.school || {}
   const price = Number(distribution.pricePerPortion ?? distribution.price_per_portion ?? 0)
   const province = sppg.province || item.province || '-'
-  const threshold = thresholdSource[province.toLowerCase()] || FALLBACK_THRESHOLDS[province.toLowerCase()] || { thresholdMin: 7000, thresholdMax: 13000 }
+  const threshold = thresholdSource[province.toLowerCase()] || { thresholdMin: 0, thresholdMax: 0 }
 
   return {
     id: item.id,
@@ -198,8 +159,8 @@ function normalizeAnomaly(item, thresholdSource = FALLBACK_THRESHOLDS) {
 function buildThresholdMapFromProvincePrices(rows) {
   return rows.reduce((map, row) => {
     map[String(row.province || '').toLowerCase()] = {
-      thresholdMin: Number(row.thresholdMin) || 7000,
-      thresholdMax: Number(row.thresholdMax) || 13000,
+      thresholdMin: Number(row.thresholdMin) || 0,
+      thresholdMax: Number(row.thresholdMax) || 0,
     }
     return map
   }, {})
@@ -222,10 +183,10 @@ function Anggaran({ userRole, userName, onLogout }) {
   const navigate = useNavigate()
   const resolvedRole = userRole || storedUser?.role || 'pemerintah'
   const displayName = userName || storedUser?.name || storedUser?.email || 'Pengguna MBG'
-  const [budgetSummary, setBudgetSummary] = useState(FALLBACK_SUMMARY)
-  const [provincePrices, setProvincePrices] = useState(FALLBACK_PROVINCE_PRICES)
-  const [spendingData, setSpendingData] = useState(FALLBACK_SPENDING)
-  const [anomalyRows, setAnomalyRows] = useState(FALLBACK_ANOMALIES)
+  const [budgetSummary, setBudgetSummary] = useState(EMPTY_BUDGET_SUMMARY)
+  const [provincePrices, setProvincePrices] = useState([])
+  const [spendingData, setSpendingData] = useState([])
+  const [anomalyRows, setAnomalyRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [sortKey, setSortKey] = useState('avgHarga')
@@ -270,34 +231,34 @@ function Anggaran({ userRole, userName, onLogout }) {
             : anomalyResult.status === 'fulfilled' && Array.isArray(anomalyResult.value.data?.items)
               ? anomalyResult.value.data.items
               : []
-        const anomalies = anomalyApiRows.length ? anomalyApiRows.map((item) => normalizeAnomaly(item, thresholds)) : FALLBACK_ANOMALIES
+        const anomalies = anomalyApiRows.map((item) => normalizeAnomaly(item, thresholds))
 
-        const totalBudget = Number(summaryData.total_budget_used ?? legacyBudget.summary?.total_budget) || FALLBACK_SUMMARY.totalBudgetUsed
+        const totalBudget = Number(summaryData.total_budget_used ?? legacyBudget.summary?.total_budget) || 0
         const totalPortions = Number(summaryData.total_portions ?? legacyBudget.summary?.total_portions) || 0
-        const avgPrice = Number(summaryData.avg_price_per_portion ?? legacyBudget.summary?.avg_price_per_portion) || (totalPortions ? totalBudget / totalPortions : FALLBACK_SUMMARY.avgPricePerPortion)
+        const avgPrice = Number(summaryData.avg_price_per_portion ?? legacyBudget.summary?.avg_price_per_portion) || (totalPortions ? totalBudget / totalPortions : 0)
 
         setBudgetSummary({
           totalBudgetUsed: totalBudget,
           avgPricePerPortion: avgPrice,
-          anomalyCount: Number(summaryData.price_anomaly_count) || anomalies.filter((row) => !row.isResolved).length || FALLBACK_SUMMARY.anomalyCount,
+          anomalyCount: Number(summaryData.price_anomaly_count) || anomalies.filter((row) => !row.isResolved).length,
           rawMaterialAnomalyCount: Number(summaryData.raw_material_anomaly_count) || 0,
           avgRawMaterialCost: Number(summaryData.avg_raw_material_cost) || 0,
-          savingVsTarget: Number(summaryData.savings_vs_target) || FALLBACK_SUMMARY.savingVsTarget,
+          savingVsTarget: Number(summaryData.savings_vs_target) || 0,
         })
         setProvincePrices(provinceRows)
         setSpendingData(normalizeSpending(provinceRows))
-        setAnomalyRows(anomalies.length ? anomalies : FALLBACK_ANOMALIES)
+        setAnomalyRows(anomalies)
 
         if ([summaryResult, provinceResult, anomalyResult].some((result) => result.status === 'rejected')) {
-          setError('Sebagian data anggaran gagal dimuat dari API. Fallback preview ditampilkan pada bagian terkait.')
+          setError('Sebagian data anggaran gagal dimuat dari API.')
         }
       } catch (fetchError) {
         if (fetchError.name !== 'AbortError') {
-          setBudgetSummary(FALLBACK_SUMMARY)
-          setProvincePrices(FALLBACK_PROVINCE_PRICES)
-          setSpendingData(FALLBACK_SPENDING)
-          setAnomalyRows(FALLBACK_ANOMALIES)
-          setError('Data anggaran gagal dimuat dari API. Fallback preview ditampilkan.')
+          setBudgetSummary(EMPTY_BUDGET_SUMMARY)
+          setProvincePrices([])
+          setSpendingData([])
+          setAnomalyRows([])
+          setError('Data anggaran gagal dimuat dari API.')
         }
       } finally {
         if (!signal.aborted) setLoading(false)
@@ -347,12 +308,7 @@ function Anggaran({ userRole, userName, onLogout }) {
       setAnomalyRows((current) => current.map((item) => (item.id === row.id ? { ...item, isResolved: true } : item)))
       showToast('Anomali berhasil ditandai selesai oleh admin.', 'success')
     } catch (resolveError) {
-      if (import.meta.env.DEV) {
-        setAnomalyRows((current) => current.map((item) => (item.id === row.id ? { ...item, isResolved: true } : item)))
-        showToast('API resolve gagal, fallback development menandai selesai lokal.', 'warning')
-      } else {
-        showToast(resolveError.message || 'Resolve anomali gagal.', 'danger')
-      }
+      showToast(resolveError.message || 'Resolve anomali gagal.', 'danger')
     }
   }
 
@@ -375,11 +331,7 @@ function Anggaran({ userRole, userName, onLogout }) {
       })
       showToast('Laporan sedang diproses. Silakan cek menu Export Data.', 'success')
     } catch (exportError) {
-      if (import.meta.env.DEV) {
-        window.setTimeout(() => showToast('Laporan siap diunduh.', 'success'), 2000)
-      } else {
-        showToast(exportError.message || 'Export gagal diproses.', 'danger')
-      }
+      showToast(exportError.message || 'Export gagal diproses.', 'danger')
     } finally {
       setExportLoading('')
     }
@@ -508,6 +460,11 @@ function Anggaran({ userRole, userName, onLogout }) {
                     </tr>
                   )
                 })}
+                {!sortedProvincePrices.length ? (
+                  <tr>
+                    <td colSpan="6">Belum ada data harga provinsi dari backend.</td>
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
@@ -527,6 +484,7 @@ function Anggaran({ userRole, userName, onLogout }) {
                 <Bar dataKey="totalSpending" name="Total Pengeluaran" fill="#0f4c81" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
+            {!spendingData.length ? <p>Belum ada data pengeluaran per provinsi dari backend.</p> : null}
           </article>
         </section>
 
@@ -608,6 +566,11 @@ function Anggaran({ userRole, userName, onLogout }) {
                         </tr>
                       )
                     })}
+                    {!filteredAnomalyRows.length ? (
+                      <tr>
+                        <td colSpan="9">Belum ada anomali harga untuk filter ini.</td>
+                      </tr>
+                    ) : null}
                   </tbody>
                 </table>
               </div>

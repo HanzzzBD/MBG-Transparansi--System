@@ -20,6 +20,7 @@ import {
   X,
 } from 'lucide-react'
 import { apiRequest } from '../services/api'
+import useAuthStore from '../store/authStore'
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_KEY || import.meta.env.VITE_RECAPTCHA_SITE_KEY || ''
@@ -81,6 +82,8 @@ const REPORT_CATEGORIES = [
   { value: 'kekurangan_porsi', label: 'Kekurangan Porsi' },
   { value: 'lainnya', label: 'Lainnya' },
 ]
+
+const INTERNAL_MAP_ROLES = new Set(['admin', 'pemerintah', 'gov', 'sppg', 'sekolah'])
 
 const FEATURES = [
   {
@@ -172,6 +175,31 @@ function extractMarkers(items) {
     .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lng))
 }
 
+function normalizePublicSppgDetail(item) {
+  if (!item) return null
+
+  return {
+    id: item.id,
+    name: item.name || 'SPPG',
+    province: item.province || '-',
+    city: item.city || '-',
+    district: item.district || '',
+    status: item.status || 'inactive',
+    capacity: Number(item.capacity) || 0,
+    todayPortions: Number(item.todayPortions ?? item.today_portions) || 0,
+    successRate: Number(item.successRate ?? item.success_rate) || 0,
+    todayMenu: item.todayMenu || item.today_menu || null,
+    recentDistributions: Array.isArray(item.recentDistributions || item.recent_distributions)
+      ? (item.recentDistributions || item.recent_distributions).map((row) => ({
+          schoolName: row.schoolName || row.school_name || '-',
+          portions: Number(row.portions) || 0,
+          status: row.status || '-',
+          date: row.date || row.distributionDate || row.distribution_date || '',
+        }))
+      : [],
+  }
+}
+
 function projectMarkerPosition(lat, lng) {
   const left = ((lng - INDONESIA_BOUNDS.minLng) / (INDONESIA_BOUNDS.maxLng - INDONESIA_BOUNDS.minLng)) * 100
   const top = ((INDONESIA_BOUNDS.maxLat - lat) / (INDONESIA_BOUNDS.maxLat - INDONESIA_BOUNDS.minLat)) * 100
@@ -189,9 +217,11 @@ function getMarkerColor(status) {
 }
 
 function Landing() {
+  const { user, isAuthenticated } = useAuthStore()
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [summary, setSummary] = useState({ data: null, loading: true, error: '' })
   const [mapData, setMapData] = useState({ markers: [], loading: true, error: '', empty: false })
+  const [sppgDetail, setSppgDetail] = useState({ data: null, loading: false, error: '' })
   const [reportForm, setReportForm] = useState(initialReportForm)
   const [submitState, setSubmitState] = useState({ loading: false, error: '', success: '' })
   const [captchaMessage, setCaptchaMessage] = useState(INITIAL_CAPTCHA_MESSAGE)
@@ -221,7 +251,7 @@ function Landing() {
   useEffect(() => {
     const controller = new AbortController()
 
-    requestJson('/sppg?fields=lat,lng,status&limit=10', { signal: controller.signal })
+    requestJson('/public/sppg?limit=10', { signal: controller.signal })
       .then((data) => {
         const markers = extractMarkers(data)
         setMapData({
@@ -304,6 +334,8 @@ function Landing() {
 
   const effectiveSummary = summary.data || FALLBACK_SUMMARY
   const markerSource = mapData.markers.length ? mapData.markers : mapData.error || mapData.empty ? FALLBACK_MARKERS : []
+  const role = String(user?.role || '').toLowerCase()
+  const fullMapPath = isAuthenticated && INTERNAL_MAP_ROLES.has(role) ? '/peta' : '/peta-publik'
 
   const kpis = [
     {
@@ -333,6 +365,30 @@ function Landing() {
   ]
 
   const closeDrawer = () => setIsDrawerOpen(false)
+
+  const handleMarkerClick = async (marker) => {
+    if (!marker?.id || String(marker.id).startsWith('fallback-')) {
+      setSppgDetail({
+        data: null,
+        loading: false,
+        error: 'Detail SPPG tidak tersedia',
+      })
+      return
+    }
+
+    setSppgDetail({ data: null, loading: true, error: '' })
+
+    try {
+      const data = await requestJson(`/public/sppg/${marker.id}`)
+      setSppgDetail({ data: normalizePublicSppgDetail(data), loading: false, error: '' })
+    } catch {
+      setSppgDetail({
+        data: null,
+        loading: false,
+        error: 'Detail SPPG tidak tersedia',
+      })
+    }
+  }
 
   const handleReportChange = (event) => {
     const { name, value } = event.target
@@ -435,7 +491,7 @@ function Landing() {
             <Link className="transition hover:text-[#0071e4]" to="/">
               Beranda
             </Link>
-            <Link className="transition hover:text-[#0071e4]" to="/peta">
+            <Link className="transition hover:text-[#0071e4]" to={fullMapPath}>
               Peta SPPG
             </Link>
             <Link className="transition hover:text-[#0071e4]" to="/statistik">
@@ -496,7 +552,7 @@ function Landing() {
               <Link className="rounded-lg px-3 py-3 hover:bg-[#f4f8fb] hover:text-[#0071e4]" to="/" onClick={closeDrawer}>
                 Beranda
               </Link>
-              <Link className="rounded-lg px-3 py-3 hover:bg-[#f4f8fb] hover:text-[#0071e4]" to="/peta" onClick={closeDrawer}>
+              <Link className="rounded-lg px-3 py-3 hover:bg-[#f4f8fb] hover:text-[#0071e4]" to={fullMapPath} onClick={closeDrawer}>
                 Peta SPPG
               </Link>
               <Link className="rounded-lg px-3 py-3 hover:bg-[#f4f8fb] hover:text-[#0071e4]" to="/statistik" onClick={closeDrawer}>
@@ -539,7 +595,7 @@ function Landing() {
                   <ArrowRight size={17} aria-hidden="true" />
                 </Link>
                 <Link
-                  to="/peta"
+                  to={fullMapPath}
                   className="inline-flex h-12 items-center justify-center rounded-lg border border-white/55 bg-white/10 px-6 text-sm font-extrabold text-white transition hover:-translate-y-0.5"
                 >
                   Peta SPPG
@@ -606,7 +662,7 @@ function Landing() {
                 Pratinjau sebaran dapur SPPG di Indonesia
               </h2>
               <p className="mt-3 text-base leading-7 text-[#6b7280]">
-                Marker diambil dari GET /api/sppg?fields=lat,lng,status&amp;limit=10 dan titik tanpa koordinat dilewati.
+                Marker diambil dari GET /api/public/sppg?limit=10 dan titik tanpa koordinat dilewati.
               </p>
             </div>
 
@@ -638,22 +694,110 @@ function Landing() {
                   const title = [marker.name, marker.city, marker.province].filter(Boolean).join(' - ')
 
                   return (
-                    <span
+                    <button
                       key={marker.id}
-                      className="absolute z-20 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white"
+                      className="absolute z-20 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white"
+                      type="button"
                       style={{
                         ...position,
                         backgroundColor: color,
                         boxShadow: `0 0 0 7px ${color}33, 0 12px 18px rgba(15, 76, 129, 0.24)`,
                       }}
                       title={title}
+                      aria-label={`Lihat detail ${title}`}
+                      onClick={() => handleMarkerClick(marker)}
                     />
                   )
                 })
               )}
+              {(sppgDetail.loading || sppgDetail.error || sppgDetail.data) ? (
+                <aside className="absolute left-5 top-5 z-30 max-h-[calc(100%-40px)] w-[min(360px,calc(100%-40px))] overflow-auto rounded-xl border border-[#b5e0ea] bg-white/95 p-4 text-[#111928] shadow-xl">
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.08em] text-[#0071e4]">Detail SPPG</p>
+                      <h3 className="text-lg font-black text-[#0f4c81]">
+                        {sppgDetail.data?.name || (sppgDetail.loading ? 'Memuat detail...' : 'Detail tidak tersedia')}
+                      </h3>
+                    </div>
+                    <button
+                      className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-[#b5e0ea] text-[#0f4c81]"
+                      type="button"
+                      aria-label="Tutup detail SPPG"
+                      onClick={() => setSppgDetail({ data: null, loading: false, error: '' })}
+                    >
+                      <X size={16} aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  {sppgDetail.loading ? (
+                    <div className="inline-flex items-center gap-2 text-sm font-bold text-[#0f4c81]">
+                      <Loader2 className="landing-spin" size={16} aria-hidden="true" />
+                      Memuat data public-safe...
+                    </div>
+                  ) : null}
+
+                  {sppgDetail.error ? (
+                    <p className="rounded-lg bg-[#fff7ed] px-3 py-2 text-sm font-semibold text-[#92400e]">{sppgDetail.error}</p>
+                  ) : null}
+
+                  {sppgDetail.data ? (
+                    <div className="grid gap-3 text-sm">
+                      <div className="grid grid-cols-2 gap-2">
+                        <span className="rounded-lg bg-[#f4f8fb] p-3">
+                          <small className="block font-bold text-[#6b7280]">Lokasi</small>
+                          <strong>{[sppgDetail.data.district, sppgDetail.data.city, sppgDetail.data.province].filter(Boolean).join(', ')}</strong>
+                        </span>
+                        <span className="rounded-lg bg-[#f4f8fb] p-3">
+                          <small className="block font-bold text-[#6b7280]">Status</small>
+                          <strong>{sppgDetail.data.status}</strong>
+                        </span>
+                        <span className="rounded-lg bg-[#f4f8fb] p-3">
+                          <small className="block font-bold text-[#6b7280]">Kapasitas</small>
+                          <strong>{formatNumber(sppgDetail.data.capacity)} porsi</strong>
+                        </span>
+                        <span className="rounded-lg bg-[#f4f8fb] p-3">
+                          <small className="block font-bold text-[#6b7280]">Hari Ini</small>
+                          <strong>{formatNumber(sppgDetail.data.todayPortions)} porsi</strong>
+                        </span>
+                      </div>
+
+                      <div className="rounded-lg border border-[#b5e0ea] p-3">
+                        <small className="block font-bold text-[#6b7280]">Success Rate</small>
+                        <strong className="text-xl text-[#057a55]">{formatPercent(sppgDetail.data.successRate)}</strong>
+                      </div>
+
+                      <div className="rounded-lg border border-[#b5e0ea] p-3">
+                        <small className="block font-bold text-[#6b7280]">Menu Hari Ini</small>
+                        <strong>{sppgDetail.data.todayMenu?.name || 'Belum ada menu dari backend'}</strong>
+                        {sppgDetail.data.todayMenu?.nutrition ? (
+                          <p className="mt-2 text-xs font-semibold text-[#6b7280]">
+                            {formatNumber(sppgDetail.data.todayMenu.nutrition.calories)} kkal · Protein {formatNumber(sppgDetail.data.todayMenu.nutrition.protein)}g · Karbo {formatNumber(sppgDetail.data.todayMenu.nutrition.carbohydrate)}g · Lemak {formatNumber(sppgDetail.data.todayMenu.nutrition.fat)}g
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <div className="rounded-lg border border-[#b5e0ea] p-3">
+                        <small className="block font-bold text-[#6b7280]">Distribusi Terbaru</small>
+                        {sppgDetail.data.recentDistributions.length ? (
+                          <div className="mt-2 grid gap-2">
+                            {sppgDetail.data.recentDistributions.slice(0, 3).map((row, index) => (
+                              <div key={`${row.schoolName}-${row.date}-${index}`} className="flex justify-between gap-3 border-t border-[#e5eef2] pt-2">
+                                <span>{row.schoolName}</span>
+                                <strong>{formatNumber(row.portions)} porsi</strong>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-xs font-semibold text-[#6b7280]">Belum ada distribusi terbaru dari backend.</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                </aside>
+              ) : null}
               <Link
                 className="absolute bottom-5 right-5 z-30 inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#b5e0ea] px-5 text-sm font-extrabold text-[#0f4c81] shadow-lg transition hover:-translate-y-0.5 max-sm:left-5"
-                to="/peta"
+                to={fullMapPath}
               >
                 Lihat Peta Lengkap
                 <ArrowRight size={17} aria-hidden="true" />
@@ -878,7 +1022,7 @@ function Landing() {
               <Link className="hover:text-[#b5e0ea]" to="/">
                 Beranda
               </Link>
-              <Link className="hover:text-[#b5e0ea]" to="/peta">
+              <Link className="hover:text-[#b5e0ea]" to={fullMapPath}>
                 Peta
               </Link>
               <Link className="hover:text-[#b5e0ea]" to="/statistik">
