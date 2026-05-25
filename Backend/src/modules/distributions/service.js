@@ -2,6 +2,7 @@ const { getPrismaClient } = require("../../config/prisma");
 const AppError = require("../../utils/appError");
 const { createAnomalyIfNeeded } = require("../../utils/anomaly");
 const { createAuditLog } = require("../../utils/auditLog");
+const { endOfDayUtc, startOfDayUtc } = require("../../utils/date");
 const { checkDistributionPriceAnomaly } = require("../../utils/distributionPriceAnomaly");
 const {
   assertSchoolOwnership,
@@ -22,7 +23,14 @@ const prisma = getPrismaClient();
 const isUnlockWindowExpired = (distribution) =>
   Boolean(!distribution.isLocked && distribution.unlockedUntil && distribution.unlockedUntil <= new Date());
 
+const parseBooleanFilter = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return value;
+};
+
 const buildDistributionWhere = ({ query = {}, user }) => {
+  const isLockedFilter = parseBooleanFilter(query.isLocked);
   const where = {
     school: {
       deletedAt: null
@@ -31,8 +39,91 @@ const buildDistributionWhere = ({ query = {}, user }) => {
       deletedAt: null
     },
     ...(query.date ? { distributionDate: new Date(query.date) } : {}),
+    ...(query.dateFrom || query.dateTo
+      ? {
+          distributionDate: {
+            ...(query.dateFrom ? { gte: startOfDayUtc(query.dateFrom) } : {}),
+            ...(query.dateTo ? { lte: endOfDayUtc(query.dateTo) } : {})
+          }
+        }
+      : {}),
     ...(query.status ? { status: query.status } : {})
   };
+
+  if (isLockedFilter !== undefined) {
+    where.isLocked = isLockedFilter;
+  }
+
+  if (query.province) {
+    where.OR = [
+      {
+        sppg: {
+          deletedAt: null,
+          province: {
+            contains: query.province,
+            mode: "insensitive"
+          }
+        }
+      },
+      {
+        school: {
+          deletedAt: null,
+          province: {
+            contains: query.province,
+            mode: "insensitive"
+          }
+        }
+      }
+    ];
+  }
+
+  if (query.search) {
+    const search = query.search.trim();
+    const searchOr = [
+      {
+        sppg: {
+          deletedAt: null,
+          name: {
+            contains: search,
+            mode: "insensitive"
+          }
+        }
+      },
+      {
+        school: {
+          deletedAt: null,
+          name: {
+            contains: search,
+            mode: "insensitive"
+          }
+        }
+      },
+      {
+        school: {
+          deletedAt: null,
+          city: {
+            contains: search,
+            mode: "insensitive"
+          }
+        }
+      },
+      ...(Number.isInteger(Number(search)) ? [{ id: Number(search) }] : [])
+    ];
+
+    if (where.OR) {
+      where.AND = [
+        {
+          OR: where.OR
+        },
+        {
+          OR: searchOr
+        }
+      ];
+      delete where.OR;
+    } else {
+      where.OR = searchOr;
+    }
+  }
 
   if (user.role === "sppg") {
     where.sppgId = requireSppgScope(user);
@@ -236,14 +327,8 @@ const createLockAuditIfNeeded = async ({ tx, userId, oldData, newData, ipAddress
       action: "LOCK",
       tableName: "distributions",
       recordId: newData.id,
-      oldData: {
-        isLocked: oldData.isLocked,
-        unlockedUntil: oldData.unlockedUntil
-      },
-      newData: {
-        isLocked: newData.isLocked,
-        unlockedUntil: newData.unlockedUntil
-      },
+      oldData,
+      newData,
       ipAddress
     });
   }
@@ -258,6 +343,10 @@ const relockExpiredDistributionWindow = async ({ distribution, ipAddress }) =>
       data: {
         isLocked: true,
         unlockedUntil: null
+      },
+      include: {
+        sppg: true,
+        school: true
       }
     });
 
@@ -266,14 +355,8 @@ const relockExpiredDistributionWindow = async ({ distribution, ipAddress }) =>
       action: "LOCK",
       tableName: "distributions",
       recordId: distribution.id,
-      oldData: {
-        isLocked: distribution.isLocked,
-        unlockedUntil: distribution.unlockedUntil
-      },
-      newData: {
-        isLocked: relocked.isLocked,
-        unlockedUntil: relocked.unlockedUntil
-      },
+      oldData: distribution,
+      newData: relocked,
       ipAddress
     });
 
@@ -466,9 +549,7 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
         action: "LOCK",
         tableName: "distributions",
         recordId: created.id,
-        newData: {
-          isLocked: true
-        },
+        newData: created,
         ipAddress
       });
 

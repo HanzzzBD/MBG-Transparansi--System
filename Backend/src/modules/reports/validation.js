@@ -30,7 +30,9 @@ const listPublicReportsSchema = z.object({
     city: z.string().trim().optional(),
     status: commaSeparatedPublicReportStatuses,
     dateFrom: z.string().trim().optional(),
-    dateTo: z.string().trim().optional()
+    dateTo: z.string().trim().optional(),
+    start_date: z.iso.date().optional(),
+    end_date: z.iso.date().optional()
   })
 });
 

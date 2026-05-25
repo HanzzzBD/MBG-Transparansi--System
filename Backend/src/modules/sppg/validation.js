@@ -21,9 +21,21 @@ const listSppgSchema = z.object({
     limit: z.coerce.number().int().positive().optional(),
     province: z.string().trim().optional(),
     city: z.string().trim().optional(),
+    search: z.string().trim().optional(),
     status: sppgStatusEnum.optional(),
     fields: z.string().trim().optional(),
     all: booleanQuerySchema.optional()
+  })
+});
+
+const mapMarkersSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({}).optional().default({}),
+  query: z.object({
+    province: z.string().trim().optional(),
+    city: z.string().trim().optional(),
+    search: z.string().trim().optional(),
+    status: sppgStatusEnum.optional()
   })
 });
 
@@ -64,6 +76,7 @@ const updateSppgSchema = z.object({
 module.exports = {
   createSppgSchema,
   listSppgSchema,
+  mapMarkersSchema,
   sppgIdParamsSchema,
   updateSppgSchema
 };

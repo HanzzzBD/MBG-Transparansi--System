@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestJson } from '../services/api'
+import { createExport, getAuditLogDetail, getAuditLogs, getAuditLogsSummary } from '../services/api'
 import './AuditLog.css'
 
 const PAGE_SIZE = 10
@@ -154,7 +154,13 @@ function AuditLog({ userRole, userName, onLogout }) {
   const isAdmin = resolvedRole === 'admin'
 
   const [rows, setRows] = useState([])
-  const [summary, setSummary] = useState({ totalToday: 0, highSeverity: 0, activeUsers: 0 })
+  const [summary, setSummary] = useState({
+    totalToday: 0,
+    highSeverity: 0,
+    activeUsers: 0,
+    severityCount: {},
+    categoryCount: {},
+  })
   const [filters, setFilters] = useState({
     search: '',
     action: '',
@@ -195,24 +201,7 @@ function AuditLog({ userRole, userName, onLogout }) {
     }
 
     try {
-      let result
-      try {
-        result = await requestJson('/audit-logs', { params, signal })
-      } catch (firstError) {
-        // TODO: Backend publik /audit-logs belum tersedia; admin memakai endpoint existing /admin/audit-logs.
-        if (!isAdmin) throw firstError
-        result = await requestJson('/admin/audit-logs', {
-          params: {
-            action: filters.action,
-            start_date: filters.dateFrom,
-            end_date: filters.dateTo,
-            page,
-            limit: PAGE_SIZE,
-          },
-          signal,
-        })
-      }
-
+      const result = await getAuditLogs(params, { signal })
       const items = Array.isArray(result.data) ? result.data : result.data?.items || []
       const normalized = items.map(normalizeAuditRow)
 
@@ -232,18 +221,20 @@ function AuditLog({ userRole, userName, onLogout }) {
     } finally {
       if (!signal.aborted) setLoading(false)
     }
-  }, [filters, isAdmin, page])
+  }, [filters, page])
 
   const fetchSummary = useCallback(async (signal) => {
     try {
-      const result = await requestJson('/audit-logs/summary', { signal })
+      const result = await getAuditLogsSummary({}, { signal })
       setSummary({
         totalToday: Number(result.data.totalToday ?? result.data.total_today ?? 0),
         highSeverity: Number(result.data.highSeverity ?? result.data.high_severity ?? 0),
         activeUsers: Number(result.data.activeUsers ?? result.data.active_users ?? 0),
+        severityCount: result.data.severityCount ?? result.data.severity_count ?? {},
+        categoryCount: result.data.categoryCount ?? result.data.category_count ?? {},
       })
     } catch {
-      setSummary({ totalToday: 0, highSeverity: 0, activeUsers: 0 })
+      setSummary({ totalToday: 0, highSeverity: 0, activeUsers: 0, severityCount: {}, categoryCount: {} })
     }
   }, [])
 
@@ -277,19 +268,17 @@ function AuditLog({ userRole, userName, onLogout }) {
     showToast('Menggenerate export log...', 'warning')
 
     try {
-      await requestJson('/exports', {
-        method: 'POST',
-        body: {
-          type: 'excel',
-          filterParams: {
-            search: filters.search,
-            action: filters.action,
-            category: filters.category,
-            severity: filters.severity,
-            dateFrom: filters.dateFrom,
-            dateTo: filters.dateTo,
-            page: 'audit-log',
-          },
+      await createExport({
+        type: 'excel',
+        filterParams: {
+          datasets: ['audit_logs'],
+          search: filters.search,
+          auditAction: filters.action,
+          category: filters.category,
+          severity: filters.severity,
+          dateFrom: filters.dateFrom,
+          dateTo: filters.dateTo,
+          page: 'audit-log',
         },
       })
       showToast('Export log siap diproses. Cek menu Export Data.', 'success')
@@ -304,10 +293,9 @@ function AuditLog({ userRole, userName, onLogout }) {
     setSelectedLog(row)
 
     try {
-      const result = await requestJson(`/audit-logs/${row.id}`)
+      const result = await getAuditLogDetail(row.id)
       setSelectedLog(normalizeAuditRow(result.data))
     } catch {
-      // TODO: backend saat ini belum tentu punya endpoint detail audit log publik.
       setSelectedLog(row)
     }
   }
@@ -364,6 +352,20 @@ function AuditLog({ userRole, userName, onLogout }) {
             <Users aria-hidden="true" />
             <span>Active Users</span>
             <strong>{summary.activeUsers.toLocaleString('id-ID')}</strong>
+          </article>
+          <article className="audit-summary-item">
+            <AlertTriangle aria-hidden="true" />
+            <span>Severity Count</span>
+            <strong>
+              H {Number(summary.severityCount.HIGH || 0).toLocaleString('id-ID')} / M {Number(summary.severityCount.MEDIUM || 0).toLocaleString('id-ID')}
+            </strong>
+          </article>
+          <article className="audit-summary-item">
+            <ShieldCheck aria-hidden="true" />
+            <span>Category Count</span>
+            <strong>
+              D {Number(summary.categoryCount.Data || 0).toLocaleString('id-ID')} / S {Number(summary.categoryCount.Security || 0).toLocaleString('id-ID')}
+            </strong>
           </article>
         </section>
 

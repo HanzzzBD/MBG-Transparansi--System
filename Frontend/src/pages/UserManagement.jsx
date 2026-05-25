@@ -13,11 +13,21 @@ import {
   X,
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestJson } from '../services/api'
+import {
+  createUser as createUserRequest,
+  deleteUser as deleteUserRequest,
+  getRoles,
+  getSchools,
+  getSppg,
+  getUsers,
+  updateUser as updateUserRequest,
+  updateUserStatus,
+} from '../services/api'
 import './UserManagement.css'
 
 const PAGE_SIZE = 10
-const ROLES = ['admin', 'pemerintah', 'sppg', 'sekolah', 'umum']
+const RELATION_SEARCH_LIMIT = 10
+const DEFAULT_ROLES = ['admin', 'pemerintah', 'sppg', 'sekolah', 'umum']
 const ROLE_LABELS = {
   admin: 'Admin',
   pemerintah: 'Pemerintah',
@@ -32,29 +42,6 @@ const ROLE_COLORS = {
   sekolah: '#92400e',
   umum: '#6b7280',
 }
-
-const FALLBACK_SPPG = [
-  { id: 1, name: 'SPPG Bandung Selatan', province: 'Jawa Barat', city: 'Bandung' },
-  { id: 2, name: 'SPPG Surabaya Utara', province: 'Jawa Timur', city: 'Surabaya' },
-  { id: 3, name: 'SPPG Jayapura Abepura', province: 'Papua', city: 'Jayapura' },
-]
-
-const FALLBACK_SCHOOLS = [
-  { id: 101, name: 'SDN Nusantara 01', province: 'Jawa Barat', city: 'Bogor' },
-  { id: 102, name: 'SMP Negeri 4 Cibinong', province: 'Jawa Barat', city: 'Bogor' },
-  { id: 103, name: 'SDN Abepura 01', province: 'Papua', city: 'Jayapura' },
-]
-
-const FALLBACK_USERS = [
-  { id: 1, name: 'Super Admin', email: 'admin@mbg.go.id', role: 'admin', isActive: true, lastLogin: '2026-05-18T08:10:00Z' },
-  { id: 2, name: 'Ahmad Suryanto', email: 'ahmad@mbg.go.id', role: 'pemerintah', isActive: true, lastLogin: '2026-05-18T07:45:00Z' },
-  { id: 3, name: 'Siti Nurhaliza', email: 'siti@mbg.go.id', role: 'pemerintah', isActive: true, lastLogin: '2026-05-17T14:11:00Z' },
-  { id: 4, name: 'Operator Bandung', email: 'sppg.bandung@mbg.go.id', role: 'sppg', sppgId: 1, sppgName: 'SPPG Bandung Selatan', isActive: true, lastLogin: '2026-05-18T06:22:00Z' },
-  { id: 5, name: 'Operator Surabaya', email: 'sppg.surabaya@mbg.go.id', role: 'sppg', sppgId: 2, sppgName: 'SPPG Surabaya Utara', isActive: false, lastLogin: '2026-05-10T09:00:00Z' },
-  { id: 6, name: 'SDN Nusantara', email: 'sdn.nusantara@mbg.go.id', role: 'sekolah', schoolId: 101, schoolName: 'SDN Nusantara 01', isActive: true, lastLogin: '2026-05-18T09:05:00Z' },
-  { id: 7, name: 'SMP Cibinong', email: 'smp.cibinong@mbg.go.id', role: 'sekolah', schoolId: 102, schoolName: 'SMP Negeri 4 Cibinong', isActive: true, lastLogin: '2026-05-16T11:20:00Z' },
-  { id: 8, name: 'Viewer Publik', email: 'viewer@mbg.go.id', role: 'umum', isActive: false, lastLogin: null },
-]
 
 const emptyForm = {
   name: '',
@@ -123,9 +110,28 @@ function normalizeSchool(item) {
   return {
     id: item.id,
     name: item.name || '-',
+    npsn: item.npsn || '',
     province: item.province || '',
     city: item.city || '',
+    district: item.district || '',
   }
+}
+
+function unwrapItems(result) {
+  const payload = result?.data ?? result
+  if (Array.isArray(payload)) return payload
+  if (Array.isArray(payload?.items)) return payload.items
+  return []
+}
+
+function formatSppgOption(item) {
+  return [item.name, item.city, item.province].filter(Boolean).join(' - ') || '-'
+}
+
+function formatSchoolOption(item) {
+  const location = [item.district, item.city, item.province].filter(Boolean).join(', ')
+  const npsn = item.npsn ? `NPSN ${item.npsn}` : ''
+  return [item.name, npsn, location].filter(Boolean).join(' - ') || '-'
 }
 
 function makeUserPayload(form, mode) {
@@ -134,8 +140,14 @@ function makeUserPayload(form, mode) {
     email: form.email.trim().toLowerCase(),
     role: form.role,
     isActive: Boolean(form.isActive),
-    sppgId: form.role === 'sppg' ? Number(form.sppgId) : null,
-    schoolId: form.role === 'sekolah' ? Number(form.schoolId) : null,
+  }
+
+  if (form.role === 'sppg' && form.sppgId) {
+    payload.sppgId = Number(form.sppgId)
+  }
+
+  if (form.role === 'sekolah' && form.schoolId) {
+    payload.schoolId = Number(form.schoolId)
   }
 
   if (mode === 'create' || form.password) {
@@ -145,23 +157,23 @@ function makeUserPayload(form, mode) {
   return payload
 }
 
-function makeAdminFallbackPayload(payload) {
+function makeUserUpdatePayload(payload) {
   return {
+    ...(payload.name ? { name: payload.name } : {}),
+    ...(payload.email ? { email: payload.email } : {}),
+    ...(payload.password ? { password: payload.password } : {}),
     role: payload.role,
     isActive: payload.isActive,
-    sppgId: payload.role === 'sppg' ? payload.sppgId : null,
-    schoolId: payload.role === 'sekolah' ? payload.schoolId : null,
+    ...(payload.role === 'sppg' && payload.sppgId ? { sppgId: payload.sppgId } : {}),
+    ...(payload.role === 'sekolah' && payload.schoolId ? { schoolId: payload.schoolId } : {}),
   }
 }
 
-function applyLocalFilters(rows, filters) {
-  return rows.filter((row) => {
-    const search = filters.search.trim().toLowerCase()
-    const matchesSearch = !search || [row.name, row.email, row.role].some((value) => String(value).toLowerCase().includes(search))
-    const matchesRole = !filters.role || row.role === filters.role
-    const matchesStatus = filters.status === 'all' || (filters.status === 'active' ? row.isActive : !row.isActive)
-    return matchesSearch && matchesRole && matchesStatus
-  })
+function getBackendErrorMessage(error) {
+  const details = error?.data?.details
+  const fieldErrors = details?.fieldErrors || {}
+  const messages = Object.values(fieldErrors).flat().filter(Boolean)
+  return messages[0] || details?.formErrors?.[0] || error?.message || 'Validasi backend gagal.'
 }
 
 function UserManagement({ userRole, userName, onLogout }) {
@@ -174,8 +186,10 @@ function UserManagement({ userRole, userName, onLogout }) {
   const isAdmin = resolvedRole === 'admin'
 
   const [users, setUsers] = useState([])
-  const [sppgList, setSppgList] = useState([])
-  const [schoolList, setSchoolList] = useState([])
+  const [roleOptions, setRoleOptions] = useState(DEFAULT_ROLES)
+  const [relationSearch, setRelationSearch] = useState({ sppg: '', school: '' })
+  const [relationOptions, setRelationOptions] = useState({ sppg: [], school: [] })
+  const [relationLoading, setRelationLoading] = useState({ sppg: false, school: false })
   const [filters, setFilters] = useState({ search: '', role: '', status: 'active' })
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -209,87 +223,145 @@ function UserManagement({ userRole, userName, onLogout }) {
     }
 
     try {
-      let result
-      try {
-        result = await requestJson('/users', { params, signal })
-      } catch {
-        // TODO: endpoint /users belum ada di backend saat ini; admin memakai /admin/users.
-        result = await requestJson('/admin/users', { params, signal })
-      }
+      const result = await getUsers(params, { signal })
       const items = Array.isArray(result.data) ? result.data : result.data?.items || []
       const normalized = items.map(normalizeUser)
 
-      if (!normalized.length) {
-        const fallback = applyLocalFilters(FALLBACK_USERS.map(normalizeUser), filters)
-        setUsers(fallback.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
-        setTotal(fallback.length)
-        setError('Data user API kosong. Fallback preview ditampilkan sementara.')
-      } else {
-        setUsers(normalized)
-        setTotal(result.meta?.total || normalized.length)
-      }
+      setUsers(normalized)
+      setTotal(result.meta?.total || normalized.length)
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
-        const fallback = applyLocalFilters(FALLBACK_USERS.map(normalizeUser), filters)
-        setUsers(fallback.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
-        setTotal(fallback.length)
-        setError('Data user gagal dimuat dari API. Fallback preview ditampilkan.')
+        setUsers([])
+        setTotal(0)
+        setError(fetchError.message || 'Data user gagal dimuat dari API.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
     }
   }, [filters, isAdmin, page])
 
-  const fetchRelations = useCallback(async (signal) => {
+  const fetchRoles = useCallback(async (signal) => {
     if (!isAdmin) return
-    const [sppgResult, schoolsResult] = await Promise.allSettled([
-      requestJson('/sppg', { params: { limit: 200 }, signal }),
-      requestJson('/schools', { params: { limit: 200 }, signal }),
-    ])
-    setSppgList(sppgResult.status === 'fulfilled' && Array.isArray(sppgResult.value.data)
-      ? sppgResult.value.data.map(normalizeSppg)
-      : FALLBACK_SPPG)
-    setSchoolList(schoolsResult.status === 'fulfilled' && Array.isArray(schoolsResult.value.data)
-      ? schoolsResult.value.data.map(normalizeSchool)
-      : FALLBACK_SCHOOLS)
-  }, [isAdmin])
+
+    try {
+      const result = await getRoles({ signal })
+      const values = Array.isArray(result.data)
+        ? result.data.map((item) => item.value || item.role).filter(Boolean)
+        : []
+      if (!signal?.aborted && values.length) {
+        setRoleOptions(values)
+      }
+    } catch (rolesError) {
+      if (!signal?.aborted) {
+        showToast(rolesError.message || 'Data role gagal dimuat dari API.', 'warning')
+      }
+    }
+  }, [isAdmin, showToast])
 
   useEffect(() => {
     const controller = new AbortController()
     Promise.resolve().then(() => {
       fetchUsers(controller.signal)
-      fetchRelations(controller.signal)
+      fetchRoles(controller.signal)
     })
     return () => controller.abort()
-  }, [fetchRelations, fetchUsers])
+  }, [fetchRoles, fetchUsers])
 
-  const allRowsForSummary = users.length ? users : FALLBACK_USERS.map(normalizeUser)
-  const activeUsers = allRowsForSummary.filter((user) => user.isActive).length
-  const roleDistribution = ROLES.map((role) => ({
+  useEffect(() => {
+    if (!modalMode || !['sppg', 'sekolah'].includes(form.role)) return undefined
+
+    const type = form.role === 'sppg' ? 'sppg' : 'school'
+    const selectedRelationId = type === 'sppg' ? form.sppgId : form.schoolId
+    if (selectedRelationId) return undefined
+
+    const query = relationSearch[type].trim()
+    if (query.length < 2) {
+      return undefined
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setRelationLoading((current) => ({ ...current, [type]: true }))
+
+      try {
+        const result = type === 'sppg'
+          ? await getSppg(
+            {
+              search: query,
+              limit: RELATION_SEARCH_LIMIT,
+              fields: 'province,city,status',
+            },
+            { signal: controller.signal },
+          )
+          : await getSchools(
+            {
+              search: query,
+              limit: RELATION_SEARCH_LIMIT,
+            },
+            { signal: controller.signal },
+          )
+
+        const items = unwrapItems(result).map(type === 'sppg' ? normalizeSppg : normalizeSchool)
+        setRelationOptions((current) => ({ ...current, [type]: items }))
+      } catch (searchError) {
+        if (searchError.name !== 'AbortError') {
+          setRelationOptions((current) => ({ ...current, [type]: [] }))
+          showToast(searchError.message || 'Data relasi gagal dimuat.', 'danger')
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setRelationLoading((current) => ({ ...current, [type]: false }))
+        }
+      }
+    }, 250)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [form.role, form.schoolId, form.sppgId, modalMode, relationSearch, showToast])
+
+  const activeUsers = users.filter((user) => user.isActive).length
+  const roleDistribution = roleOptions.map((role) => ({
     role,
     name: ROLE_LABELS[role],
-    value: allRowsForSummary.filter((user) => user.role === role).length,
+    value: users.filter((user) => user.role === role).length,
   })).filter((item) => item.value > 0)
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const openCreateModal = () => {
     setSelectedUser(null)
     setForm(emptyForm)
+    setRelationSearch({ sppg: '', school: '' })
+    setRelationOptions({ sppg: [], school: [] })
     setFormErrors({})
     setModalMode('create')
   }
 
   const openEditModal = (user) => {
+    const normalized = normalizeUser(user)
     setSelectedUser(user)
     setForm({
-      name: user.name,
-      email: user.email,
+      name: normalized.name,
+      email: normalized.email,
       password: '',
       confirmPassword: '',
-      role: user.role,
-      isActive: user.isActive,
-      sppgId: user.sppgId || '',
-      schoolId: user.schoolId || '',
+      role: normalized.role,
+      isActive: normalized.isActive,
+      sppgId: normalized.sppgId || '',
+      schoolId: normalized.schoolId || '',
+    })
+    setRelationSearch({
+      sppg: normalized.sppgName || '',
+      school: normalized.schoolName || '',
+    })
+    setRelationOptions({
+      sppg: normalized.sppgId
+        ? [{ id: normalized.sppgId, name: normalized.sppgName || `SPPG #${normalized.sppgId}`, city: '', province: '' }]
+        : [],
+      school: normalized.schoolId
+        ? [{ id: normalized.schoolId, name: normalized.schoolName || `Sekolah #${normalized.schoolId}`, city: '', province: '', district: '', npsn: '' }]
+        : [],
     })
     setFormErrors({})
     setModalMode('edit')
@@ -299,6 +371,8 @@ function UserManagement({ userRole, userName, onLogout }) {
     setModalMode('')
     setSelectedUser(null)
     setForm(emptyForm)
+    setRelationSearch({ sppg: '', school: '' })
+    setRelationOptions({ sppg: [], school: [] })
     setFormErrors({})
   }
 
@@ -321,11 +395,44 @@ function UserManagement({ userRole, userName, onLogout }) {
     const { name, value, type, checked } = event.target
     setForm((current) => {
       const next = { ...current, [name]: type === 'checkbox' ? checked : value }
-      if (name === 'role' && value !== 'sppg') next.sppgId = ''
-      if (name === 'role' && value !== 'sekolah') next.schoolId = ''
+      if (name === 'role') {
+        next.sppgId = ''
+        next.schoolId = ''
+      }
       return next
     })
+    if (name === 'role') {
+      setRelationSearch({ sppg: '', school: '' })
+      setRelationOptions({ sppg: [], school: [] })
+    }
     if (formErrors[name]) setFormErrors((current) => ({ ...current, [name]: '' }))
+  }
+
+  const handleRelationSearchChange = (type, value) => {
+    const idField = type === 'sppg' ? 'sppgId' : 'schoolId'
+    setRelationSearch((current) => ({ ...current, [type]: value }))
+    setForm((current) => ({ ...current, [idField]: '' }))
+    if (value.trim().length < 2) {
+      setRelationOptions((current) => ({ ...current, [type]: [] }))
+      setRelationLoading((current) => ({ ...current, [type]: false }))
+    }
+    if (formErrors[idField]) setFormErrors((current) => ({ ...current, [idField]: '' }))
+  }
+
+  const selectRelation = (type, item) => {
+    const idField = type === 'sppg' ? 'sppgId' : 'schoolId'
+    const label = type === 'sppg' ? formatSppgOption(item) : formatSchoolOption(item)
+    setForm((current) => ({ ...current, [idField]: item.id }))
+    setRelationSearch((current) => ({ ...current, [type]: label }))
+    setRelationOptions((current) => ({ ...current, [type]: [item] }))
+    if (formErrors[idField]) setFormErrors((current) => ({ ...current, [idField]: '' }))
+  }
+
+  const clearRelation = (type) => {
+    const idField = type === 'sppg' ? 'sppgId' : 'schoolId'
+    setForm((current) => ({ ...current, [idField]: '' }))
+    setRelationSearch((current) => ({ ...current, [type]: '' }))
+    setRelationOptions((current) => ({ ...current, [type]: [] }))
   }
 
   const upsertLocalUser = (user) => {
@@ -351,39 +458,18 @@ function UserManagement({ userRole, userName, onLogout }) {
     try {
       let result
       if (modalMode === 'create') {
-        try {
-          result = await requestJson('/users', { method: 'POST', body: payload })
-        } catch {
-          result = await requestJson('/admin/users', { method: 'POST', body: payload })
-        }
+        result = await createUserRequest(payload)
       } else {
-        try {
-          result = await requestJson(`/users/${selectedUser.id}`, { method: 'PATCH', body: payload })
-        } catch {
-          result = await requestJson(`/admin/users/${selectedUser.id}`, {
-            method: 'PUT',
-            body: makeAdminFallbackPayload(payload),
-          })
-        }
+        result = await updateUserRequest(selectedUser.id, makeUserUpdatePayload(payload))
       }
       upsertLocalUser(result.data)
       showToast(modalMode === 'create' ? 'User berhasil dibuat.' : 'User berhasil diperbarui.', 'success')
       closeModal()
       fetchUsers(new AbortController().signal)
     } catch (submitError) {
-      if (import.meta.env.DEV) {
-        const localUser = {
-          ...payload,
-          id: selectedUser?.id || `fallback-${Date.now()}`,
-          sppgName: sppgList.find((item) => Number(item.id) === Number(payload.sppgId))?.name,
-          schoolName: schoolList.find((item) => Number(item.id) === Number(payload.schoolId))?.name,
-        }
-        upsertLocalUser(localUser)
-        showToast('API user belum lengkap. Fallback development memperbarui state lokal.', 'warning')
-        closeModal()
-      } else {
-        showToast(submitError.message || 'Gagal menyimpan user.', 'danger')
-      }
+      const message = getBackendErrorMessage(submitError)
+      setFormErrors((current) => ({ ...current, general: message }))
+      showToast(message || 'Gagal menyimpan user.', 'danger')
     } finally {
       setSubmitLoading(false)
     }
@@ -413,29 +499,24 @@ function UserManagement({ userRole, userName, onLogout }) {
 
     try {
       if (confirm.type === 'delete') {
-        try {
-          await requestJson(`/users/${target.id}`, { method: 'DELETE' })
-        } catch {
-          await requestJson(`/admin/users/${target.id}`, { method: 'DELETE' })
-        }
+        await deleteUserRequest(target.id)
       } else {
-        try {
-          await requestJson(`/users/${target.id}/status`, { method: 'PATCH', body: { isActive: nextActive } })
-        } catch {
-          await requestJson(`/admin/users/${target.id}`, { method: 'PUT', body: { isActive: nextActive } })
-        }
+        await updateUserStatus(target.id, { isActive: nextActive })
       }
-      setUsers((current) => current.map((user) => (user.id === target.id ? { ...user, isActive: nextActive } : user)))
-      showToast(nextActive ? 'User berhasil diaktifkan.' : 'User berhasil dinonaktifkan.', 'success')
+      setUsers((current) => {
+        if (confirm.type === 'delete') {
+          return current.filter((user) => user.id !== target.id)
+        }
+
+        return current.map((user) => (user.id === target.id ? { ...user, isActive: nextActive } : user))
+      })
+      if (confirm.type === 'delete') {
+        setTotal((current) => Math.max(0, current - 1))
+      }
+      showToast(confirm.type === 'delete' ? 'User berhasil dinonaktifkan.' : nextActive ? 'User berhasil diaktifkan.' : 'User berhasil dinonaktifkan.', 'success')
       setConfirm(null)
     } catch (actionError) {
-      if (import.meta.env.DEV) {
-        setUsers((current) => current.map((user) => (user.id === target.id ? { ...user, isActive: nextActive } : user)))
-        showToast('API status belum lengkap. Fallback development memperbarui state lokal.', 'warning')
-        setConfirm(null)
-      } else {
-        showToast(actionError.message || 'Aksi user gagal.', 'danger')
-      }
+      showToast(actionError.message || 'Aksi user gagal.', 'danger')
     } finally {
       setSubmitLoading(false)
     }
@@ -510,7 +591,7 @@ function UserManagement({ userRole, userName, onLogout }) {
               <span className="user-label">Role</span>
               <select className="user-select" name="role" value={filters.role} onChange={handleFilterChange}>
                 <option value="">Semua</option>
-                {ROLES.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+                {roleOptions.map((role) => <option key={role} value={role}>{ROLE_LABELS[role] || role}</option>)}
               </select>
             </label>
             <div className="user-filter-field">
@@ -619,8 +700,8 @@ function UserManagement({ userRole, userName, onLogout }) {
           </article>
           <article className="user-summary-card">
             <Users aria-hidden="true" />
-            <p className="user-summary-title">Login Hari Ini</p>
-            <strong className="user-summary-value">{Math.max(3, Math.round(activeUsers / 2)).toLocaleString('id-ID')}</strong>
+            <p className="user-summary-title">Total User Filter</p>
+            <strong className="user-summary-value">{total.toLocaleString('id-ID')}</strong>
           </article>
           <article className="user-summary-card user-role-chart">
             <p className="user-summary-title">Role Distribution</p>
@@ -658,6 +739,7 @@ function UserManagement({ userRole, userName, onLogout }) {
               </header>
               <div className="user-modal-body">
                 <form className="user-form" onSubmit={handleSubmit}>
+                  {formErrors.general ? <div className="user-field-error user-field-error-general">{formErrors.general}</div> : null}
                   <div className="user-form-grid">
                     <label className="user-field">
                       <span className="user-label">Nama Lengkap</span>
@@ -683,29 +765,37 @@ function UserManagement({ userRole, userName, onLogout }) {
                       <span className="user-label">Role</span>
                       <select className="user-select" name="role" value={form.role} onChange={handleFormChange}>
                         <option value="">Pilih role</option>
-                        {ROLES.map((role) => <option key={role} value={role}>{ROLE_LABELS[role]}</option>)}
+                        {roleOptions.map((role) => <option key={role} value={role}>{ROLE_LABELS[role] || role}</option>)}
                       </select>
                       {formErrors.role ? <small className="user-field-error">{formErrors.role}</small> : null}
                     </label>
                     {form.role === 'sppg' ? (
-                      <label className="user-field">
-                        <span className="user-label">SPPG Terkait</span>
-                        <select className="user-select" name="sppgId" value={form.sppgId} onChange={handleFormChange}>
-                          <option value="">Pilih SPPG</option>
-                          {sppgList.map((item) => <option key={item.id} value={item.id}>{item.name} - {item.city}</option>)}
-                        </select>
-                        {formErrors.sppgId ? <small className="user-field-error">{formErrors.sppgId}</small> : null}
-                      </label>
+                      <RelationAutocomplete
+                        label="SPPG Terkait"
+                        type="sppg"
+                        valueId={form.sppgId}
+                        searchValue={relationSearch.sppg}
+                        options={relationOptions.sppg}
+                        loading={relationLoading.sppg}
+                        error={formErrors.sppgId}
+                        onSearchChange={handleRelationSearchChange}
+                        onSelect={selectRelation}
+                        onClear={clearRelation}
+                      />
                     ) : null}
                     {form.role === 'sekolah' ? (
-                      <label className="user-field">
-                        <span className="user-label">Sekolah Terkait</span>
-                        <select className="user-select" name="schoolId" value={form.schoolId} onChange={handleFormChange}>
-                          <option value="">Pilih sekolah</option>
-                          {schoolList.map((item) => <option key={item.id} value={item.id}>{item.name} - {item.city}</option>)}
-                        </select>
-                        {formErrors.schoolId ? <small className="user-field-error">{formErrors.schoolId}</small> : null}
-                      </label>
+                      <RelationAutocomplete
+                        label="Sekolah Terkait"
+                        type="school"
+                        valueId={form.schoolId}
+                        searchValue={relationSearch.school}
+                        options={relationOptions.school}
+                        loading={relationLoading.school}
+                        error={formErrors.schoolId}
+                        onSearchChange={handleRelationSearchChange}
+                        onSelect={selectRelation}
+                        onClear={clearRelation}
+                      />
                     ) : null}
                     <label className="user-field user-check-field">
                       <input name="isActive" type="checkbox" checked={form.isActive} onChange={handleFormChange} />
@@ -752,6 +842,73 @@ function UserManagement({ userRole, userName, onLogout }) {
         ) : null}
       </div>
     </DashboardLayout>
+  )
+}
+
+function RelationAutocomplete({
+  label,
+  type,
+  valueId,
+  searchValue,
+  options,
+  loading,
+  error,
+  onSearchChange,
+  onSelect,
+  onClear,
+}) {
+  const queryReady = searchValue.trim().length >= 2
+  const showResults = !valueId && (queryReady || loading)
+  const formatOption = type === 'sppg' ? formatSppgOption : formatSchoolOption
+  const placeholder = type === 'sppg' ? 'Cari nama, kota, provinsi' : 'Cari nama, NPSN, kota'
+
+  return (
+    <div className="user-field user-autocomplete-field">
+      <span className="user-label">{label}</span>
+      <div className="user-autocomplete-control">
+        <Search aria-hidden="true" />
+        <input
+          className="user-input"
+          value={searchValue}
+          onChange={(event) => onSearchChange(type, event.target.value)}
+          placeholder={placeholder}
+          autoComplete="off"
+        />
+        {valueId ? (
+          <button className="user-autocomplete-clear" type="button" aria-label={`Hapus ${label}`} onClick={() => onClear(type)}>
+            <X aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+      {valueId ? <span className="user-selected-relation">ID {valueId}</span> : null}
+      {showResults ? (
+        <div className="user-autocomplete-results" role="listbox">
+          {loading ? (
+            <div className="user-autocomplete-state">
+              <Loader2 aria-hidden="true" />
+              Memuat data...
+            </div>
+          ) : options.length ? (
+            options.map((item) => (
+              <button
+                key={item.id}
+                className={`user-autocomplete-option ${String(valueId) === String(item.id) ? 'user-autocomplete-option-selected' : ''}`}
+                type="button"
+                role="option"
+                aria-selected={String(valueId) === String(item.id)}
+                onClick={() => onSelect(type, item)}
+              >
+                <strong>{item.name}</strong>
+                <span>{formatOption(item)}</span>
+              </button>
+            ))
+          ) : (
+            <div className="user-autocomplete-state">Tidak ada hasil</div>
+          )}
+        </div>
+      ) : null}
+      {error ? <small className="user-field-error">{error}</small> : null}
+    </div>
   )
 }
 

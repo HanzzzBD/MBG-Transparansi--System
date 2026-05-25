@@ -14,7 +14,12 @@ import {
   Zap,
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestJson } from '../services/api'
+import {
+  getAuditLogs,
+  getDistributionDetail,
+  getDistributions,
+  overrideDistribution,
+} from '../services/api'
 import './OverrideData.css'
 
 const PAGE_SIZE = 10
@@ -25,123 +30,6 @@ const STATUS_OPTIONS = [
   { value: 'delivered', label: 'delivered' },
   { value: 'failed', label: 'failed' },
 ]
-
-const FALLBACK_ROWS = [
-  {
-    id: 2001,
-    sppgName: 'SPPG Bandung Selatan',
-    schoolName: 'SDN Nusantara 01',
-    province: 'Jawa Barat',
-    city: 'Bandung',
-    portions: 680,
-    pricePerPortion: 12500,
-    totalCost: 8500000,
-    status: 'delivered',
-    failureReason: '',
-    distributionDate: '2026-05-18',
-    lockedBy: 'Super Admin',
-    lockedAt: '2026-05-18T09:15:00Z',
-    hasOverride: true,
-    isLocked: true,
-  },
-  {
-    id: 2002,
-    sppgName: 'SPPG Surabaya Utara',
-    schoolName: 'SMPN 5 Surabaya',
-    province: 'Jawa Timur',
-    city: 'Surabaya',
-    portions: 540,
-    pricePerPortion: 11800,
-    totalCost: 6372000,
-    status: 'delivered',
-    failureReason: '',
-    distributionDate: '2026-05-18',
-    lockedBy: 'Admin Nasional',
-    lockedAt: '2026-05-18T08:40:00Z',
-    hasOverride: false,
-    isLocked: true,
-  },
-  {
-    id: 2003,
-    sppgName: 'SPPG Jakarta Timur',
-    schoolName: 'SDN Rawamangun 03',
-    province: 'DKI Jakarta',
-    city: 'Jakarta Timur',
-    portions: 720,
-    pricePerPortion: 13200,
-    totalCost: 9504000,
-    status: 'failed',
-    failureReason: 'Kendaraan distribusi rusak',
-    distributionDate: '2026-05-17',
-    lockedBy: 'Super Admin',
-    lockedAt: '2026-05-17T14:25:00Z',
-    hasOverride: false,
-    isLocked: true,
-  },
-  {
-    id: 2004,
-    sppgName: 'SPPG Makassar Mariso',
-    schoolName: 'SDN Mariso 02',
-    province: 'Sulawesi Selatan',
-    city: 'Makassar',
-    portions: 430,
-    pricePerPortion: 12250,
-    totalCost: 5267500,
-    status: 'delivered',
-    failureReason: '',
-    distributionDate: '2026-05-16',
-    lockedBy: 'Admin Nasional',
-    lockedAt: '2026-05-16T11:40:00Z',
-    hasOverride: true,
-    isLocked: true,
-  },
-  {
-    id: 2005,
-    sppgName: 'SPPG Jayapura Abepura',
-    schoolName: 'SDN Abepura 01',
-    province: 'Papua',
-    city: 'Jayapura',
-    portions: 410,
-    pricePerPortion: 16800,
-    totalCost: 6888000,
-    status: 'delivered',
-    failureReason: '',
-    distributionDate: '2026-05-15',
-    lockedBy: 'Super Admin',
-    lockedAt: '2026-05-15T13:20:00Z',
-    hasOverride: false,
-    isLocked: true,
-  },
-]
-
-const FALLBACK_HISTORY = Array.from({ length: 10 }, (_, index) => {
-  const oldData = {
-    portions: 650 + index * 10,
-    pricePerPortion: 12000 + index * 100,
-    status: index % 3 === 0 ? 'failed' : 'delivered',
-    failureReason: index % 3 === 0 ? 'Kendala armada' : null,
-  }
-  const newData = {
-    ...oldData,
-    portions: oldData.portions + 20,
-    pricePerPortion: oldData.pricePerPortion + 250,
-    override: true,
-    overrideReason: 'Koreksi resmi berdasarkan berita acara lapangan dan validasi admin.',
-  }
-
-  return {
-    id: `fallback-history-${index + 1}`,
-    timestamp: new Date(Date.UTC(2026, 4, 18, 9, 30 - index * 2, 0)).toISOString(),
-    admin: index % 2 === 0 ? 'Super Admin' : 'Admin Nasional',
-    distributionId: 2001 + index,
-    changedFields: ['portions', 'pricePerPortion'],
-    reason: newData.overrideReason,
-    ipAddress: `192.168.10.${index + 20}`,
-    userAgent: 'Mozilla/5.0 MBG Admin Dashboard',
-    oldData,
-    newData,
-  }
-})
 
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
@@ -252,26 +140,6 @@ function normalizeHistoryRow(item) {
   }
 }
 
-function isOverrideAuditRow(item) {
-  const newData = item.newData || item.new_data || {}
-  return Boolean(newData.override || newData.overrideReason || newData.override_reason || item.metadata?.override)
-}
-
-function applyLocalFilters(rows, filters) {
-  return rows.filter((row) => {
-    const keyword = filters.search.trim().toLowerCase()
-    const distributionDate = new Date(row.distributionDate)
-    const dateFrom = filters.dateFrom ? new Date(`${filters.dateFrom}T00:00:00`) : null
-    const dateTo = filters.dateTo ? new Date(`${filters.dateTo}T23:59:59`) : null
-    const matchesSearch = !keyword || [row.id, row.sppgName, row.schoolName, row.province, row.city].some((value) => String(value).toLowerCase().includes(keyword))
-    const matchesStatus = !filters.status || row.status === filters.status
-    const matchesProvince = !filters.province || row.province === filters.province
-    const matchesFrom = !dateFrom || distributionDate >= dateFrom
-    const matchesTo = !dateTo || distributionDate <= dateTo
-    return row.isLocked && matchesSearch && matchesStatus && matchesProvince && matchesFrom && matchesTo
-  })
-}
-
 function makeInitialForm(row) {
   return {
     portions: row?.portions ? String(row.portions) : '',
@@ -316,7 +184,7 @@ function OverrideData({ userRole, userName, onLogout }) {
   const isAdmin = resolvedRole === 'admin'
 
   const [rows, setRows] = useState([])
-  const [historyRows, setHistoryRows] = useState(FALLBACK_HISTORY)
+  const [historyRows, setHistoryRows] = useState([])
   const [filters, setFilters] = useState({
     search: '',
     status: '',
@@ -338,9 +206,8 @@ function OverrideData({ userRole, userName, onLogout }) {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [expandedHistoryId, setExpandedHistoryId] = useState('')
 
-  const filteredFallbackRows = useMemo(() => applyLocalFilters(FALLBACK_ROWS, filters), [filters])
   const provinceOptions = useMemo(() => {
-    const values = [...FALLBACK_ROWS, ...rows]
+    const values = rows
       .map((row) => row.province)
       .filter((value) => value && value !== '-')
     return [...new Set(values)].sort()
@@ -357,79 +224,54 @@ function OverrideData({ userRole, userName, onLogout }) {
     setError('')
 
     try {
-      const result = await requestJson('/distributions', {
-        params: {
-          isLocked: true,
-          search: filters.search,
-          status: filters.status,
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
-          province: filters.province,
-          page,
-          limit: PAGE_SIZE,
-        },
+      const result = await getDistributions({
+        isLocked: true,
+        search: filters.search,
+        status: filters.status,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo,
+        province: filters.province,
+        page,
+        limit: PAGE_SIZE,
+      }, {
         signal,
       })
       const items = Array.isArray(result.data) ? result.data : result.data?.items || []
-      const normalized = applyLocalFilters(items.map(normalizeDistribution), filters)
-
-      if (!normalized.length) {
-        setRows(filteredFallbackRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
-        setTotal(filteredFallbackRows.length)
-        setError('Data distribusi terkunci API kosong. Fallback preview ditampilkan sementara.')
-        return
-      }
+      const normalized = items.map(normalizeDistribution)
 
       setRows(normalized)
       setTotal(result.meta?.total || normalized.length)
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
-        setRows(filteredFallbackRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE))
-        setTotal(filteredFallbackRows.length)
-        setError('Data distribusi terkunci gagal dimuat dari API. Fallback preview ditampilkan.')
+        setRows([])
+        setTotal(0)
+        setError(fetchError.message || 'Data distribusi terkunci gagal dimuat dari API.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
     }
-  }, [filteredFallbackRows, filters, isAdmin, page])
+  }, [filters, isAdmin, page])
 
   const fetchHistory = useCallback(async (signal) => {
     if (!isAdmin) return
     setHistoryError('')
 
     try {
-      let items = []
-
-      try {
-        const result = await requestJson('/audit-logs', {
-          params: {
-            action: 'OVERRIDE',
-            tableName: 'distributions',
-            limit: HISTORY_LIMIT,
-          },
-          signal,
-        })
-        items = Array.isArray(result.data) ? result.data : result.data?.items || []
-      } catch {
-        // TODO: Backend existing belum punya AuditAction OVERRIDE, jadi override dicatat sebagai UPDATE + newData.override.
-        const result = await requestJson('/admin/audit-logs', {
-          params: {
-            action: 'UPDATE',
-            table_name: 'distributions',
-            limit: 50,
-          },
-          signal,
-        })
-        items = Array.isArray(result.data) ? result.data : result.data?.items || []
-        items = items.filter(isOverrideAuditRow).slice(0, HISTORY_LIMIT)
-      }
-
+      const result = await getAuditLogs({
+        action: 'OVERRIDE',
+        tableName: 'distributions',
+        limit: HISTORY_LIMIT,
+      }, {
+        signal,
+      })
+      const items = Array.isArray(result.data) ? result.data : result.data?.items || []
       const normalized = items.map(normalizeHistoryRow)
-      setHistoryRows(normalized.length ? normalized : FALLBACK_HISTORY)
-      if (!normalized.length) setHistoryError('Riwayat override API kosong. Fallback preview ditampilkan sementara.')
-    } catch {
-      setHistoryRows(FALLBACK_HISTORY)
-      setHistoryError('Riwayat override gagal dimuat dari API. Fallback preview ditampilkan.')
+      setHistoryRows(normalized)
+    } catch (fetchError) {
+      if (fetchError.name !== 'AbortError') {
+        setHistoryRows([])
+        setHistoryError(fetchError.message || 'Riwayat override gagal dimuat dari API.')
+      }
     }
   }, [isAdmin])
 
@@ -463,7 +305,7 @@ function OverrideData({ userRole, userName, onLogout }) {
     if (!String(row.id).match(/^\d+$/)) return row
 
     try {
-      const result = await requestJson(`/distributions/${row.id}`)
+      const result = await getDistributionDetail(row.id)
       return normalizeDistribution(result.data)
     } catch {
       return row
@@ -516,21 +358,7 @@ function OverrideData({ userRole, userName, onLogout }) {
   }
 
   const callOverrideEndpoint = async (row, payload) => {
-    try {
-      return await requestJson(`/distributions/${row.id}/override`, {
-        method: 'PATCH',
-        body: payload,
-      })
-    } catch {
-      // TODO: Backend existing memakai /admin + PUT dan override dicatat sebagai UPDATE dengan marker override.
-      return requestJson(`/admin/distributions/${row.id}/override`, {
-        method: 'PUT',
-        body: {
-          ...payload.changes,
-          overrideReason: payload.reason,
-        },
-      })
-    }
+    return overrideDistribution(row.id, payload)
   }
 
   const handleOverrideSubmit = async () => {
@@ -546,64 +374,13 @@ function OverrideData({ userRole, userName, onLogout }) {
     try {
       const result = await callOverrideEndpoint(selectedRow, payload)
       const normalized = normalizeDistribution(result.data)
-      const updatedRow = {
-        ...selectedRow,
-        ...normalized,
-        ...changes,
-        failureReason: changes.failureReason === null ? '' : changes.failureReason ?? selectedRow.failureReason,
-        hasOverride: true,
-        isLocked: true,
-      }
-      setRows((current) => current.map((row) => (row.id === selectedRow.id ? updatedRow : row)))
-      setHistoryRows((current) => [
-        normalizeHistoryRow({
-          id: `local-${Date.now()}`,
-          createdAt: new Date().toISOString(),
-          userName: displayName,
-          recordId: selectedRow.id,
-          oldData: selectedRow,
-          newData: {
-            ...updatedRow,
-            override: true,
-            overrideReason: form.reason.trim(),
-          },
-        }),
-        ...current,
-      ].slice(0, HISTORY_LIMIT))
+
+      setRows((current) => current.map((row) => (row.id === selectedRow.id ? normalized : row)))
       showToast('Override berhasil diterapkan dan dicatat di audit log.', 'success')
       closeModal()
       fetchHistory(new AbortController().signal)
     } catch (submitError) {
-      if (import.meta.env.DEV) {
-        const updatedRow = {
-          ...selectedRow,
-          ...changes,
-          failureReason: changes.failureReason === null ? '' : changes.failureReason ?? selectedRow.failureReason,
-          totalCost: (changes.portions ?? selectedRow.portions) * (changes.pricePerPortion ?? selectedRow.pricePerPortion),
-          hasOverride: true,
-          isLocked: true,
-        }
-        setRows((current) => current.map((row) => (row.id === selectedRow.id ? updatedRow : row)))
-        setHistoryRows((current) => [
-          normalizeHistoryRow({
-            id: `fallback-submit-${Date.now()}`,
-            createdAt: new Date().toISOString(),
-            userName: displayName,
-            recordId: selectedRow.id,
-            oldData: selectedRow,
-            newData: {
-              ...updatedRow,
-              override: true,
-              overrideReason: form.reason.trim(),
-            },
-          }),
-          ...current,
-        ].slice(0, HISTORY_LIMIT))
-        showToast('Endpoint override belum lengkap/login belum aktif. Fallback development memperbarui state lokal.', 'warning')
-        closeModal()
-      } else {
-        showToast(submitError.message || 'Override gagal diterapkan.', 'danger')
-      }
+      showToast(submitError.message || 'Override gagal diterapkan.', 'danger')
     } finally {
       setSubmitLoading(false)
     }
@@ -728,6 +505,11 @@ function OverrideData({ userRole, userName, onLogout }) {
                 </tr>
               </thead>
               <tbody>
+                {!loading && rows.length === 0 ? (
+                  <tr>
+                    <td colSpan="7">Tidak ada data distribusi terkunci untuk filter ini.</td>
+                  </tr>
+                ) : null}
                 {rows.map((row) => (
                   <tr key={row.id}>
                     <td>
@@ -798,6 +580,11 @@ function OverrideData({ userRole, userName, onLogout }) {
                 </tr>
               </thead>
               <tbody>
+                {historyRows.length === 0 ? (
+                  <tr>
+                    <td colSpan="6">Belum ada riwayat override.</td>
+                  </tr>
+                ) : null}
                 {historyRows.map((row) => {
                   const expanded = expandedHistoryId === row.id
                   return (

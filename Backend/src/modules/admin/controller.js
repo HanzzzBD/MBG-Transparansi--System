@@ -17,6 +17,19 @@ const listUsers = async (req, res, next) => {
   }
 };
 
+const listRoles = async (_req, res, next) => {
+  try {
+    const result = await adminService.listRoles();
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createUser = async (req, res, next) => {
   try {
     const result = await adminService.createUser({
@@ -39,6 +52,26 @@ const updateUser = async (req, res, next) => {
     const result = await adminService.updateUser({
       id: req.params.id,
       payload: req.body,
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateUserStatus = async (req, res, next) => {
+  try {
+    const result = await adminService.updateUser({
+      id: req.params.id,
+      payload: {
+        isActive: req.body.isActive
+      },
       actorUserId: req.user.userId,
       ipAddress: getClientIp(req)
     });
@@ -244,6 +277,7 @@ module.exports = {
   listAnomalyLogs,
   listAuditLogs,
   listPriceThresholds,
+  listRoles,
   listSystemConfigs,
   listUsers,
   lockDistribution,
@@ -252,5 +286,6 @@ module.exports = {
   unlockDistribution,
   updatePriceThreshold,
   updateSystemConfig,
+  updateUserStatus,
   updateUser
 };

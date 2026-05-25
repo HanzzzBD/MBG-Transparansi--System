@@ -566,6 +566,31 @@
   box-shadow: 0 16px 34px rgba(15, 76, 129, 0.08);
 }
 
+.peta-batch-summary,
+.peta-detail-empty {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(181, 224, 234, 0.7);
+  border-radius: 12px;
+  background: var(--color-light-gray);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 850;
+  padding: 12px;
+}
+
+.peta-batch-summary strong {
+  color: var(--color-navy);
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.peta-batch-summary small {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
 .peta-menu-title {
   display: flex;
   align-items: flex-start;

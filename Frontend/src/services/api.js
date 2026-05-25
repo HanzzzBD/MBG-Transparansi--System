@@ -187,13 +187,29 @@ export const logoutRequest = () =>
 
 export const getDashboardSummary = (params) => apiRequest('/analytics/summary', { params })
 
-export const getSppg = (params) => apiRequest('/sppg', { params })
+const DASHBOARD_SUMMARY_ENDPOINTS = {
+  admin: '/dashboard/admin-summary',
+  pemerintah: '/dashboard/gov-summary',
+  sppg: '/dashboard/sppg-summary',
+  sekolah: '/dashboard/school-summary',
+}
+
+export const getDashboardRoleSummary = (role, params, options = {}) => {
+  const endpoint = DASHBOARD_SUMMARY_ENDPOINTS[role] || DASHBOARD_SUMMARY_ENDPOINTS.pemerintah
+  return apiRequest(endpoint, { ...options, params })
+}
+
+export const getSppg = (params, options = {}) => apiRequest('/sppg', { ...options, params })
 
 export const getSppgDetail = (id) => apiRequest(`/sppg/${id}`)
 
+export const getSppgMapMarkers = (params, options = {}) => apiRequest('/sppg/map-markers', { ...options, params })
+
+export const getSppgOperationalDetail = (id, options = {}) => apiRequest(`/sppg/${id}/detail`, options)
+
 export const getPublicSppgDetail = (id) => apiRequest(`/public/sppg/${id}`)
 
-export const getSchools = (params) => apiRequest('/schools', { params })
+export const getSchools = (params, options = {}) => apiRequest('/schools', { ...options, params })
 
 export const getDapodikStagedSchools = (params) => apiRequest('/dapodik/staged-schools', { params })
 
@@ -217,7 +233,11 @@ export const linkDapodikSchool = (id, payload) =>
     body: payload,
   })
 
-export const getDistributions = (params) => apiRequest('/distributions', { params })
+export const getDistributions = (params, options = {}) => apiRequest('/distributions', { ...options, params })
+
+export const getDistributionDetail = (id, options = {}) => apiRequest(`/distributions/${id}`, options)
+
+export const getDistributionLockSummary = (options = {}) => apiRequest('/distributions/lock-summary', options)
 
 export const createDistribution = (payload) =>
   apiRequest('/distributions', {
@@ -261,7 +281,21 @@ export const updateValidation = (id, payload) =>
     body: payload,
   })
 
-export const getPublicReports = (params) => apiRequest('/public-reports', { params })
+export const getPublicReports = (params, options = {}) => apiRequest('/public-reports', { ...options, params })
+
+export const getPublicReportsSummary = (params, options = {}) =>
+  apiRequest('/public-reports/summary', { ...options, params })
+
+export const getPublicReportDetail = (id, options = {}) => apiRequest(`/public-reports/${id}`, options)
+
+export const getAnalyticsPublicReportsSummary = (params, options = {}) =>
+  apiRequest('/analytics/public-reports-summary', { ...options, params })
+
+export const getAnalyticsPublicReportsTrend = (params, options = {}) =>
+  apiRequest('/analytics/public-reports-trend', { ...options, params })
+
+export const getAnalyticsPublicReportsTopRegions = (params, options = {}) =>
+  apiRequest('/analytics/public-reports-top-regions', { ...options, params })
 
 export const updatePublicReportStatus = (id, payload) =>
   apiRequest(`/public-reports/${id}/status`, {
@@ -269,9 +303,14 @@ export const updatePublicReportStatus = (id, payload) =>
     body: payload,
   })
 
-export const getAuditLogs = (params) => apiRequest('/audit-logs', { params })
+export const getAuditLogs = (params, options = {}) => apiRequest('/audit-logs', { ...options, params })
 
-export const getExports = (params) => apiRequest('/exports', { params })
+export const getAuditLogsSummary = (params, options = {}) =>
+  apiRequest('/audit-logs/summary', { ...options, params })
+
+export const getAuditLogDetail = (id, options = {}) => apiRequest(`/audit-logs/${id}`, options)
+
+export const getExports = (params, options = {}) => apiRequest('/exports', { ...options, params })
 
 export const createExport = (payload) =>
   apiRequest('/exports', {
@@ -279,7 +318,7 @@ export const createExport = (payload) =>
     body: payload,
   })
 
-export const getExportDetail = (id) => apiRequest(`/exports/${id}`)
+export const getExportDetail = (id, options = {}) => apiRequest(`/exports/${id}`, options)
 
 export const retryExport = (id) =>
   apiRequest(`/exports/${id}/retry`, {
@@ -296,7 +335,9 @@ export const resolveAnomaly = (id, payload = {}) =>
     body: payload,
   })
 
-export const getUsers = (params) => apiRequest('/users', { params })
+export const getUsers = (params, options = {}) => apiRequest('/users', { ...options, params })
+
+export const getRoles = (options = {}) => apiRequest('/roles', options)
 
 export const createUser = (payload) =>
   apiRequest('/users', {
@@ -310,6 +351,12 @@ export const updateUser = (id, payload) =>
     body: payload,
   })
 
+export const updateUserStatus = (id, payload) =>
+  apiRequest(`/users/${id}`, {
+    method: 'PATCH',
+    body: payload,
+  })
+
 export const deleteUser = (id) =>
   apiRequest(`/users/${id}`, {
     method: 'DELETE',
@@ -317,7 +364,23 @@ export const deleteUser = (id) =>
 
 export const getPriceThresholds = (params) => apiRequest('/price-thresholds', { params })
 
-export const getMonitoringSummary = () => apiRequest('/monitoring/summary')
+export const getMonitoringSummary = (options = {}) => apiRequest('/monitoring/summary', options)
+
+export const getMonitoringApis = (options = {}) => apiRequest('/monitoring/apis', options)
+
+export const getMonitoringErrors = (options = {}) => apiRequest('/monitoring/errors', options)
+
+export const getMonitoringSyncSources = (options = {}) => apiRequest('/monitoring/sync-sources', options)
+
+export const testMonitoringApi = (id) =>
+  apiRequest(`/monitoring/apis/${id}/test`, {
+    method: 'POST',
+  })
+
+export const syncMonitoringSource = (id) =>
+  apiRequest(`/monitoring/sync-sources/${id}/sync`, {
+    method: 'POST',
+  })
 
 export const getFoodPricesLatest = (params) => apiRequest('/food-prices/latest', { params })
 

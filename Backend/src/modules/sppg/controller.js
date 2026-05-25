@@ -17,9 +17,39 @@ const listSppg = async (req, res, next) => {
   }
 };
 
+const listMapMarkers = async (req, res, next) => {
+  try {
+    const result = await sppgService.listMapMarkers({
+      query: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getSppgDetail = async (req, res, next) => {
   try {
     const result = await sppgService.getSppgDetail({
+      id: req.params.id
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSppgOperationalDetail = async (req, res, next) => {
+  try {
+    const result = await sppgService.getSppgOperationalDetail({
       id: req.params.id
     });
 
@@ -87,7 +117,9 @@ const deleteSppg = async (req, res, next) => {
 module.exports = {
   createSppg,
   deleteSppg,
+  getSppgOperationalDetail,
   getSppgDetail,
+  listMapMarkers,
   listSppg,
   updateSppg
 };

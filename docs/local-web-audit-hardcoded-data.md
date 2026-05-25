@@ -18,12 +18,12 @@ Fokus file ini adalah data fallback/dummy/hardcoded yang masih ada di frontend. 
 | Audit Log | `Frontend/src/pages/AuditLog.jsx` | Fixed 2026-05-23: fallback rows berisi nama dummy dan summary lokal dihapus. | `/api/audit-logs` 200, `/api/audit-logs/summary` fixed 2026-05-22. API kosong tampil empty state. | Detail fallback lokal tetap hanya mempertahankan row yang sudah didapat bila endpoint detail gagal. |
 | Export | `Frontend/src/pages/ExportData.jsx` | Fixed 2026-05-23: fallback history, fallback preview export, dan fallback download/retry state dihapus. | `/api/exports` 200, config endpoint fixed 2026-05-22. Retry endpoint belum ada dan kini tampil error, tidak memalsukan sukses. | Tambah `POST /api/exports/:id/retry` pada PR terpisah. |
 | Laporan Masyarakat | `Frontend/src/pages/LaporanMasyarakat.jsx` | Fixed 2026-05-23: fallback reports, category counts, trend, top regions, dan status update lokal dihapus. | List reports 200, summary/trend/top region fixed 2026-05-22. API kosong tampil empty state. | Formalisasi kolom/status follow-up lanjutan bila diperlukan. |
-| User Management | `Frontend/src/pages/UserManagement.jsx:36-56`, `:216-235` | Fallback users termasuk `Ahmad Suryanto`, `Siti Nurhaliza`. | `/api/users`, `/api/sppg`, `/api/schools` 200 saat admin. | Hapus fallback dummy setelah API create/edit/delete stabil. |
-| Lock/Unlock | `Frontend/src/pages/LockUnlock.jsx:61-99`, `:264-301` | Fallback distributions/logs/summary. | List/logs 200, `lock-summary` fixed 2026-05-22. | Kurangi fallback summary menjadi empty/error state setelah endpoint stabil. |
-| Override | `Frontend/src/pages/OverrideData.jsx:29-133`, `:414`, `:525-589` | Fallback rows/history/submit marker. | List/audit 200, override history bergantung audit UPDATE marker. | Formalize audit action `OVERRIDE` atau mapping backend/frontend. |
+| User Management | `Frontend/src/pages/UserManagement.jsx` | Fixed 2026-05-24: fallback users dan update lokal saat API gagal dihapus. Relasi SPPG/sekolah memakai autocomplete server-side. | `/api/users` CRUD 200/201, invalid payload 400 `VALIDATION_ERROR`, soft delete mengisi `deletedAt`. | Tetap tampilkan error validasi backend di modal create/edit. |
+| Lock/Unlock | `Frontend/src/pages/LockUnlock.jsx` | Fixed 2026-05-24: fallback distributions/logs/summary dihapus. | `/api/distributions`, `/api/distributions/lock-summary`, dan audit lock/unlock menjadi source utama. | Pertahankan empty/error state saat API kosong/gagal. |
+| Override | `Frontend/src/pages/OverrideData.jsx` | Fixed 2026-05-24: fallback rows/history/submit lokal dihapus. | `/api/distributions/:id/override` 200; history memakai `/api/audit-logs?action=OVERRIDE`. | Backend menyimpan snapshot old/new data dan frontend tidak memalsukan riwayat. |
 | API Monitoring | `Frontend/src/pages/ApiMonitoring.jsx:6-60` | Fallback summary status. | `/api/monitoring/summary` 200. | Tambah detail monitoring sync SP2KP/queue/job bila diperlukan. |
 
-String dummy yang terkonfirmasi di source: `fallback`, `TODO`, `94.7`, `Ahmad Suryanto`, `Siti Nurhaliza`, `DKI Jakarta`, dan beberapa data sekolah/SPPG dummy.
+String dummy yang masih perlu diaudit lintas halaman: `fallback`, `TODO`, `94.7`, `DKI Jakarta`, dan beberapa data sekolah/SPPG dummy di halaman yang belum masuk cleanup.
 
 ## Hotfix Verification 2026-05-23 - Priority Fallback Cleanup
 

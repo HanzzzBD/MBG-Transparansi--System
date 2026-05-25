@@ -16,7 +16,13 @@ import {
   X,
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestJson } from '../services/api'
+import {
+  getAuditLogs,
+  getDistributionLockSummary,
+  getDistributions,
+  lockDistribution,
+  unlockDistribution,
+} from '../services/api'
 import './LockUnlock.css'
 
 const PAGE_SIZE = 10
@@ -57,52 +63,6 @@ const PROVINCES = [
   'Papua',
   'Papua Barat',
 ]
-
-const FALLBACK_DISTRIBUTIONS = [
-  ['DST-1001', 'SPPG Bandung Selatan', 'SDN Nusantara 01', 'Bandung', 'Jawa Barat', 450, '2026-05-18', true, 'Super Admin', '2026-05-18T09:15:00Z'],
-  ['DST-1002', 'SPPG Bandung Selatan', 'SMP Negeri 4 Cibinong', 'Bogor', 'Jawa Barat', 620, '2026-05-18', false, null, null],
-  ['DST-1003', 'SPPG Surabaya Utara', 'SDN Kenjeran 02', 'Surabaya', 'Jawa Timur', 510, '2026-05-18', true, 'Admin Nasional', '2026-05-18T08:30:00Z'],
-  ['DST-1004', 'SPPG Semarang Barat', 'SDN Pamularsih 01', 'Semarang', 'Jawa Tengah', 380, '2026-05-17', false, null, null],
-  ['DST-1005', 'SPPG Jakarta Timur', 'SDN Rawamangun 03', 'Jakarta Timur', 'DKI Jakarta', 720, '2026-05-17', true, 'Super Admin', '2026-05-17T15:02:00Z'],
-  ['DST-1006', 'SPPG Medan Kota', 'SMP Negeri 7 Medan', 'Medan', 'Sumatera Utara', 540, '2026-05-17', false, null, null],
-  ['DST-1007', 'SPPG Makassar Mariso', 'SDN Mariso 02', 'Makassar', 'Sulawesi Selatan', 430, '2026-05-16', true, 'Admin Nasional', '2026-05-16T11:40:00Z'],
-  ['DST-1008', 'SPPG Denpasar Timur', 'SDN Dangin Puri', 'Denpasar', 'Bali', 350, '2026-05-16', false, null, null],
-  ['DST-1009', 'SPPG Jayapura Abepura', 'SDN Abepura 01', 'Jayapura', 'Papua', 410, '2026-05-15', true, 'Super Admin', '2026-05-15T13:20:00Z'],
-  ['DST-1010', 'SPPG Banjarmasin Barat', 'SMP Negeri 2 Banjarmasin', 'Banjarmasin', 'Kalimantan Selatan', 590, '2026-05-15', false, null, null],
-  ['DST-1011', 'SPPG Kupang Oebobo', 'SDN Oebobo 04', 'Kupang', 'Nusa Tenggara Timur', 320, '2026-05-14', true, 'Admin Nasional', '2026-05-14T10:12:00Z'],
-  ['DST-1012', 'SPPG Palu Mantikulore', 'SDN Palu Timur', 'Palu', 'Sulawesi Tengah', 460, '2026-05-14', false, null, null],
-  ['DST-1013', 'SPPG Pontianak Sungai Raya', 'SDN Sungai Raya 02', 'Pontianak', 'Kalimantan Barat', 570, '2026-05-13', true, 'Super Admin', '2026-05-13T16:45:00Z'],
-  ['DST-1014', 'SPPG Mataram Ampenan', 'SDN Ampenan 03', 'Mataram', 'Nusa Tenggara Barat', 390, '2026-05-13', false, null, null],
-  ['DST-1015', 'SPPG Manado Wenang', 'SMP Negeri 1 Manado', 'Manado', 'Sulawesi Utara', 500, '2026-05-12', true, 'Admin Nasional', '2026-05-12T07:50:00Z'],
-].map((item, index) => ({
-  id: item[0],
-  sppgName: item[1],
-  schoolName: item[2],
-  district: item[3],
-  province: item[4],
-  portions: item[5],
-  distributionDate: item[6],
-  status: index % 4 === 0 ? 'delivered' : 'in_progress',
-  isLocked: item[7],
-  lockedBy: item[8],
-  lockedAt: item[9],
-  unlockedUntil: !item[7] && index % 5 === 0 ? new Date(Date.now() + 45 * 60 * 1000).toISOString() : null,
-}))
-
-const FALLBACK_LOGS = [
-  ['2026-05-18T09:15:00Z', 'Super Admin', 'LOCK', 'DST-1001', 'Distribusi sudah selesai divalidasi sekolah.'],
-  ['2026-05-18T08:30:00Z', 'Admin Nasional', 'LOCK', 'DST-1003', 'Data final untuk laporan harian.'],
-  ['2026-05-17T15:20:00Z', 'Super Admin', 'UNLOCK', 'DST-0998', 'Koreksi porsi diterima dari sekolah.'],
-  ['2026-05-17T12:10:00Z', 'Admin Nasional', 'LOCK', 'DST-0994', 'Menutup data setelah audit validasi.'],
-  ['2026-05-16T10:30:00Z', 'Super Admin', 'UNLOCK', 'DST-0988', 'Koreksi foto bukti distribusi.'],
-].map((item, index) => ({
-  id: `fallback-log-${index + 1}`,
-  timestamp: item[0],
-  admin: item[1],
-  action: item[2],
-  distributionId: item[3],
-  reason: item[4],
-}))
 
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
@@ -169,7 +129,7 @@ function normalizeDistribution(item) {
     distributionDate: item.distributionDate || item.distribution_date || item.date || item.createdAt || item.created_at,
     status: item.status || '-',
     isLocked,
-    lockedBy: item.lockedByName || item.locked_by_name || item.lockedBy?.name || item.locked_by?.name || (isLocked ? '-' : null),
+    lockedBy: item.lockedByName || item.locked_by_name || item.lockedBy?.name || item.locked_by?.name || (isLocked ? 'Admin' : null),
     lockedAt: item.lockedAt || item.locked_at || (isLocked ? item.updatedAt || item.updated_at || item.createdAt || item.created_at : null),
     unlockedUntil: item.unlockedUntil || item.unlocked_until || null,
   }
@@ -178,42 +138,16 @@ function normalizeDistribution(item) {
 function normalizeLog(item) {
   const user = item.user || {}
   const newData = item.newData || item.new_data || {}
-  const metadata = item.metadata || {}
   const action = String(item.action || 'LOCK').toUpperCase()
   const recordId = item.recordId || item.record_id || newData.id || item.distributionId || item.distribution_id
 
   return {
     id: item.id || `${action}-${recordId}-${item.createdAt || item.created_at || Date.now()}`,
     timestamp: item.timestamp || item.createdAt || item.created_at || new Date().toISOString(),
-    admin: item.admin || item.adminName || item.userName || user.name || user.email || 'Admin',
+    admin: item.admin || item.adminName || item.userName || item.user_name || user.name || user.email || 'Admin',
     action,
     distributionId: item.distributionId || item.distribution_id || recordId || '-',
-    reason: item.reason || metadata.reason || item.description || 'Aksi lock/unlock distribusi tercatat di audit log.',
-  }
-}
-
-function applyLocalFilters(rows, filters) {
-  return rows.filter((row) => {
-    const keyword = filters.search.trim().toLowerCase()
-    const distributionDate = new Date(row.distributionDate)
-    const dateFrom = filters.dateFrom ? new Date(`${filters.dateFrom}T00:00:00`) : null
-    const dateTo = filters.dateTo ? new Date(`${filters.dateTo}T23:59:59`) : null
-    const matchesSearch = !keyword || [row.id, row.sppgName, row.schoolName, row.district].some((value) => String(value).toLowerCase().includes(keyword))
-    const matchesStatus = filters.lockStatus === 'all' || (filters.lockStatus === 'locked' ? row.isLocked : !row.isLocked)
-    const matchesProvince = !filters.province || row.province === filters.province
-    const matchesFrom = !dateFrom || distributionDate >= dateFrom
-    const matchesTo = !dateTo || distributionDate <= dateTo
-
-    return matchesSearch && matchesStatus && matchesProvince && matchesFrom && matchesTo
-  })
-}
-
-function buildSummary(rows) {
-  const now = new Date()
-  return {
-    lockedCount: rows.filter((row) => row.isLocked).length,
-    editableCount: rows.filter((row) => !row.isLocked).length,
-    autoLockPendingCount: rows.filter((row) => !row.isLocked && row.unlockedUntil && new Date(row.unlockedUntil) > now).length,
+    reason: item.reason || newData.reason || item.description || 'Aksi lock/unlock distribusi tercatat di audit log.',
   }
 }
 
@@ -231,8 +165,8 @@ function LockUnlock({ userRole, userName, onLogout }) {
   const isAdmin = resolvedRole === 'admin'
 
   const [rows, setRows] = useState([])
-  const [summary, setSummary] = useState({ lockedCount: 23, editableCount: 156, autoLockPendingCount: 8 })
-  const [logs, setLogs] = useState(FALLBACK_LOGS)
+  const [summary, setSummary] = useState({ lockedCount: 0, editableCount: 0, autoLockPendingCount: 0 })
+  const [logs, setLogs] = useState([])
   const [filters, setFilters] = useState({
     search: '',
     lockStatus: 'all',
@@ -252,54 +186,32 @@ function LockUnlock({ userRole, userName, onLogout }) {
   const [submitLoading, setSubmitLoading] = useState(false)
   const [toast, setToast] = useState(null)
 
-  const filteredFallbackRows = useMemo(() => applyLocalFilters(FALLBACK_DISTRIBUTIONS, filters), [filters])
-
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
     window.setTimeout(() => setToast(null), 3200)
   }, [])
 
-  const fetchSummary = useCallback(async (signal, fallbackRows = []) => {
-    try {
-      const result = await requestJson('/distributions/lock-summary', { signal })
-      setSummary({
-        lockedCount: Number(result.data.lockedCount ?? result.data.locked_count ?? 0),
-        editableCount: Number(result.data.editableCount ?? result.data.editable_count ?? 0),
-        autoLockPendingCount: Number(result.data.autoLockPendingCount ?? result.data.auto_lock_pending_count ?? 0),
-      })
-    } catch {
-      setSummary(buildSummary(fallbackRows.length ? fallbackRows : FALLBACK_DISTRIBUTIONS))
-    }
+  const fetchSummary = useCallback(async (signal) => {
+    const result = await getDistributionLockSummary({ signal })
+    setSummary({
+      lockedCount: Number(result.data.lockedCount ?? result.data.locked_count ?? 0),
+      editableCount: Number(result.data.editableCount ?? result.data.editable_count ?? 0),
+      autoLockPendingCount: Number(result.data.autoLockPendingCount ?? result.data.auto_lock_pending_count ?? 0),
+    })
   }, [])
 
   const fetchLogs = useCallback(async (signal) => {
-    try {
-      let normalized = []
-
-      try {
-        const result = await requestJson('/audit-logs', {
-          params: { action: 'LOCK,UNLOCK', limit: 5 },
-          signal,
-        })
-        const items = Array.isArray(result.data) ? result.data : result.data?.items || []
-        normalized = items.map(normalizeLog)
-      } catch {
-        const [lockResult, unlockResult] = await Promise.allSettled([
-          requestJson('/admin/audit-logs', { params: { action: 'LOCK', table_name: 'distributions', limit: 5 }, signal }),
-          requestJson('/admin/audit-logs', { params: { action: 'UNLOCK', table_name: 'distributions', limit: 5 }, signal }),
-        ])
-        const lockItems = lockResult.status === 'fulfilled' && Array.isArray(lockResult.value.data) ? lockResult.value.data : []
-        const unlockItems = unlockResult.status === 'fulfilled' && Array.isArray(unlockResult.value.data) ? unlockResult.value.data : []
-        normalized = [...lockItems, ...unlockItems]
-          .map(normalizeLog)
-          .sort((first, second) => new Date(second.timestamp) - new Date(first.timestamp))
-          .slice(0, 5)
-      }
-
-      setLogs(normalized.length ? normalized : FALLBACK_LOGS)
-    } catch {
-      setLogs(FALLBACK_LOGS)
-    }
+    const [lockResult, unlockResult] = await Promise.all([
+      getAuditLogs({ action: 'LOCK', tableName: 'distributions', limit: 5 }, { signal }),
+      getAuditLogs({ action: 'UNLOCK', tableName: 'distributions', limit: 5 }, { signal }),
+    ])
+    const lockItems = Array.isArray(lockResult.data) ? lockResult.data : []
+    const unlockItems = Array.isArray(unlockResult.data) ? unlockResult.data : []
+    const normalized = [...lockItems, ...unlockItems]
+      .map(normalizeLog)
+      .sort((first, second) => new Date(second.timestamp) - new Date(first.timestamp))
+      .slice(0, 5)
+    setLogs(normalized)
   }, [])
 
   const fetchDistributions = useCallback(async (signal) => {
@@ -318,41 +230,27 @@ function LockUnlock({ userRole, userName, onLogout }) {
     }
 
     try {
-      const result = await requestJson('/distributions', { params, signal })
+      const result = await getDistributions(params, { signal })
       const items = Array.isArray(result.data) ? result.data : result.data?.items || []
-      let normalized = items.map(normalizeDistribution)
-
-      if (!normalized.length) {
-        normalized = filteredFallbackRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-        setRows(normalized)
-        setTotal(filteredFallbackRows.length)
-        setError('Data distribusi API kosong. Fallback preview ditampilkan sementara.')
-        await fetchSummary(signal, filteredFallbackRows)
-        return
-      }
-
-      normalized = applyLocalFilters(normalized, filters)
-      setRows(normalized)
-      setTotal(result.meta?.total || normalized.length)
-      await fetchSummary(signal, normalized)
+      setRows(items.map(normalizeDistribution))
+      setTotal(result.meta?.total || items.length)
+      await fetchSummary(signal)
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
-        const fallback = filteredFallbackRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
-        setRows(fallback)
-        setTotal(filteredFallbackRows.length)
-        setError('Data lock/unlock gagal dimuat dari API. Fallback preview ditampilkan.')
-        await fetchSummary(signal, filteredFallbackRows)
+        setRows([])
+        setTotal(0)
+        setError(fetchError.message || 'Data lock/unlock gagal dimuat dari API.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
     }
-  }, [fetchSummary, filteredFallbackRows, filters, isAdmin, page])
+  }, [fetchSummary, filters, isAdmin, page])
 
   useEffect(() => {
     const controller = new AbortController()
     Promise.resolve().then(() => {
       fetchDistributions(controller.signal)
-      fetchLogs(controller.signal)
+      fetchLogs(controller.signal).catch(() => setLogs([]))
     })
     return () => controller.abort()
   }, [fetchDistributions, fetchLogs])
@@ -403,97 +301,28 @@ function LockUnlock({ userRole, userName, onLogout }) {
     return true
   }
 
-  const upsertLocalRow = (nextRow) => {
-    setRows((current) => current.map((row) => (row.id === nextRow.id ? nextRow : row)))
-  }
-
-  const prependLog = (action, row) => {
-    const nextLog = {
-      id: `${action}-${row.id}-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      admin: displayName,
-      action: action.toUpperCase(),
-      distributionId: row.id,
-      reason: reason.trim(),
-    }
-    setLogs((current) => [nextLog, ...current].slice(0, 5))
-  }
-
-  const callLockEndpoint = async (row) => {
-    const payload = { reason: reason.trim() }
-    try {
-      return await requestJson(`/distributions/${row.id}/lock`, { method: 'PATCH', body: payload })
-    } catch {
-      return requestJson(`/admin/distributions/${row.id}/lock`, { method: 'POST', body: payload })
-    }
-  }
-
-  const callUnlockEndpoint = async (row) => {
-    const payload = {
-      reason: reason.trim(),
-      autoRelockAfterOneHour,
-    }
-    try {
-      return await requestJson(`/distributions/${row.id}/unlock`, { method: 'PATCH', body: payload })
-    } catch {
-      return requestJson(`/admin/distributions/${row.id}/unlock`, { method: 'POST', body: payload })
-    }
-  }
-
   const handleSubmit = async () => {
     if (!validateReason() || !selectedRow) return
     setSubmitLoading(true)
 
     try {
-      const result = modalAction === 'lock' ? await callLockEndpoint(selectedRow) : await callUnlockEndpoint(selectedRow)
-      const now = new Date().toISOString()
-      const updatedFromApi = result?.data ? normalizeDistribution(result.data) : null
-      const updatedRow = modalAction === 'lock'
-        ? {
-            ...selectedRow,
-            ...(updatedFromApi || {}),
-            isLocked: true,
-            lockedBy: displayName,
-            lockedAt: now,
-            unlockedUntil: null,
-          }
-        : {
-            ...selectedRow,
-            ...(updatedFromApi || {}),
-            isLocked: false,
-            lockedBy: null,
-            lockedAt: null,
-            unlockedUntil: autoRelockAfterOneHour ? new Date(Date.now() + 60 * 60 * 1000).toISOString() : updatedFromApi?.unlockedUntil || null,
-          }
+      const payload = { reason: reason.trim() }
+      const result = modalAction === 'lock'
+        ? await lockDistribution(selectedRow.id, payload)
+        : await unlockDistribution(selectedRow.id, { ...payload, autoRelockAfterOneHour })
+      const updatedRow = normalizeDistribution(result.data)
 
-      upsertLocalRow(updatedRow)
-      prependLog(modalAction, selectedRow)
-      setSummary((current) => {
-        const currentRows = rows.map((row) => (row.id === updatedRow.id ? updatedRow : row))
-        return rows.length ? buildSummary(currentRows) : current
-      })
+      setRows((current) => current.map((row) => (row.id === updatedRow.id ? updatedRow : row)))
       showToast(modalAction === 'lock' ? 'Data distribusi berhasil dikunci.' : 'Kunci data distribusi berhasil dibuka.', 'success')
       closeModal()
-      fetchLogs(new AbortController().signal)
+
+      const controller = new AbortController()
+      await Promise.all([
+        fetchSummary(controller.signal),
+        fetchLogs(controller.signal).catch(() => undefined),
+      ])
     } catch (submitError) {
-      if (import.meta.env.DEV) {
-        const localRow = modalAction === 'lock'
-          ? { ...selectedRow, isLocked: true, lockedBy: displayName, lockedAt: new Date().toISOString(), unlockedUntil: null }
-          : {
-              ...selectedRow,
-              isLocked: false,
-              lockedBy: null,
-              lockedAt: null,
-              unlockedUntil: autoRelockAfterOneHour ? new Date(Date.now() + 60 * 60 * 1000).toISOString() : null,
-            }
-        upsertLocalRow(localRow)
-        prependLog(modalAction, selectedRow)
-        setSummary(buildSummary(rows.map((row) => (row.id === localRow.id ? localRow : row))))
-        showToast('Endpoint lock/unlock belum lengkap. Fallback development memperbarui state lokal.', 'warning')
-        closeModal()
-      } else {
-        showToast(submitError.message || 'Aksi lock/unlock gagal.', 'danger')
-      }
+      showToast(submitError.message || 'Aksi lock/unlock gagal.', 'danger')
     } finally {
       setSubmitLoading(false)
     }
@@ -644,6 +473,11 @@ function LockUnlock({ userRole, userName, onLogout }) {
                 </tr>
               </thead>
               <tbody>
+                {!loading && rows.length === 0 ? (
+                  <tr>
+                    <td colSpan="10">Tidak ada data distribusi untuk filter ini.</td>
+                  </tr>
+                ) : null}
                 {rows.map((row) => (
                   <tr key={row.id} className={row.isLocked ? 'lock-row-locked' : ''}>
                     <td>
@@ -725,6 +559,11 @@ function LockUnlock({ userRole, userName, onLogout }) {
                 </tr>
               </thead>
               <tbody>
+                {logs.length === 0 ? (
+                  <tr>
+                    <td colSpan="5">Belum ada audit lock/unlock.</td>
+                  </tr>
+                ) : null}
                 {logs.map((log) => (
                   <tr key={log.id}>
                     <td>{formatDateTime(log.timestamp)}</td>
@@ -809,7 +648,7 @@ function LockUnlock({ userRole, userName, onLogout }) {
                   <label className="lock-toggle-row">
                     <span>
                       <strong>Auto-lock kembali setelah 1 jam</strong>
-                      <small>Frontend mengirim flag ini, eksekusi jadwal tetap ditangani backend.</small>
+                      <small>Backend menyimpan batas waktu koreksi lewat field unlockedUntil.</small>
                     </span>
                     <input
                       type="checkbox"

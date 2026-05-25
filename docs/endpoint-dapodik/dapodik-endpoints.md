@@ -100,6 +100,9 @@ Catatan:
 
 - `POST /api/dapodik/sync-schools` sekarang sengaja **disabled** dan akan mengembalikan error `DAPODIK_UPSTREAM_DISABLED`
 - jalur yang benar untuk memasukkan data baru adalah importer lokal atau `POST /api/dapodik/import-schools`
+- `POST /api/dapodik/import-schools` menerima upload `.json`/`.csv` sampai default 50 MB; ubah `DAPODIK_IMPORT_MAX_FILE_SIZE_MB` bila perlu. Untuk dataset besar, gunakan `multipart/form-data` field `file`, bukan body JSON paste.
+- Import sekolah manual tetap menyimpan row sekolah walau kode kecamatan belum ada di staging region; field FK district akan null sampai region terkait di-import.
+- Import sekolah manual tidak membuat duplicate untuk data yang sama; row existing dengan isi sekolah sama dihitung `unchangedCount` dan dilewati.
 
 ## Search dan Autocomplete
 

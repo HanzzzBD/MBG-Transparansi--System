@@ -23,6 +23,8 @@ import './DapodikImport.css'
 
 const PAGE_SIZE = 12
 const DEFAULT_SEMESTER_ID = import.meta.env.VITE_DAPODIK_DEFAULT_SEMESTER_ID || '20252'
+const MAX_IMPORT_FILE_SIZE_MB = Number(import.meta.env.VITE_DAPODIK_IMPORT_MAX_FILE_SIZE_MB || 50)
+const MAX_IMPORT_FILE_SIZE_BYTES = MAX_IMPORT_FILE_SIZE_MB * 1024 * 1024
 
 const EDUCATION_LEVELS = [
   { value: '', label: 'Semua jenjang' },
@@ -162,6 +164,10 @@ function makeImportPayload(form) {
   }
 
   if (form.file) {
+    if (form.file.size > MAX_IMPORT_FILE_SIZE_BYTES) {
+      throw new Error(`File terlalu besar. Maksimal upload Dapodik ${MAX_IMPORT_FILE_SIZE_MB} MB.`)
+    }
+
     const data = new FormData()
     Object.entries(base).forEach(([key, value]) => data.append(key, value))
     data.append('file', form.file)
@@ -486,6 +492,7 @@ function DapodikImport() {
               accept=".json,.csv,application/json,text/csv"
               onChange={(event) => updateImportForm('file', event.target.files?.[0] || null)}
             />
+            <small>Dataset besar gunakan file upload. Maksimal {MAX_IMPORT_FILE_SIZE_MB} MB.</small>
           </label>
           <label className="dapodik-paste">
             <span>Paste JSON/CSV</span>
@@ -762,10 +769,10 @@ function DapodikImport() {
 function ImportSummary({ result }) {
   const summaryRows = [
     ['Total rows', result.totalRows],
-    ['Create', result.createCount],
-    ['Update', result.updateCount],
-    ['Unchanged', result.unchangedCount],
-    ['Skipped', result.skippedCount],
+    ['Baru', result.createCount],
+    ['Diperbarui', result.updateCount],
+    ['Dilewati (sama)', result.unchangedCount],
+    ['Dilewati (invalid/duplikat)', result.skippedCount],
   ]
 
   return (

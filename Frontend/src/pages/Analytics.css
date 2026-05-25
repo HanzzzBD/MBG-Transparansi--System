@@ -88,6 +88,28 @@
   border: 1px solid #fed7aa;
 }
 
+.analytics-inline-retry {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-left: auto;
+  border: 1px solid #fed7aa;
+  border-radius: 9px;
+  background: var(--white);
+  color: #92400e;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.analytics-inline-retry svg {
+  width: 15px;
+  height: 15px;
+}
+
 .analytics-loading {
   color: var(--primary);
   background: var(--white);
@@ -144,6 +166,10 @@
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   gap: 18px;
+  margin-top: 18px;
+}
+
+.analytics-public-report-grid {
   margin-top: 18px;
 }
 

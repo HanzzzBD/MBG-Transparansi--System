@@ -1,4 +1,5 @@
 const distributionService = require("./service");
+const adminService = require("../admin/service");
 const { getClientIp } = require("../../utils/request");
 
 const listDistributions = async (req, res, next) => {
@@ -82,10 +83,71 @@ const updateDistribution = async (req, res, next) => {
   }
 };
 
+const lockDistribution = async (req, res, next) => {
+  try {
+    const result = await adminService.lockDistribution({
+      id: req.params.id,
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req),
+      reason: req.body.reason
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unlockDistribution = async (req, res, next) => {
+  try {
+    const result = await adminService.unlockDistribution({
+      id: req.params.id,
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req),
+      reason: req.body.reason,
+      autoRelockAfterOneHour: req.body.autoRelockAfterOneHour !== false
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const overrideDistribution = async (req, res, next) => {
+  try {
+    const result = await adminService.overrideDistribution({
+      id: req.params.id,
+      payload: {
+        ...(req.body.changes || {}),
+        overrideReason: req.body.reason
+      },
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createDistribution,
   getDistributionDetail,
   getLockSummary,
   listDistributions,
+  lockDistribution,
+  overrideDistribution,
+  unlockDistribution,
   updateDistribution
 };

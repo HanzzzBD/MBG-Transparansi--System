@@ -180,6 +180,43 @@ const buildRegionLookups = ({ provinces, cities, districts }) => {
   };
 };
 
+const loadPersistedRegionLookups = async () => {
+  const [provinces, cities, districts] = await Promise.all([
+    prisma.dapodikProvince.findMany({
+      select: {
+        kodeWilayah: true,
+        name: true
+      }
+    }),
+    prisma.dapodikCity.findMany({
+      select: {
+        kodeWilayah: true,
+        name: true,
+        provinceKodeWilayah: true
+      }
+    }),
+    prisma.dapodikDistrict.findMany({
+      select: {
+        kodeWilayah: true,
+        name: true,
+        cityKodeWilayah: true,
+        provinceKodeWilayah: true
+      }
+    })
+  ]);
+
+  return buildRegionLookups({
+    provinces,
+    cities,
+    districts
+  });
+};
+
+const hasRegionLookupMaps = (lookups = {}) =>
+  lookups.provincesByCode instanceof Map ||
+  lookups.citiesByCode instanceof Map ||
+  lookups.districtsByCode instanceof Map;
+
 const regionSummaryMeta = ({ progress, errors, provinces, schools }) => {
   const schoolProvinceNames = new Set(
     schools.map((item) => item.province).filter((value) => typeof value === "string" && value.trim())
@@ -433,6 +470,7 @@ const normalizeSchoolRow = ({
   const cityName = normalizeText(pickFirst(parsed.data.nama_kab_kota, row.region?.city, city?.name));
   const districtName = normalizeText(pickFirst(parsed.data.nama_kecamatan, row.region?.district, district?.name));
   const lastSyncAt = parseOptionalDate(pickFirst(row.lastSyncAt, row.last_sync_at, row.sinkron_terakhir));
+  const districtKodeWilayah = district ? districtCode : null;
 
   return {
     ok: true,
@@ -448,7 +486,7 @@ const normalizeSchoolRow = ({
       district: districtName,
       provinceKodeWilayah: provinceCode,
       cityKodeWilayah: cityCode,
-      districtKodeWilayah: districtCode,
+      districtKodeWilayah,
       educationLevel: normalizeText(
         pickFirst(parsed.data.jenjang, parsed.data.education_level, parsed.data.educationLevel, parsed.data.bentuk_pendidikan, parsed.data.bp)
       ),
@@ -494,9 +532,6 @@ const schoolHasChanges = (existing, nextValue) =>
   (existing.studentCount ?? null) !== (nextValue.studentCount ?? null) ||
   (existing.kodeWilayah || null) !== (nextValue.kodeWilayah || null) ||
   (existing.idLevelWilayah ?? null) !== (nextValue.idLevelWilayah ?? null) ||
-  existing.sourceHash !== nextValue.sourceHash ||
-  JSON.stringify(existing.rawData || null) !== JSON.stringify(nextValue.rawData || null) ||
-  existing.fetchedAt.getTime() !== nextValue.fetchedAt.getTime() ||
   (existing.lastSyncAt?.getTime() ?? null) !== (nextValue.lastSyncAt?.getTime() ?? null);
 
 const createSyncLog = async ({ endpoint, status, params, resultMeta, error = null, startedAt }) =>
@@ -750,6 +785,7 @@ const importDapodikSchoolRows = async ({
     throw new AppError("Import school rows is empty.", 400, "DAPODIK_IMPORT_EMPTY");
   }
 
+  const resolvedLookups = hasRegionLookupMaps(lookups) ? lookups : await loadPersistedRegionLookups();
   const normalizedRows = items.map((row, index) =>
     normalizeSchoolRow({
       row,
@@ -758,7 +794,7 @@ const importDapodikSchoolRows = async ({
       sourceHash,
       fetchedAt,
       index,
-      lookups
+      lookups: resolvedLookups
     })
   );
 

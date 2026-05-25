@@ -20,6 +20,45 @@ const prisma = getPrismaClient();
 
 const DISTRIBUTION_UNLOCK_WINDOW_MS = 60 * 60 * 1000;
 const DEFAULT_EXPORT_MAX_ROWS = 50000;
+const USER_ROLES = [
+  {
+    value: "admin",
+    label: "Admin",
+    description: "Akses penuh ke konfigurasi sistem, data master, user, audit, dan operasional."
+  },
+  {
+    value: "pemerintah",
+    label: "Pemerintah",
+    description: "Akses monitoring, analytics, audit operasional, dan laporan."
+  },
+  {
+    value: "sppg",
+    label: "SPPG",
+    description: "Akses operasional produksi, menu, distribusi, dan isu untuk SPPG terkait."
+  },
+  {
+    value: "sekolah",
+    label: "Sekolah",
+    description: "Akses konfirmasi penerimaan, validasi, dan laporan sekolah terkait."
+  },
+  {
+    value: "umum",
+    label: "Umum",
+    description: "Akun viewer terbatas tanpa scope operasional khusus."
+  }
+];
+
+const assertActionReason = (reason, code = "ACTION_REASON_REQUIRED") => {
+  if (!reason || !String(reason).trim()) {
+    throw new AppError("Reason is required.", 400, code);
+  }
+};
+
+const parseBooleanFilter = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return value;
+};
 
 const userSelect = {
   id: true,
@@ -265,9 +304,11 @@ const createDistributionLockedNotification = async ({ tx, distribution }) => {
 
 const listUsers = async ({ query }) => {
   const pagination = parsePagination(query);
+  const isActiveFilter = parseBooleanFilter(query.isActive);
   const where = {
+    deletedAt: null,
     ...(query.role ? { role: query.role } : {}),
-    ...(query.isActive !== undefined ? { isActive: query.isActive } : {}),
+    ...(isActiveFilter !== undefined ? { isActive: isActiveFilter } : {}),
     ...(query.search
       ? {
           OR: [
@@ -309,6 +350,10 @@ const listUsers = async ({ query }) => {
   };
 };
 
+const listRoles = async () => ({
+  data: USER_ROLES
+});
+
 const createUser = async ({ payload, actorUserId, ipAddress }) => {
   const result = await authService.register({
     actorUserId,
@@ -320,6 +365,17 @@ const createUser = async ({ payload, actorUserId, ipAddress }) => {
     schoolId: payload.schoolId,
     ipAddress
   });
+
+  if (payload.isActive === false) {
+    await updateUser({
+      id: result.user.id,
+      payload: {
+        isActive: false
+      },
+      actorUserId,
+      ipAddress
+    });
+  }
 
   return {
     data: await getUserById(result.user.id)
@@ -680,6 +736,7 @@ const resolveAnomalyLog = async ({ id, actorUserId, ipAddress }) => {
 };
 
 const lockDistribution = async ({ id, actorUserId, ipAddress, reason = null }) => {
+  assertActionReason(reason, "LOCK_REASON_REQUIRED");
   const existing = await getDistributionById(id);
 
   if (existing.isLocked && !existing.unlockedUntil) {
@@ -708,9 +765,7 @@ const lockDistribution = async ({ id, actorUserId, ipAddress, reason = null }) =
       recordId: updated.id,
       oldData: existing,
       newData: {
-        id: updated.id,
-        isLocked: updated.isLocked,
-        unlockedUntil: updated.unlockedUntil,
+        ...updated,
         reason
       },
       ipAddress
@@ -736,6 +791,7 @@ const unlockDistribution = async ({
   reason = null,
   autoRelockAfterOneHour = true
 }) => {
+  assertActionReason(reason, "UNLOCK_REASON_REQUIRED");
   const existing = await getDistributionById(id);
   const unlockedUntil = autoRelockAfterOneHour
     ? new Date(Date.now() + DISTRIBUTION_UNLOCK_WINDOW_MS)
@@ -761,9 +817,7 @@ const unlockDistribution = async ({
       recordId: updated.id,
       oldData: existing,
       newData: {
-        id: updated.id,
-        isLocked: updated.isLocked,
-        unlockedUntil: updated.unlockedUntil,
+        ...updated,
         reason,
         autoRelockAfterOneHour
       },
@@ -779,6 +833,7 @@ const unlockDistribution = async ({
 };
 
 const overrideDistribution = async ({ id, payload, actorUserId, ipAddress }) => {
+  assertActionReason(payload.overrideReason, "OVERRIDE_REASON_REQUIRED");
   const existing = await getDistributionById(id);
   const targetSppgId = payload.sppgId !== undefined ? payload.sppgId : existing.sppgId;
   const targetSchoolId = payload.schoolId !== undefined ? payload.schoolId : existing.schoolId;
@@ -860,14 +915,8 @@ const overrideDistribution = async ({ id, payload, actorUserId, ipAddress }) => 
         action: "LOCK",
         tableName: "distributions",
         recordId: updated.id,
-        oldData: {
-          isLocked: existing.isLocked,
-          unlockedUntil: existing.unlockedUntil
-        },
-        newData: {
-          isLocked: updated.isLocked,
-          unlockedUntil: updated.unlockedUntil
-        },
+        oldData: existing,
+        newData: updated,
         ipAddress
       });
 
@@ -1181,6 +1230,7 @@ module.exports = {
   listAnomalyLogs,
   listAuditLogs,
   listPriceThresholds,
+  listRoles,
   listSystemConfigs,
   listUsers,
   lockDistribution,

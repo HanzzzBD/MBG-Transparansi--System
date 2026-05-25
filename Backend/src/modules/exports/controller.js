@@ -19,11 +19,45 @@ const createExport = async (req, res, next) => {
   }
 };
 
+const listExports = async (req, res, next) => {
+  try {
+    const result = await exportService.listExports({
+      query: req.query,
+      user: req.user
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getExportDetail = async (req, res, next) => {
   try {
     const result = await exportService.getExportDetail({
       id: req.params.id,
       user: req.user
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const retryExport = async (req, res, next) => {
+  try {
+    const result = await exportService.retryExport({
+      id: req.params.id,
+      user: req.user,
+      ipAddress: getClientIp(req)
     });
 
     res.status(200).json({
@@ -56,5 +90,7 @@ const downloadExport = async (req, res, next) => {
 module.exports = {
   createExport,
   downloadExport,
-  getExportDetail
+  getExportDetail,
+  listExports,
+  retryExport
 };

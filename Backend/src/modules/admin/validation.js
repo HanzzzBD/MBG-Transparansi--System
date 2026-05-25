@@ -8,8 +8,8 @@ const anomalyTypeEnum = z.enum([
   "PENDING_TIMEOUT"
 ]);
 const distributionStatusEnum = z.enum(["in_progress", "delivered", "failed"]);
-const updatableUserRoleEnum = z.enum(["admin", "pemerintah", "sppg", "sekolah", "umum"]);
-const creatableUserRoleEnum = z.enum(["pemerintah", "sppg", "sekolah"]);
+const userRoleValues = ["admin", "pemerintah", "sppg", "sekolah", "umum"];
+const userRoleEnum = z.enum(userRoleValues);
 
 const booleanQuerySchema = z.preprocess((value) => {
   if (value === "true") {
@@ -30,7 +30,7 @@ const listUsersSchema = z.object({
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().optional(),
     search: z.string().trim().optional(),
-    role: updatableUserRoleEnum.optional(),
+    role: userRoleEnum.optional(),
     isActive: booleanQuerySchema.optional()
   })
 });
@@ -52,9 +52,10 @@ const createUserSchema = z.object({
         .string()
         .min(8, "Password must be at least 8 characters long.")
         .max(72, "Password must not exceed 72 characters."),
-      role: creatableUserRoleEnum,
+      role: userRoleEnum,
       sppgId: z.coerce.number().int().positive().optional(),
-      schoolId: z.coerce.number().int().positive().optional()
+      schoolId: z.coerce.number().int().positive().optional(),
+      isActive: z.boolean().optional()
     })
     .superRefine((value, ctx) => {
       if (value.role === "sppg" && !value.sppgId) {
@@ -96,7 +97,14 @@ const createUserSchema = z.object({
 const updateUserSchema = z.object({
   body: z
     .object({
-      role: updatableUserRoleEnum.optional(),
+      name: z.string().trim().min(1, "Name is required.").max(255, "Name is too long.").optional(),
+      email: z.email("A valid email address is required.").transform((value) => value.trim().toLowerCase()).optional(),
+      password: z
+        .string()
+        .min(8, "Password must be at least 8 characters long.")
+        .max(72, "Password must not exceed 72 characters.")
+        .optional(),
+      role: userRoleEnum.optional(),
       isActive: z.boolean().optional(),
       sppgId: z.union([z.coerce.number().int().positive(), z.null()]).optional(),
       schoolId: z.union([z.coerce.number().int().positive(), z.null()]).optional()
@@ -105,6 +113,20 @@ const updateUserSchema = z.object({
       message: "At least one field must be provided."
     }),
   params: adminUserIdParamsSchema.shape.params,
+  query: z.object({}).optional().default({})
+});
+
+const updateUserStatusSchema = z.object({
+  body: z.object({
+    isActive: z.boolean()
+  }),
+  params: adminUserIdParamsSchema.shape.params,
+  query: z.object({}).optional().default({})
+});
+
+const listRolesSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({}).optional().default({}),
   query: z.object({}).optional().default({})
 });
 
@@ -239,10 +261,12 @@ module.exports = {
   listAnomalyLogsSchema,
   listAuditLogsSchema,
   listPriceThresholdsSchema,
+  listRolesSchema,
   listSystemConfigsSchema,
   listUsersSchema,
   overrideDistributionSchema,
   updatePriceThresholdSchema,
   updateSystemConfigSchema,
+  updateUserStatusSchema,
   updateUserSchema
 };

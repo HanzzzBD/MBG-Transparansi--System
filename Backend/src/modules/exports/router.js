@@ -12,7 +12,9 @@ const router = express.Router();
 router.use(authenticate, authorize("pemerintah", "admin"));
 
 router.post("/", exportLimiter, validateRequest(createExportSchema), controller.createExport);
+router.get("/", controller.listExports);
 router.get("/:id", validateRequest(exportIdParamsSchema), controller.getExportDetail);
+router.post("/:id/retry", exportLimiter, validateRequest(exportIdParamsSchema), controller.retryExport);
 router.get("/:id/download", validateRequest(exportIdParamsSchema), controller.downloadExport);
 
 module.exports = router;

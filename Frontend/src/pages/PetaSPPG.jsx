@@ -27,7 +27,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { apiRequest as requestApi } from '../services/api'
+import { getSppgMapMarkers, getSppgOperationalDetail } from '../services/api'
 import './PetaSPPG.css'
 
 const INDONESIA_CENTER = [-2.5, 118]
@@ -39,15 +39,12 @@ const INDONESIA_MAX_BOUNDS = [
   [-13.8, 90],
   [8.5, 145.5],
 ]
-const SPPG_MAP_FIELDS = 'id,name,province,city,address,lat,lng,status,capacity'
-const SPPG_PAGE_LIMIT = 100
 const INDONESIA_BOUNDS = {
   minLat: -11.2,
   maxLat: 6.4,
   minLng: 94,
   maxLng: 141.2,
 }
-const TODAY = new Date().toISOString().slice(0, 10)
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Semua' },
@@ -105,47 +102,6 @@ const PROVINCES = [
   'Papua Barat',
 ]
 
-const FALLBACK_SPPG = [
-  { id: 'fb-1', name: 'SPPG Banda Aceh Barat', province: 'Aceh', city: 'Banda Aceh', address: 'Jl. Teuku Umar No. 12', status: 'active', capacity: 1600, lat: 5.55, lng: 95.32, porsiHariIni: 1420, successRate: 96.2, picName: 'Cut Rania', picPhone: '0812-1000-0001' },
-  { id: 'fb-2', name: 'SPPG Medan Kota', province: 'Sumatera Utara', city: 'Medan', address: 'Jl. Gatot Subroto No. 41', status: 'active', capacity: 1800, lat: 3.59, lng: 98.67, porsiHariIni: 1680, successRate: 95.4, picName: 'Budi Santoso', picPhone: '0812-1000-0002' },
-  { id: 'fb-3', name: 'SPPG Padang Timur', province: 'Sumatera Barat', city: 'Padang', address: 'Jl. Khatib Sulaiman No. 9', status: 'active', capacity: 1400, lat: -0.95, lng: 100.35, porsiHariIni: 1260, successRate: 94.8, picName: 'Rizki Putra', picPhone: '0812-1000-0003' },
-  { id: 'fb-4', name: 'SPPG Pekanbaru Sentral', province: 'Riau', city: 'Pekanbaru', address: 'Jl. Sudirman No. 88', status: 'active', capacity: 1550, lat: 0.51, lng: 101.45, porsiHariIni: 1490, successRate: 97.1, picName: 'Dewi Anggraini', picPhone: '0812-1000-0004' },
-  { id: 'fb-5', name: 'SPPG Palembang Ilir', province: 'Sumatera Selatan', city: 'Palembang', address: 'Jl. Demang Lebar Daun No. 22', status: 'active', capacity: 1700, lat: -2.99, lng: 104.76, porsiHariIni: 1510, successRate: 93.9, picName: 'Agus Wijaya', picPhone: '0812-1000-0005' },
-  { id: 'fb-6', name: 'SPPG Bandar Lampung', province: 'Lampung', city: 'Bandar Lampung', address: 'Jl. Pangeran Antasari No. 17', status: 'active', capacity: 1350, lat: -5.43, lng: 105.26, porsiHariIni: 1215, successRate: 95.8, picName: 'Maya Lestari', picPhone: '0812-1000-0006' },
-  { id: 'fb-7', name: 'SPPG Jakarta Timur', province: 'DKI Jakarta', city: 'Jakarta Timur', address: 'Jl. Pemuda No. 2', status: 'active', capacity: 2200, lat: -6.2, lng: 106.9, porsiHariIni: 2080, successRate: 97.6, picName: 'Hendra Pratama', picPhone: '0812-1000-0007' },
-  { id: 'fb-8', name: 'SPPG Bandung Selatan', province: 'Jawa Barat', city: 'Bandung', address: 'Jl. Buah Batu No. 53', status: 'active', capacity: 2000, lat: -6.95, lng: 107.61, porsiHariIni: 1880, successRate: 96.7, picName: 'Siti Maryam', picPhone: '0812-1000-0008' },
-  { id: 'fb-9', name: 'SPPG Semarang Barat', province: 'Jawa Tengah', city: 'Semarang', address: 'Jl. Pamularsih No. 29', status: 'active', capacity: 1750, lat: -6.97, lng: 110.42, porsiHariIni: 1660, successRate: 95.1, picName: 'Dian Purnomo', picPhone: '0812-1000-0009' },
-  { id: 'fb-10', name: 'SPPG Surabaya Utara', province: 'Jawa Timur', city: 'Surabaya', address: 'Jl. Kenjeran No. 10', status: 'active', capacity: 2100, lat: -7.25, lng: 112.75, porsiHariIni: 1970, successRate: 96.4, picName: 'Wahyu Nugroho', picPhone: '0812-1000-0010' },
-  { id: 'fb-11', name: 'SPPG Serang Kota', province: 'Banten', city: 'Serang', address: 'Jl. Ahmad Yani No. 7', status: 'problem', capacity: 1300, lat: -6.12, lng: 106.15, porsiHariIni: 920, successRate: 82.5, picName: 'Novi Hartati', picPhone: '0812-1000-0011' },
-  { id: 'fb-12', name: 'SPPG Yogyakarta Sleman', province: 'DI Yogyakarta', city: 'Sleman', address: 'Jl. Kaliurang Km 8', status: 'problem', capacity: 1450, lat: -7.74, lng: 110.37, porsiHariIni: 1110, successRate: 86.1, picName: 'Fajar Ramadhan', picPhone: '0812-1000-0012' },
-  { id: 'fb-13', name: 'SPPG Denpasar Timur', province: 'Bali', city: 'Denpasar', address: 'Jl. Hayam Wuruk No. 31', status: 'problem', capacity: 1250, lat: -8.65, lng: 115.21, porsiHariIni: 980, successRate: 84.9, picName: 'Made Wirawan', picPhone: '0812-1000-0013' },
-  { id: 'fb-14', name: 'SPPG Pontianak Sungai Raya', province: 'Kalimantan Barat', city: 'Pontianak', address: 'Jl. Ahmad Yani No. 50', status: 'problem', capacity: 1500, lat: -0.03, lng: 109.34, porsiHariIni: 1040, successRate: 81.8, picName: 'Rahmawati', picPhone: '0812-1000-0014' },
-  { id: 'fb-15', name: 'SPPG Makassar Mariso', province: 'Sulawesi Selatan', city: 'Makassar', address: 'Jl. Rajawali No. 16', status: 'problem', capacity: 1650, lat: -5.15, lng: 119.43, porsiHariIni: 1235, successRate: 88.2, picName: 'Andi Arman', picPhone: '0812-1000-0015' },
-  { id: 'fb-16', name: 'SPPG Mataram Ampenan', province: 'Nusa Tenggara Barat', city: 'Mataram', address: 'Jl. Pejanggik No. 3', status: 'inactive', capacity: 1100, lat: -8.58, lng: 116.12, porsiHariIni: 0, successRate: 0, picName: 'Lalu Hidayat', picPhone: '0812-1000-0016' },
-  { id: 'fb-17', name: 'SPPG Palangkaraya Kota', province: 'Kalimantan Tengah', city: 'Palangkaraya', address: 'Jl. Tjilik Riwut No. 44', status: 'inactive', capacity: 1200, lat: -2.21, lng: 113.92, porsiHariIni: 0, successRate: 0, picName: 'Yuliana', picPhone: '0812-1000-0017' },
-  { id: 'fb-18', name: 'SPPG Manado Wenang', province: 'Sulawesi Utara', city: 'Manado', address: 'Jl. Sam Ratulangi No. 28', status: 'inactive', capacity: 1150, lat: 1.47, lng: 124.84, porsiHariIni: 0, successRate: 0, picName: 'Rivo Tumbelaka', picPhone: '0812-1000-0018' },
-  { id: 'fb-19', name: 'SPPG Batam Centre', province: 'Kepulauan Riau', city: 'Batam', address: 'Jl. Engku Putri No. 5', status: 'active', capacity: 1500, lat: 1.13, lng: 104.05, porsiHariIni: 1395, successRate: 94.2, picName: 'Lina Kurnia', picPhone: '0812-1000-0019' },
-  { id: 'fb-20', name: 'SPPG Bengkulu Tengah', province: 'Bengkulu', city: 'Bengkulu', address: 'Jl. Pembangunan No. 19', status: 'active', capacity: 1180, lat: -3.8, lng: 102.27, porsiHariIni: 1070, successRate: 93.4, picName: 'Teguh Saputra', picPhone: '0812-1000-0020' },
-  { id: 'fb-21', name: 'SPPG Pangkalpinang', province: 'Kepulauan Bangka Belitung', city: 'Pangkalpinang', address: 'Jl. Soekarno Hatta No. 11', status: 'active', capacity: 1000, lat: -2.13, lng: 106.11, porsiHariIni: 940, successRate: 95.7, picName: 'Mira Amelia', picPhone: '0812-1000-0021' },
-  { id: 'fb-22', name: 'SPPG Kupang Oebobo', province: 'Nusa Tenggara Timur', city: 'Kupang', address: 'Jl. El Tari No. 24', status: 'problem', capacity: 1300, lat: -10.17, lng: 123.6, porsiHariIni: 860, successRate: 79.4, picName: 'Yosef Lado', picPhone: '0812-1000-0022' },
-  { id: 'fb-23', name: 'SPPG Banjarmasin Barat', province: 'Kalimantan Selatan', city: 'Banjarmasin', address: 'Jl. Lambung Mangkurat No. 8', status: 'active', capacity: 1550, lat: -3.32, lng: 114.59, porsiHariIni: 1460, successRate: 96.1, picName: 'Nur Hasanah', picPhone: '0812-1000-0023' },
-  { id: 'fb-24', name: 'SPPG Balikpapan Selatan', province: 'Kalimantan Timur', city: 'Balikpapan', address: 'Jl. MT Haryono No. 71', status: 'active', capacity: 1650, lat: -1.24, lng: 116.85, porsiHariIni: 1540, successRate: 94.6, picName: 'Rangga Akbar', picPhone: '0812-1000-0024' },
-  { id: 'fb-25', name: 'SPPG Tarakan Tengah', province: 'Kalimantan Utara', city: 'Tarakan', address: 'Jl. Mulawarman No. 23', status: 'active', capacity: 980, lat: 3.31, lng: 117.59, porsiHariIni: 895, successRate: 92.8, picName: 'Dimas Prasetya', picPhone: '0812-1000-0025' },
-  { id: 'fb-26', name: 'SPPG Gorontalo Kota', province: 'Gorontalo', city: 'Gorontalo', address: 'Jl. HB Jassin No. 13', status: 'problem', capacity: 1040, lat: 0.54, lng: 123.06, porsiHariIni: 760, successRate: 83.7, picName: 'Nurul Aini', picPhone: '0812-1000-0026' },
-  { id: 'fb-27', name: 'SPPG Palu Mantikulore', province: 'Sulawesi Tengah', city: 'Palu', address: 'Jl. Soekarno Hatta No. 39', status: 'active', capacity: 1250, lat: -0.9, lng: 119.87, porsiHariIni: 1165, successRate: 95.2, picName: 'Ilham Fauzi', picPhone: '0812-1000-0027' },
-  { id: 'fb-28', name: 'SPPG Mamuju Kota', province: 'Sulawesi Barat', city: 'Mamuju', address: 'Jl. Yos Sudarso No. 6', status: 'active', capacity: 970, lat: -2.67, lng: 118.89, porsiHariIni: 910, successRate: 93.6, picName: 'Nadia Safitri', picPhone: '0812-1000-0028' },
-  { id: 'fb-29', name: 'SPPG Kendari Mandonga', province: 'Sulawesi Tenggara', city: 'Kendari', address: 'Jl. Sao Sao No. 20', status: 'active', capacity: 1180, lat: -3.99, lng: 122.51, porsiHariIni: 1095, successRate: 94.1, picName: 'Rudiansyah', picPhone: '0812-1000-0029' },
-  { id: 'fb-30', name: 'SPPG Jayapura Abepura', province: 'Papua', city: 'Jayapura', address: 'Jl. Raya Abepura No. 48', status: 'active', capacity: 1350, lat: -2.53, lng: 140.72, porsiHariIni: 1265, successRate: 92.9, picName: 'Martha Wenda', picPhone: '0812-1000-0030' },
-]
-
-const FALLBACK_MENU = {
-  menuName: 'Nasi Ayam Teriyaki + Sayur Bayam',
-  calories: 650,
-  proteinG: 28,
-  carbsG: 75,
-  fatG: 18,
-}
-
 const TABS = [
   { value: 'info', label: 'Info' },
   { value: 'distribusi', label: 'Distribusi' },
@@ -153,47 +109,8 @@ const TABS = [
 ]
 
 async function fetchSppgMapRows({ signal }) {
-  const firstResult = await requestApi('/sppg', {
-    signal,
-    params: {
-      all: true,
-      page: 1,
-      limit: SPPG_PAGE_LIMIT,
-      fields: SPPG_MAP_FIELDS,
-    },
-  })
-
-  const firstRows = Array.isArray(firstResult.data) ? firstResult.data : []
-
-  if (firstResult.meta?.all || !firstResult.meta?.totalPages || firstResult.meta.totalPages <= 1) {
-    return firstRows
-  }
-
-  const pages = Array.from({ length: firstResult.meta.totalPages - 1 }, (_, index) => index + 2)
-  const rows = [...firstRows]
-  const chunkSize = 8
-
-  for (let index = 0; index < pages.length; index += chunkSize) {
-    const chunk = pages.slice(index, index + chunkSize)
-    const results = await Promise.all(
-      chunk.map((page) =>
-        requestApi('/sppg', {
-          signal,
-          params: {
-            page,
-            limit: SPPG_PAGE_LIMIT,
-            fields: SPPG_MAP_FIELDS,
-          },
-        }),
-      ),
-    )
-
-    results.forEach((result) => {
-      if (Array.isArray(result.data)) rows.push(...result.data)
-    })
-  }
-
-  return rows
+  const result = await getSppgMapMarkers(undefined, { signal })
+  return Array.isArray(result.data) ? result.data : []
 }
 
 function normalizeRegionKey(value) {
@@ -241,25 +158,31 @@ function normalizeCoordinatePair(rawLat, rawLng) {
 }
 
 function normalizeSppg(item) {
-  const coordinate = normalizeCoordinatePair(item.lat, item.lng)
+  const info = item.info || item
+  const kpiSummary = item.kpiSummary || item.stats || {}
+  const coordinate = normalizeCoordinatePair(info.lat ?? item.lat, info.lng ?? item.lng)
 
   return {
     id: item.id,
-    name: item.name || 'SPPG',
-    province: item.province || '-',
-    city: item.city || '-',
-    address: item.address || '-',
+    name: item.name || info.name || 'SPPG',
+    province: item.province || info.province || '-',
+    city: item.city || info.city || '-',
+    address: item.address || info.address || '-',
     status: item.status || 'inactive',
-    capacity: Number(item.capacity) || 0,
+    isActive: Boolean(item.isActive ?? item.status === 'active'),
+    capacity: Number(item.capacity) || Number(info.capacity) || 0,
     lat: coordinate.lat,
     lng: coordinate.lng,
     coordinateValid: coordinate.coordinateValid,
-    porsiHariIni: Number(item.porsiHariIni) || 0,
-    successRate: Number(item.successRate) || 0,
-    picName: item.picName || item.pic_name || '-',
-    picPhone: item.picPhone || item.pic_phone || '-',
-    stats: item.stats,
-    latestMenu: item.latestMenu,
+    porsiHariIni: Number(item.porsiHariIni ?? kpiSummary.porsiHariIni) || 0,
+    successRate: Number(item.successRate ?? kpiSummary.successRate) || 0,
+    picName: item.picName || item.pic_name || item.pic?.name || '-',
+    picPhone: item.picPhone || item.pic_phone || item.pic?.phone || '-',
+    kpiSummary,
+    latestMenu: item.menuHariIni || item.latestMenu || null,
+    productionBatchHariIni: item.productionBatchHariIni || null,
+    distribusiTerakhir: Array.isArray(item.distribusiTerakhir) ? item.distribusiTerakhir : [],
+    anomalyAktif: Array.isArray(item.anomalyAktif) ? item.anomalyAktif : [],
   }
 }
 
@@ -277,6 +200,14 @@ function formatNumber(value) {
 
 function formatPercent(value) {
   return `${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 1 }).format(Number(value) || 0)}%`
+}
+
+function formatCurrency(value) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(Number(value) || 0)
 }
 
 function formatDate(value) {
@@ -301,25 +232,6 @@ function getMarkerStatusClass(status) {
   return 'active'
 }
 
-function getFallbackDistributions(sppg) {
-  const schools = ['SDN Merdeka 01', 'SMP Negeri 4', 'SDN Nusantara 02', 'MI Al Ikhlas', 'SDN Harapan Jaya', 'SMP Pertiwi', 'SDN Cendana']
-  const statuses = ['delivered', 'delivered', 'in_progress', 'delivered', 'failed', 'delivered', 'delivered']
-  const today = new Date()
-
-  return schools.map((schoolName, index) => {
-    const date = new Date(today)
-    date.setDate(today.getDate() - index)
-
-    return {
-      id: `${sppg?.id || 'fallback'}-distribution-${index}`,
-      school: { name: schoolName },
-      portions: Math.max(120, Math.round(((sppg?.capacity || 1400) / 7) + index * 18)),
-      status: statuses[index],
-      distributionDate: date.toISOString(),
-    }
-  })
-}
-
 function buildDistributionChart(distributions) {
   const safeRows = Array.isArray(distributions) && distributions.length ? distributions : []
   const today = new Date()
@@ -340,11 +252,13 @@ function buildDistributionChart(distributions) {
 }
 
 function getNutritionRows(menu) {
+  if (!menu) return []
+
   return [
-    { label: 'Kalori', value: Number(menu?.calories) || 650, unit: 'kkal', target: 700 },
-    { label: 'Protein', value: Number(menu?.proteinG) || 28, unit: 'g', target: 30 },
-    { label: 'Karbo', value: Number(menu?.carbsG) || 75, unit: 'g', target: 90 },
-    { label: 'Lemak', value: Number(menu?.fatG) || 18, unit: 'g', target: 25 },
+    { label: 'Kalori', value: Number(menu.calories) || 0, unit: 'kkal', target: 700 },
+    { label: 'Protein', value: Number(menu.proteinG) || 0, unit: 'g', target: 30 },
+    { label: 'Karbo', value: Number(menu.carbsG) || 0, unit: 'g', target: 90 },
+    { label: 'Lemak', value: Number(menu.fatG) || 0, unit: 'g', target: 25 },
   ]
 }
 
@@ -397,9 +311,9 @@ function buildPopupContent(sppg, onOpenDetail, map) {
   statusText.className = 'peta-popup-meta'
   statusText.textContent = `Status: ${getStatusLabel(sppg.status)}`
 
-  const capacity = document.createElement('p')
-  capacity.className = 'peta-popup-meta'
-  capacity.textContent = `Kapasitas: ${formatNumber(sppg.capacity)} porsi/hari`
+  const portionToday = document.createElement('p')
+  portionToday.className = 'peta-popup-meta'
+  portionToday.textContent = `Porsi hari ini: ${formatNumber(sppg.porsiHariIni)}`
 
   const button = document.createElement('button')
   button.className = 'peta-popup-btn'
@@ -411,7 +325,7 @@ function buildPopupContent(sppg, onOpenDetail, map) {
     onOpenDetail(sppg)
   })
 
-  container.append(title, location, statusText, capacity, button)
+  container.append(title, location, statusText, portionToday, button)
   return container
 }
 
@@ -592,17 +506,11 @@ function PetaSPPG() {
         const data = await fetchSppgMapRows({ signal })
         const normalized = normalizeSppgList(data)
 
-        if (!normalized.length) {
-          setSppgList(FALLBACK_SPPG)
-          setError('Data SPPG dari API kosong atau belum memiliki koordinat. Fallback preview ditampilkan.')
-          return
-        }
-
         setSppgList(normalized)
       } catch (fetchError) {
         if (fetchError.name !== 'AbortError') {
-          setSppgList(FALLBACK_SPPG)
-          setError('Data SPPG gagal dimuat dari API. Fallback preview ditampilkan.')
+          setSppgList([])
+          setError(fetchError.message || 'Data marker SPPG gagal dimuat dari backend.')
         }
       } finally {
         if (!signal.aborted) setLoading(false)
@@ -650,46 +558,18 @@ function PetaSPPG() {
       setDetailError('')
 
       try {
-        const [detailResult, distributionResult, menuResult] = await Promise.allSettled([
-          requestApi(`/sppg/${selectedSppg.id}`, { signal: controller.signal }),
-          requestApi('/distributions', {
-            signal: controller.signal,
-            params: { sppgId: selectedSppg.id, limit: 7 },
-          }),
-          requestApi('/menus', {
-            signal: controller.signal,
-            params: { sppgId: selectedSppg.id, date: TODAY, limit: 1 },
-          }),
-        ])
+        const detailResult = await getSppgOperationalDetail(selectedSppg.id, { signal: controller.signal })
+        const normalized = normalizeSppg(detailResult.data)
 
-        if (detailResult.status === 'fulfilled') {
-          setDetailData(normalizeSppg(detailResult.value.data))
-        } else {
-          setDetailData(null)
-        }
-
-        if (distributionResult.status === 'fulfilled' && Array.isArray(distributionResult.value.data)) {
-          setDetailDistributions(distributionResult.value.data.length ? distributionResult.value.data : getFallbackDistributions(selectedSppg))
-        } else {
-          // TODO: Endpoint /distributions?sppgId membutuhkan auth. Gunakan data backend ketika user dashboard sudah login.
-          setDetailDistributions(getFallbackDistributions(selectedSppg))
-        }
-
-        if (menuResult.status === 'fulfilled' && Array.isArray(menuResult.value.data) && menuResult.value.data[0]) {
-          setMenuToday(menuResult.value.data[0])
-        } else {
-          setMenuToday(FALLBACK_MENU)
-        }
-
-        if (detailResult.status === 'rejected') {
-          setDetailError('Detail SPPG belum lengkap dari API. Sebagian data panel memakai fallback.')
-        }
+        setDetailData(normalized)
+        setDetailDistributions(normalized.distribusiTerakhir)
+        setMenuToday(normalized.latestMenu)
       } catch (detailFetchError) {
         if (detailFetchError.name !== 'AbortError') {
           setDetailData(null)
-          setDetailDistributions(getFallbackDistributions(selectedSppg))
-          setMenuToday(FALLBACK_MENU)
-          setDetailError('Detail SPPG gagal dimuat. Fallback panel ditampilkan.')
+          setDetailDistributions([])
+          setMenuToday(null)
+          setDetailError(detailFetchError.message || 'Detail SPPG gagal dimuat dari backend.')
         }
       } finally {
         if (!controller.signal.aborted) setDetailLoading(false)
@@ -703,11 +583,15 @@ function PetaSPPG() {
 
   const activeSppg = detailData || selectedSppg
   const chartData = useMemo(() => buildDistributionChart(detailDistributions), [detailDistributions])
-  const normalizedMenu = menuToday || activeSppg?.latestMenu || FALLBACK_MENU
+  const normalizedMenu = menuToday || activeSppg?.latestMenu || null
   const nutritionRows = useMemo(() => getNutritionRows(normalizedMenu), [normalizedMenu])
 
   const openDetail = (sppg) => {
     setSelectedSppg(sppg)
+    setDetailData(null)
+    setDetailDistributions([])
+    setMenuToday(null)
+    setDetailError('')
     setActiveTab('info')
     setDetailOpen(true)
   }
@@ -892,10 +776,12 @@ function PetaSPPG() {
                   <InfoItem icon={Building2} label="Kota" value={activeSppg.city} />
                   <InfoItem icon={ClipboardList} label="Alamat" value={activeSppg.address} wide />
                   <InfoItem icon={Utensils} label="Kapasitas" value={`${formatNumber(activeSppg.capacity)} porsi/hari`} />
-                  <InfoItem icon={CheckCircle2} label="Porsi Hari Ini" value={`${formatNumber(activeSppg.porsiHariIni || activeSppg.stats?.totalStudents || 0)} porsi`} />
+                  <InfoItem icon={CheckCircle2} label="Porsi Hari Ini" value={`${formatNumber(activeSppg.porsiHariIni || activeSppg.kpiSummary?.porsiHariIni || 0)} porsi`} />
                   <InfoItem icon={BarChart3} label="Success Rate" value={formatPercent(activeSppg.successRate || 0)} />
                   <InfoItem icon={Phone} label="PIC" value={`${activeSppg.picName || '-'} - ${activeSppg.picPhone || '-'}`} wide />
                   <InfoItem icon={AlertTriangle} label="Status" value={getStatusLabel(activeSppg.status)} />
+                  <InfoItem icon={Building2} label="Sekolah Terlayani" value={formatNumber(activeSppg.kpiSummary?.totalSchools)} />
+                  <InfoItem icon={AlertTriangle} label="Anomali Aktif" value={formatNumber(activeSppg.kpiSummary?.activeAnomalyCount)} />
                 </div>
               ) : null}
 
@@ -923,14 +809,20 @@ function PetaSPPG() {
                       </tr>
                     </thead>
                     <tbody>
-                      {detailDistributions.slice(0, 7).map((item) => (
-                        <tr key={item.id}>
-                          <td>{item.school?.name || '-'}</td>
-                          <td>{formatNumber(item.portions)}</td>
-                          <td>{item.status || '-'}</td>
-                          <td>{formatDate(item.distributionDate)}</td>
+                      {detailDistributions.length ? (
+                        detailDistributions.slice(0, 7).map((item) => (
+                          <tr key={item.id}>
+                            <td>{item.school?.name || '-'}</td>
+                            <td>{formatNumber(item.portions)}</td>
+                            <td>{item.status || '-'}</td>
+                            <td>{formatDate(item.distributionDate)}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4}>Belum ada data distribusi terakhir.</td>
                         </tr>
-                      ))}
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -938,33 +830,47 @@ function PetaSPPG() {
 
               {activeTab === 'menu' ? (
                 <div className="peta-menu-card">
-                  <div className="peta-menu-title">
-                    <Utensils aria-hidden="true" />
-                    <div>
-                      <span>Menu Hari Ini</span>
-                      <strong>{normalizedMenu.menuName || FALLBACK_MENU.menuName}</strong>
+                  {activeSppg.productionBatchHariIni ? (
+                    <div className="peta-batch-summary">
+                      <span>Batch Produksi Hari Ini</span>
+                      <strong>{formatNumber(activeSppg.productionBatchHariIni.totalPortions)} porsi</strong>
+                      <small>Biaya per porsi {formatCurrency(activeSppg.productionBatchHariIni.costPerPortion)}</small>
                     </div>
-                  </div>
-                  <div className="peta-nutrition-list">
-                    {nutritionRows.map((row) => {
-                      const percentage = Math.min(100, Math.round((row.value / row.target) * 100))
+                  ) : null}
 
-                      return (
-                        <div key={row.label} className="peta-nutrition-item">
-                          <div>
-                            <span>{row.label}</span>
-                            <strong>
-                              {formatNumber(row.value)} {row.unit}
-                            </strong>
-                          </div>
-                          <div className="peta-progress" aria-label={`${row.label} ${percentage}% dari target`}>
-                            <span className="peta-progress-bar" style={{ '--progress-value': `${percentage}%` }} />
-                          </div>
-                          <small>Target {formatNumber(row.target)} {row.unit}</small>
+                  {normalizedMenu ? (
+                    <>
+                      <div className="peta-menu-title">
+                        <Utensils aria-hidden="true" />
+                        <div>
+                          <span>Menu Hari Ini</span>
+                          <strong>{normalizedMenu.menuName || '-'}</strong>
                         </div>
-                      )
-                    })}
-                  </div>
+                      </div>
+                      <div className="peta-nutrition-list">
+                        {nutritionRows.map((row) => {
+                          const percentage = row.target ? Math.min(100, Math.round((row.value / row.target) * 100)) : 0
+
+                          return (
+                            <div key={row.label} className="peta-nutrition-item">
+                              <div>
+                                <span>{row.label}</span>
+                                <strong>
+                                  {formatNumber(row.value)} {row.unit}
+                                </strong>
+                              </div>
+                              <div className="peta-progress" aria-label={`${row.label} ${percentage}% dari target`}>
+                                <span className="peta-progress-bar" style={{ '--progress-value': `${percentage}%` }} />
+                              </div>
+                              <small>Target {formatNumber(row.target)} {row.unit}</small>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="peta-detail-empty">Menu hari ini belum tersedia.</div>
+                  )}
                 </div>
               ) : null}
             </div>

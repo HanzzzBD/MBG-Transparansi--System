@@ -13,7 +13,14 @@ import {
   XCircle,
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiBlobRequest as requestBlob, apiRequest as requestJson } from '../services/api'
+import {
+  createExport,
+  downloadExport,
+  getExportDetail,
+  getExports,
+  retryExport,
+  apiRequest as requestJson,
+} from '../services/api'
 import './ExportData.css'
 
 const PAGE_SIZE = 10
@@ -78,7 +85,7 @@ const DISTRIBUTION_STATUSES = [
 const STATUS_LABELS = {
   pending: 'Diproses',
   processing: 'Diproses',
-  done: 'Selesai',
+  completed: 'Selesai',
   failed: 'Gagal',
   expired: 'Kedaluwarsa',
 }
@@ -172,7 +179,9 @@ function getDaysUntil(value) {
 
 function getStatus(record) {
   if (record.errorMsg && record.errorMsg.toLowerCase().includes('expired')) return 'expired'
-  if (record.status === 'done' && getDaysUntil(record.expiresAt) <= 0) return 'expired'
+  if (record.status === 'done') return 'completed'
+  if (record.status === 'completed' && getDaysUntil(record.expiresAt) <= 0) return 'expired'
+  if (record.status === 'pending') return 'processing'
   return record.status || 'processing'
 }
 
@@ -194,11 +203,11 @@ function normalizeExport(row) {
     type,
     fileName,
     createdAt,
-    rows: Number(row.rows || row.rowCount || row.row_count || filterParams.estimatedRows || 0),
-    sizeBytes: Number(row.sizeBytes || row.size_bytes || file.sizeBytes || file.size_bytes || 0),
+    rows: Number(row.rows || row.rowCount || row.row_count || filterParams.rowCount || filterParams.row_count || filterParams.estimatedRows || 0),
+    sizeBytes: Number(row.sizeBytes || row.size_bytes || row.fileSize || row.file_size || file.sizeBytes || file.size_bytes || 0),
     status,
-    progress: status === 'done' ? 100 : status === 'failed' ? 0 : Number(row.progress || 48),
-    expiresAt: row.expiresAt || row.expires_at || file.expiresAt || addDays(createdAt, RETENTION_DAYS),
+    progress: Number(row.progressPercent ?? row.progress_percent ?? row.progress ?? (getStatus({ status, expiresAt: row.expiresAt || row.expires_at }) === 'completed' ? 100 : 0)),
+    expiresAt: row.expiresAt || row.expires_at || file.expiresAt || file.expires_at || addDays(createdAt, RETENTION_DAYS),
     fileUrl: row.fileUrl || row.file_url || file.fileUrl || file.file_url || '',
     errorMsg: row.errorMsg || row.error_msg || '',
     filterParams,
@@ -303,7 +312,7 @@ function ExportData({ userRole, userName, onLogout }) {
 
   const fetchHistory = useCallback(async (signal) => {
     try {
-      const result = await requestJson('/exports', { params: { page: 1, limit: PAGE_SIZE }, signal })
+      const result = await getExports({ page: 1, limit: PAGE_SIZE }, { signal })
       const rows = normalizeHistoryResponse(result)
       if (rows.length) {
         setHistory(rows)
@@ -336,14 +345,14 @@ function ExportData({ userRole, userName, onLogout }) {
         )
 
         try {
-          const result = await requestJson(`/exports/${key}`)
+          const result = await getExportDetail(key)
           const updated = normalizeExport(result.data || result.export || result)
           updateHistoryRecord(updated)
 
           const status = getStatus(updated)
-          if (status === 'done' || status === 'failed' || status === 'expired') {
+          if (status === 'completed' || status === 'failed' || status === 'expired') {
             stopPolling(key)
-            showToast(status === 'done' ? 'Export selesai. File siap diunduh.' : 'Export gagal diproses.', status === 'done' ? 'success' : 'danger')
+            showToast(status === 'completed' ? 'Export selesai. File siap diunduh.' : 'Export gagal diproses.', status === 'completed' ? 'success' : 'danger')
           }
         } catch {
           if (attempts >= 5) {
@@ -443,7 +452,8 @@ function ExportData({ userRole, userName, onLogout }) {
 
   const buildExportPayload = () => {
     const selectedProvinces = getSelectedProvinces(filters.provinces)
-    const backendProvince = selectedProvinces.length === 1 ? selectedProvinces[0] : undefined
+    const provinceFilters = filters.provinces.includes('all') ? [] : selectedProvinces
+    const backendProvince = provinceFilters.length === 1 ? provinceFilters[0] : undefined
     const backendStatus = filters.distributionStatuses.length === 1 ? filters.distributionStatuses[0] : undefined
     const datasetModes = checkedData.reduce((accumulator, datasetId) => {
       const dataset = DATASETS.find((item) => item.id === datasetId)
@@ -455,7 +465,7 @@ function ExportData({ userRole, userName, onLogout }) {
       type: format,
       filterParams: {
         datasets: checkedData,
-        provinces: selectedProvinces,
+        provinces: provinceFilters,
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
         distributionStatuses: filters.distributionStatuses,
@@ -464,7 +474,7 @@ function ExportData({ userRole, userName, onLogout }) {
         estimatedRows: estimate.rows,
         estimatedSizeMb: Number(estimate.sizeMb.toFixed(2)),
         page: 'export-data',
-        // TODO: Backend exporter saat ini baru memahami alias distribusi berikut untuk satu provinsi/status.
+        exportScope: 'selected_datasets',
         province: backendProvince,
         start_date: filters.dateFrom,
         end_date: filters.dateTo,
@@ -485,18 +495,15 @@ function ExportData({ userRole, userName, onLogout }) {
     setProgress(8)
 
     try {
-      const result = await requestJson('/exports', {
-        method: 'POST',
-        body: buildExportPayload(),
-      })
+      const result = await createExport(buildExportPayload())
       const created = normalizeExport(result.data || result.export || result)
       const createdStatus = getStatus(created)
       const createdRecord = {
         ...created,
-        status: createdStatus === 'done' ? 'done' : 'processing',
-        progress: createdStatus === 'done' ? 100 : Math.max(18, created.progress || 18),
+        status: createdStatus === 'completed' ? 'completed' : 'processing',
+        progress: createdStatus === 'completed' ? 100 : Math.max(18, created.progress || 18),
         rows: created.rows || estimate.rows,
-        sizeBytes: created.sizeBytes || Math.round(estimate.sizeMb * 1000000),
+        sizeBytes: created.sizeBytes,
       }
       setProgress(100)
       updateHistoryRecord(createdRecord)
@@ -516,13 +523,7 @@ function ExportData({ userRole, userName, onLogout }) {
   const handleDownload = async (record) => {
     setDownloadingId(record.id)
     try {
-      if (record.fileUrl) {
-        window.open(record.fileUrl, '_blank', 'noopener,noreferrer')
-        showToast('Mengunduh file export.', 'success')
-        return
-      }
-
-      const blob = await requestBlob(`/exports/${record.id}/download`)
+      const blob = await downloadExport(record.id)
       const blobUrl = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = blobUrl
@@ -543,14 +544,13 @@ function ExportData({ userRole, userName, onLogout }) {
   const handleRetry = async (record) => {
     setRetryingId(record.id)
     try {
-      const result = await requestJson(`/exports/${record.id}/retry`, { method: 'POST' })
+      const result = await retryExport(record.id)
       const updated = normalizeExport(result.data || result.export || result)
       updateHistoryRecord({ ...updated, status: 'processing', progress: 28 })
       pollExportStatus(updated.id)
       showToast('Export dikirim ulang ke queue.', 'success')
     } catch (retryError) {
-      // TODO: Backend saat ini belum menyediakan POST /api/exports/:id/retry.
-      showToast(retryError.message || 'Retry export belum tersedia dari API.', 'danger')
+      showToast(retryError.message || 'Retry export gagal diproses backend.', 'danger')
     } finally {
       setRetryingId('')
     }
@@ -753,7 +753,7 @@ function ExportData({ userRole, userName, onLogout }) {
               ) : null}
               {history.map((record) => {
                 const status = getStatus(record)
-                const isDone = status === 'done'
+                const isDone = status === 'completed'
                 const isProcessing = status === 'processing' || status === 'pending'
                 const isFailed = status === 'failed'
                 const expiresIn = getDaysUntil(record.expiresAt)
@@ -786,9 +786,9 @@ function ExportData({ userRole, userName, onLogout }) {
                           aria-label={`Progress ${record.fileName}`}
                           aria-valuemin="0"
                           aria-valuemax="100"
-                          aria-valuenow={record.progress || 48}
+                          aria-valuenow={record.progress || 0}
                         >
-                          <span className="export-progress-fill" style={{ width: `${record.progress || 48}%` }} />
+                          <span className="export-progress-fill" style={{ width: `${record.progress || 0}%` }} />
                         </div>
                       ) : null}
 
@@ -803,12 +803,12 @@ function ExportData({ userRole, userName, onLogout }) {
 
                     <div className="export-history-actions">
                       {isDone ? (
-                        <button className="export-action-btn export-download-btn" type="button" disabled={downloadingId === record.id} onClick={() => handleDownload(record)}>
+                        <button className="export-action-btn export-download-btn" type="button" disabled={downloadingId === record.id || status === 'expired'} onClick={() => handleDownload(record)}>
                           <Download aria-hidden="true" />
                           {downloadingId === record.id ? 'Mengunduh' : 'Unduh'}
                         </button>
                       ) : null}
-                      {isFailed ? (
+                      {isFailed || status === 'expired' ? (
                         <button className="export-action-btn export-retry-btn" type="button" disabled={retryingId === record.id} onClick={() => handleRetry(record)}>
                           <RefreshCw className={retryingId === record.id ? 'export-spin-icon' : ''} aria-hidden="true" />
                           {retryingId === record.id ? 'Retry...' : 'Coba Lagi'}

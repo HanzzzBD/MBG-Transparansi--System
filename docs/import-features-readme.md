@@ -278,13 +278,16 @@ Field body:
 | `bentuk_pendidikan_id` | Opsional, misalnya `sd`, `smp`, `sma` |
 | `items` | Array object sekolah |
 | `csv` | String CSV |
-| `file` | File `.json` atau `.csv`, max 5 MB |
+| `file` | File `.json` atau `.csv`, max default 50 MB (`DAPODIK_IMPORT_MAX_FILE_SIZE_MB`) |
 
 Perilaku:
 
 - Data masuk ke staging Dapodik.
+- Import staging idempotent berdasarkan `semester_id` + `dapodik_school_id` atau `semester_id` + `npsn`; row yang sama dilewati sebagai `unchangedCount`, bukan dibuat duplicate.
 - JSON harus berupa array atau object dengan `items`/`data`.
 - CSV dibaca dari header baris pertama.
+- Dataset besar seperti `schools-lite.json` sebaiknya dikirim sebagai `multipart/form-data`; body JSON `items`/`csv` tetap mengikuti limit JSON global aplikasi.
+- Jika file sekolah berisi `kode_wilayah` yang belum ada di tabel staging region, sekolah tetap di-import; FK `district_kode_wilayah` dikosongkan sampai dataset region tersedia.
 - Status import dicatat ke `dapodik_sync_logs` dengan endpoint `manual_school_import`.
 
 ## 4. Promote / Link Data Dapodik ke Schools Operasional

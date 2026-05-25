@@ -532,14 +532,142 @@
 }
 
 .user-field {
+  position: relative;
   display: grid;
   gap: 7px;
+}
+
+.user-autocomplete-field {
+  align-content: start;
+}
+
+.user-autocomplete-control {
+  position: relative;
+  display: block;
+}
+
+.user-autocomplete-control > svg {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 17px;
+  height: 17px;
+  color: var(--color-text-muted);
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.user-autocomplete-control .user-input {
+  padding-left: 38px;
+  padding-right: 42px;
+}
+
+.user-autocomplete-clear {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transform: translateY(-50%);
+}
+
+.user-autocomplete-clear:hover {
+  background: var(--color-light-gray);
+  color: var(--color-navy);
+}
+
+.user-autocomplete-clear svg {
+  width: 16px;
+  height: 16px;
+}
+
+.user-selected-relation {
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.user-autocomplete-results {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% - 1px);
+  left: 0;
+  right: 0;
+  display: grid;
+  max-height: 260px;
+  overflow: auto;
+  border: 1px solid var(--color-sky);
+  border-radius: 10px;
+  background: var(--color-white);
+  box-shadow: 0 18px 40px rgba(15, 76, 129, 0.16);
+  padding: 6px;
+}
+
+.user-autocomplete-option {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--color-text-dark);
+  cursor: pointer;
+  padding: 10px;
+  text-align: left;
+}
+
+.user-autocomplete-option:hover,
+.user-autocomplete-option-selected {
+  background: var(--color-light-gray);
+}
+
+.user-autocomplete-option strong {
+  color: var(--color-navy);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.user-autocomplete-option span,
+.user-autocomplete-state {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.user-autocomplete-state {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+}
+
+.user-autocomplete-state svg {
+  width: 16px;
+  height: 16px;
+  animation: user-spin 800ms linear infinite;
 }
 
 .user-field-error {
   color: var(--color-danger);
   font-size: 12px;
   font-weight: 900;
+}
+
+.user-field-error-general {
+  border: 1px solid rgba(155, 28, 28, 0.2);
+  border-radius: 10px;
+  background: rgba(155, 28, 28, 0.08);
+  padding: 10px 12px;
 }
 
 .user-check-field {

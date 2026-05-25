@@ -16,12 +16,14 @@ const {
 const { authenticate } = require("../../middlewares/auth");
 const { authorize } = require("../../middlewares/rbac");
 const { validateRequest } = require("../../middlewares/validateRequest");
+const { env } = require("../../config/env");
 
 const router = express.Router();
+const importMaxFileSizeBytes = env.DAPODIK_IMPORT_MAX_FILE_SIZE_MB * 1024 * 1024;
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024
+    fileSize: importMaxFileSizeBytes
   }
 });
 

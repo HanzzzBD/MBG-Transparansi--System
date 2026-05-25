@@ -26,7 +26,15 @@ import {
   YAxis,
 } from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestJson } from '../services/api'
+import {
+  getAnalyticsPublicReportsSummary,
+  getAnalyticsPublicReportsTopRegions,
+  getAnalyticsPublicReportsTrend,
+  getPublicReportDetail,
+  getPublicReports,
+  getPublicReportsSummary,
+  updatePublicReportStatus,
+} from '../services/api'
 import './LaporanMasyarakat.css'
 
 const PAGE_SIZE = 10
@@ -54,43 +62,6 @@ const STATUS_LABELS = {
   ditindak: 'Ditindak',
   ditutup: 'Ditutup',
 }
-
-const PROVINCES = [
-  'Aceh',
-  'Sumatera Utara',
-  'Sumatera Barat',
-  'Riau',
-  'Kepulauan Riau',
-  'Jambi',
-  'Bengkulu',
-  'Sumatera Selatan',
-  'Kepulauan Bangka Belitung',
-  'Lampung',
-  'Banten',
-  'DKI Jakarta',
-  'Jawa Barat',
-  'Jawa Tengah',
-  'DI Yogyakarta',
-  'Jawa Timur',
-  'Bali',
-  'Nusa Tenggara Barat',
-  'Nusa Tenggara Timur',
-  'Kalimantan Barat',
-  'Kalimantan Tengah',
-  'Kalimantan Selatan',
-  'Kalimantan Timur',
-  'Kalimantan Utara',
-  'Sulawesi Utara',
-  'Gorontalo',
-  'Sulawesi Tengah',
-  'Sulawesi Barat',
-  'Sulawesi Selatan',
-  'Sulawesi Tenggara',
-  'Maluku',
-  'Maluku Utara',
-  'Papua',
-  'Papua Barat',
-]
 
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
@@ -150,14 +121,29 @@ function normalizeReport(item) {
 
 function normalizeSummary(data) {
   const byCategory = data?.byCategory || data?.by_category || null
+  const byStatus = data?.byStatus || data?.by_status || null
+  const filterOptions = data?.filterOptions || data?.filter_options || {}
   return {
     totalReports: Number(data?.totalReports ?? data?.total_reports ?? 0),
     thisMonth: Number(data?.thisMonth ?? data?.this_month ?? 0),
     needFollowUp: Number(data?.needFollowUp ?? data?.need_follow_up ?? 0),
+    openReports: Number(data?.openReports ?? data?.open_reports ?? data?.pendingReports ?? data?.pending_reports ?? 0),
+    resolvedReports: Number(data?.resolvedReports ?? data?.resolved_reports ?? 0),
+    closedReports: Number(data?.closedReports ?? data?.closed_reports ?? 0),
+    byStatus: byStatus || Object.keys(STATUS_LABELS).reduce((result, key) => {
+      result[key] = 0
+      return result
+    }, {}),
     byCategory: byCategory || CATEGORY_OPTIONS.reduce((result, item) => {
       result[item.value] = 0
       return result
     }, {}),
+    filterOptions: {
+      provinces: Array.isArray(filterOptions.provinces) ? filterOptions.provinces.filter(Boolean) : [],
+      cities: Array.isArray(filterOptions.cities) ? filterOptions.cities.filter((item) => item?.city) : [],
+      categories: Array.isArray(filterOptions.categories) ? filterOptions.categories : [],
+      statuses: Array.isArray(filterOptions.statuses) ? filterOptions.statuses : [],
+    },
   }
 }
 
@@ -169,6 +155,7 @@ function normalizeTrendRows(items) {
     keterlambatan: Number(item.keterlambatan ?? 0),
     kekurangan_porsi: Number(item.kekurangan_porsi ?? item.kekuranganPorsi ?? 0),
     lainnya: Number(item.lainnya ?? 0),
+    totalReports: Number(item.totalReports ?? item.total_reports ?? item.total ?? 0),
   }))
 }
 
@@ -181,25 +168,12 @@ function normalizeTopRegions(items) {
   }))
 }
 
-function applyStatusToggle(row, statusToggle) {
-  if (statusToggle === 'all') return true
-  if (statusToggle === 'open') return ['baru', 'ditinjau'].includes(row.status)
-  if (statusToggle === 'done') return ['ditindak', 'ditutup'].includes(row.status)
-  return true
-}
+function CountValue({ loading, value }) {
+  if (loading) {
+    return <Loader2 className="laporan-inline-spinner" aria-hidden="true" />
+  }
 
-function applyLocalFilters(rows, filters) {
-  const dateFrom = filters.dateFrom ? new Date(`${filters.dateFrom}T00:00:00`) : null
-  const dateTo = filters.dateTo ? new Date(`${filters.dateTo}T23:59:59`) : null
-  return rows.filter((row) => {
-    const createdAt = new Date(row.createdAt)
-    const matchesCategory = !filters.category || row.category === filters.category
-    const matchesProvince = !filters.province || row.province === filters.province
-    const matchesStatus = applyStatusToggle(row, filters.statusToggle)
-    const matchesFrom = !dateFrom || createdAt >= dateFrom
-    const matchesTo = !dateTo || createdAt <= dateTo
-    return matchesCategory && matchesProvince && matchesStatus && matchesFrom && matchesTo
-  })
+  return formatNumber(value)
 }
 
 function getAllowedNextStatuses(status) {
@@ -207,6 +181,27 @@ function getAllowedNextStatuses(status) {
   if (status === 'ditinjau') return ['ditindak', 'ditutup']
   if (status === 'ditindak') return ['ditutup']
   return []
+}
+
+function buildReportParams(filters, page) {
+  const statusParam = filters.statusToggle === 'open'
+    ? 'baru,ditinjau'
+    : filters.statusToggle === 'done'
+      ? 'ditindak,ditutup'
+      : undefined
+
+  return {
+    category: filters.category || undefined,
+    province: filters.province || undefined,
+    city: filters.city || undefined,
+    status: statusParam,
+    dateFrom: filters.dateFrom || undefined,
+    dateTo: filters.dateTo || undefined,
+    start_date: filters.dateFrom || undefined,
+    end_date: filters.dateTo || undefined,
+    page,
+    limit: PAGE_SIZE,
+  }
 }
 
 function LaporanMasyarakat({ userRole, userName, onLogout }) {
@@ -224,6 +219,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
   const [filters, setFilters] = useState({
     category: '',
     province: '',
+    city: '',
     dateFrom: '',
     dateTo: '',
     statusToggle: 'open',
@@ -231,7 +227,10 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [summaryLoading, setSummaryLoading] = useState(true)
+  const [chartsLoading, setChartsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [analyticsError, setAnalyticsError] = useState('')
   const [toast, setToast] = useState(null)
   const [selectedReport, setSelectedReport] = useState(null)
   const [targetStatus, setTargetStatus] = useState('')
@@ -250,29 +249,14 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
     setError('')
 
     try {
-      const statusParam = filters.statusToggle === 'open'
-        ? 'baru,ditinjau'
-        : filters.statusToggle === 'done'
-          ? 'ditindak,ditutup'
-          : undefined
-      const result = await requestJson('/public-reports', {
-        params: {
-          category: filters.category,
-          province: filters.province,
-          status: statusParam,
-          dateFrom: filters.dateFrom,
-          dateTo: filters.dateTo,
-          page,
-          limit: PAGE_SIZE,
-        },
-        signal,
-      })
+      const params = buildReportParams(filters, page)
+      const result = await getPublicReports(params, { signal })
       const items = Array.isArray(result.data) ? result.data : result.data?.items || []
-      const normalized = applyLocalFilters(items.map(normalizeReport), filters)
+      const normalized = items.map(normalizeReport)
 
       if (!normalized.length) {
         setReports([])
-        setTotal(0)
+        setTotal(result.meta?.total || 0)
         return
       }
 
@@ -291,25 +275,40 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
 
   const fetchSummary = useCallback(async (signal) => {
     if (!canAccess) return
+    setSummaryLoading(true)
     try {
+      const params = buildReportParams(filters, 1)
       let result
       try {
-        result = await requestJson('/public-reports/summary', { signal })
+        result = await getPublicReportsSummary(params, { signal })
       } catch {
-        result = await requestJson('/analytics/public-reports-summary', { signal })
+        result = await getAnalyticsPublicReportsSummary(params, { signal })
       }
       setSummary(normalizeSummary(result.data))
-    } catch {
+    } catch (summaryError) {
+      if (summaryError.name !== 'AbortError') {
+        setAnalyticsError(summaryError.message || 'Ringkasan laporan gagal dimuat dari backend.')
+      }
       setSummary(normalizeSummary(null))
+    } finally {
+      if (!signal.aborted) setSummaryLoading(false)
     }
-  }, [canAccess])
+  }, [canAccess, filters])
 
   const fetchCharts = useCallback(async (signal) => {
     if (!canAccess) return
+    setChartsLoading(true)
+    setAnalyticsError('')
+    const params = {
+      ...buildReportParams(filters, 1),
+      limit: 10,
+    }
     const [trendResult, topResult] = await Promise.allSettled([
-      requestJson('/analytics/public-reports-trend', { signal }),
-      requestJson('/analytics/public-reports-top-regions', { signal }),
+      getAnalyticsPublicReportsTrend(params, { signal }),
+      getAnalyticsPublicReportsTopRegions(params, { signal }),
     ])
+
+    if (signal.aborted) return
 
     if (trendResult.status === 'fulfilled') {
       const normalized = normalizeTrendRows(Array.isArray(trendResult.value.data) ? trendResult.value.data : trendResult.value.data?.items)
@@ -324,7 +323,12 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
     } else {
       setTopRegions([])
     }
-  }, [canAccess])
+
+    if ([trendResult, topResult].some((result) => result.status === 'rejected') && !signal.aborted) {
+      setAnalyticsError('Sebagian analytics laporan gagal dimuat dari backend.')
+    }
+    if (!signal.aborted) setChartsLoading(false)
+  }, [canAccess, filters])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -339,15 +343,21 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
   const startEntry = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
   const endEntry = Math.min(page * PAGE_SIZE, total)
+  const provinceOptions = summary.filterOptions.provinces
+  const cityOptions = summary.filterOptions.cities.filter((item) => !filters.province || item.province === filters.province)
 
   const handleFilterChange = (event) => {
     const { name, value } = event.target
-    setFilters((current) => ({ ...current, [name]: value }))
+    setFilters((current) => ({
+      ...current,
+      [name]: value,
+      ...(name === 'province' ? { city: '' } : {}),
+    }))
     setPage(1)
   }
 
   const resetFilters = () => {
-    setFilters({ category: '', province: '', dateFrom: '', dateTo: '', statusToggle: 'open' })
+    setFilters({ category: '', province: '', city: '', dateFrom: '', dateTo: '', statusToggle: 'open' })
     setPage(1)
   }
 
@@ -359,7 +369,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
   const fetchDetail = async (report) => {
     if (!String(report.id).match(/^\d+$/)) return report
     try {
-      const result = await requestJson(`/public-reports/${report.id}`)
+      const result = await getPublicReportDetail(report.id)
       return normalizeReport(result.data)
     } catch {
       return report
@@ -382,12 +392,9 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
   }
 
   const patchStatus = async (report, status, note) => {
-    return requestJson(`/public-reports/${report.id}/status`, {
-      method: 'PATCH',
-      body: {
-        status,
-        followUpNote: note,
-      },
+    return updatePublicReportStatus(report.id, {
+      status,
+      followUpNote: note,
     })
   }
 
@@ -411,7 +418,10 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
       setSelectedReport(updated)
       showToast('Status laporan berhasil diperbarui.', 'success')
       closeDetail()
-      fetchSummary(new AbortController().signal)
+      const controller = new AbortController()
+      fetchReports(controller.signal)
+      fetchSummary(controller.signal)
+      fetchCharts(controller.signal)
     } catch (statusError) {
       showToast(statusError.message || 'Status laporan gagal diperbarui.', 'danger')
     } finally {
@@ -457,9 +467,11 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
             <p>Semua laporan yang masuk dari publik melalui form laporan</p>
           </div>
           <div className="laporan-summary-chips" aria-label="Ringkasan laporan masyarakat">
-            <span className="laporan-chip"><ClipboardList aria-hidden="true" /> Total Laporan <strong>{formatNumber(summary.totalReports)}</strong></span>
-            <span className="laporan-chip"><BarChart3 aria-hidden="true" /> Bulan Ini <strong>{formatNumber(summary.thisMonth)}</strong></span>
-            <span className="laporan-chip"><AlertTriangle aria-hidden="true" /> Perlu Tindak Lanjut <strong>{formatNumber(summary.needFollowUp)}</strong></span>
+            <span className="laporan-chip"><ClipboardList aria-hidden="true" /> Total Laporan <strong><CountValue loading={summaryLoading} value={summary.totalReports} /></strong></span>
+            <span className="laporan-chip"><BarChart3 aria-hidden="true" /> Bulan Ini <strong><CountValue loading={summaryLoading} value={summary.thisMonth} /></strong></span>
+            <span className="laporan-chip"><AlertTriangle aria-hidden="true" /> Perlu Tindak Lanjut <strong><CountValue loading={summaryLoading} value={summary.needFollowUp} /></strong></span>
+            <span className="laporan-chip"><MessageSquare aria-hidden="true" /> Baru <strong><CountValue loading={summaryLoading} value={summary.byStatus?.baru ?? 0} /></strong></span>
+            <span className="laporan-chip"><CheckCircle2 aria-hidden="true" /> Ditindak <strong><CountValue loading={summaryLoading} value={summary.byStatus?.ditindak ?? 0} /></strong></span>
           </div>
         </header>
 
@@ -478,7 +490,18 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
               <span className="laporan-label">Provinsi</span>
               <select className="laporan-select" name="province" value={filters.province} onChange={handleFilterChange}>
                 <option value="">Semua Provinsi</option>
-                {PROVINCES.map((province) => <option key={province} value={province}>{province}</option>)}
+                {provinceOptions.map((province) => <option key={province} value={province}>{province}</option>)}
+              </select>
+            </label>
+            <label className="laporan-filter-field">
+              <span className="laporan-label">Kota/Kabupaten</span>
+              <select className="laporan-select" name="city" value={filters.city} onChange={handleFilterChange}>
+                <option value="">Semua Kota/Kabupaten</option>
+                {cityOptions.map((item) => (
+                  <option key={`${item.province || '-'}-${item.city}`} value={item.city}>
+                    {item.city}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="laporan-filter-field">
@@ -523,7 +546,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
             >
               <span className={`laporan-category-icon ${category.className}`} />
               <span className="laporan-category-title">{category.label}</span>
-              <strong className="laporan-category-value">{formatNumber(summary.byCategory?.[category.value] ?? 0)}</strong>
+              <strong className="laporan-category-value"><CountValue loading={summaryLoading} value={summary.byCategory?.[category.value] ?? 0} /></strong>
             </button>
           ))}
         </section>
@@ -532,6 +555,25 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
           <div className="laporan-error">
             <AlertTriangle aria-hidden="true" />
             <span>{error}</span>
+            <button className="laporan-inline-retry" type="button" onClick={() => fetchReports(new AbortController().signal)}>
+              <RefreshCcw aria-hidden="true" />
+              Coba lagi
+            </button>
+          </div>
+        ) : null}
+
+        {analyticsError ? (
+          <div className="laporan-error">
+            <AlertTriangle aria-hidden="true" />
+            <span>{analyticsError}</span>
+            <button className="laporan-inline-retry" type="button" onClick={() => {
+              const controller = new AbortController()
+              fetchSummary(controller.signal)
+              fetchCharts(controller.signal)
+            }}>
+              <RefreshCcw aria-hidden="true" />
+              Coba lagi
+            </button>
           </div>
         ) : null}
 
@@ -614,7 +656,9 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
         <section className="laporan-chart-grid">
           <article className="laporan-chart-card">
             <h2 className="laporan-chart-title">Tren Laporan Masuk 30 Hari</h2>
-            {trendRows.length ? (
+            {chartsLoading ? (
+              <div className="laporan-loading"><Loader2 aria-hidden="true" /> Memuat tren dari backend...</div>
+            ) : trendRows.length ? (
               <ResponsiveContainer width="100%" height={320}>
                 <AreaChart data={trendRows}>
                   <CartesianGrid stroke="#f4f8fb" vertical={false} />
@@ -629,13 +673,15 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="laporan-loading">Belum ada data tren laporan dari backend.</div>
+              <div className="laporan-empty">Belum ada data tren laporan dari backend untuk filter ini.</div>
             )}
           </article>
 
           <article className="laporan-chart-card">
             <h2 className="laporan-chart-title">Wilayah dengan Laporan Terbanyak</h2>
-            {topRegions.length ? (
+            {chartsLoading ? (
+              <div className="laporan-loading"><Loader2 aria-hidden="true" /> Memuat wilayah dari backend...</div>
+            ) : topRegions.length ? (
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={topRegions} layout="vertical" margin={{ left: 18, right: 16 }}>
                   <CartesianGrid stroke="#f4f8fb" horizontal={false} />
@@ -646,7 +692,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="laporan-loading">Belum ada data wilayah dari backend.</div>
+              <div className="laporan-empty">Belum ada data wilayah dari backend untuk filter ini.</div>
             )}
           </article>
         </section>

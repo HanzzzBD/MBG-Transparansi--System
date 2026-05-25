@@ -77,6 +77,16 @@ const withoutDateFilters = (query = {}) => {
   return rest;
 };
 
+const withoutLocationFilters = (query = {}) => {
+  const { province, city, ...rest } = query;
+  return rest;
+};
+
+const withoutCityFilter = (query = {}) => {
+  const { city, ...rest } = query;
+  return rest;
+};
+
 const toDateKey = (value) => value.toISOString().slice(0, 10);
 
 const getCurrentMonthRange = () => {
@@ -103,6 +113,51 @@ const groupRowsToCountMap = ({ rows, keyField, allowedKeys }) => {
   }
 
   return counts;
+};
+
+const getPublicReportFilterOptions = async (query = {}) => {
+  const normalizedQuery = normalizePublicReportQuery(query);
+  const [provinceRows, cityRows] = await Promise.all([
+    prisma.publicReport.findMany({
+      where: buildPublicReportWhere(withoutLocationFilters(normalizedQuery)),
+      distinct: ["province"],
+      select: {
+        province: true
+      },
+      orderBy: {
+        province: "asc"
+      }
+    }),
+    prisma.publicReport.findMany({
+      where: buildPublicReportWhere(withoutCityFilter(normalizedQuery)),
+      distinct: ["province", "city"],
+      select: {
+        province: true,
+        city: true
+      },
+      orderBy: [{ province: "asc" }, { city: "asc" }]
+    })
+  ]);
+
+  return {
+    categories: publicReportCategoryValues.map((value) => ({
+      value,
+      total: 0
+    })),
+    statuses: publicReportStatusValues.map((value) => ({
+      value,
+      total: 0
+    })),
+    provinces: provinceRows
+      .map((row) => row.province)
+      .filter(Boolean),
+    cities: cityRows
+      .filter((row) => row.city)
+      .map((row) => ({
+        province: row.province || null,
+        city: row.city
+      }))
+  };
 };
 
 const serializePublicReport = (report) => {
@@ -184,7 +239,7 @@ const getPublicReportsSummary = async ({ query = {} } = {}) => {
   const baseWhere = buildPublicReportWhere(withoutDateFilters(normalizedQuery));
   const currentMonthRange = getCurrentMonthRange();
 
-  const [totalReports, thisMonth, needFollowUp, statusRows, categoryRows] = await Promise.all([
+  const [totalReports, thisMonth, needFollowUp, statusRows, categoryRows, filterOptions] = await Promise.all([
     prisma.publicReport.count({ where }),
     prisma.publicReport.count({
       where: {
@@ -216,7 +271,8 @@ const getPublicReportsSummary = async ({ query = {} } = {}) => {
       _count: {
         _all: true
       }
-    })
+    }),
+    getPublicReportFilterOptions(normalizedQuery)
   ]);
 
   const byStatus = groupRowsToCountMap({
@@ -254,7 +310,29 @@ const getPublicReportsSummary = async ({ query = {} } = {}) => {
       byStatus,
       by_status: byStatus,
       byCategory,
-      by_category: byCategory
+      by_category: byCategory,
+      filterOptions: {
+        ...filterOptions,
+        categories: filterOptions.categories.map((item) => ({
+          ...item,
+          total: byCategory[item.value] || 0
+        })),
+        statuses: filterOptions.statuses.map((item) => ({
+          ...item,
+          total: byStatus[item.value] || 0
+        }))
+      },
+      filter_options: {
+        ...filterOptions,
+        categories: filterOptions.categories.map((item) => ({
+          ...item,
+          total: byCategory[item.value] || 0
+        })),
+        statuses: filterOptions.statuses.map((item) => ({
+          ...item,
+          total: byStatus[item.value] || 0
+        }))
+      }
     }
   };
 };

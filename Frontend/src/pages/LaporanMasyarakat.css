@@ -224,6 +224,28 @@
   padding: 0 14px;
 }
 
+.laporan-inline-retry {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-left: auto;
+  border: 1px solid rgba(155, 28, 28, 0.24);
+  border-radius: 9px;
+  background: var(--color-white);
+  color: var(--color-danger);
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+  padding: 0 10px;
+}
+
+.laporan-inline-retry svg {
+  width: 15px;
+  height: 15px;
+}
+
 .laporan-reset-btn svg {
   width: 16px;
   height: 16px;
@@ -669,6 +691,20 @@
   color: var(--color-navy);
 }
 
+.laporan-empty {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  border: 1px dashed var(--color-sky);
+  border-radius: 13px;
+  background: var(--color-light-gray);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 900;
+  text-align: center;
+  padding: 16px;
+}
+
 .laporan-error {
   border: 1px solid rgba(155, 28, 28, 0.24);
   background: rgba(155, 28, 28, 0.06);
@@ -677,6 +713,12 @@
 
 .laporan-loading svg,
 .laporan-btn:disabled svg {
+  animation: laporan-spin 0.8s linear infinite;
+}
+
+.laporan-inline-spinner {
+  width: 15px;
+  height: 15px;
   animation: laporan-spin 0.8s linear infinite;
 }
 

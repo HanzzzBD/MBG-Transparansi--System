@@ -12,12 +12,127 @@ const {
   getFileExtensionFromMimeType,
   uploadBufferToStorage
 } = require("../../utils/storage");
+const { assertExportDatasetsAllowed } = require("./datasets");
 
 const prisma = getPrismaClient();
 
 const DEFAULT_EXPORT_MAX_ROWS = 50000;
 const EXPORT_RETENTION_DAYS = 7;
 const EXPIRED_EXPORT_MESSAGE = "Export file expired after the 7-day retention window.";
+
+const DATASET_LABELS = {
+  distributions: "Data Distribusi",
+  validations: "Validasi Sekolah",
+  public_reports: "Laporan Masyarakat",
+  budget_by_region: "Anggaran per Wilayah",
+  audit_logs: "Audit Log",
+  anomalies: "Anomali Terdeteksi",
+  production_batches: "Production Batch & Costing",
+  food_prices: "Food Prices SP2KP"
+};
+
+const toNumber = (value) => (value === null || value === undefined ? null : Number(value));
+
+const toIsoString = (value) => (value ? new Date(value).toISOString() : null);
+
+const toDateString = (value) => (value ? new Date(value).toISOString().slice(0, 10) : null);
+
+const asArray = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    return [value.trim()];
+  }
+
+  return [];
+};
+
+const ensureValidDateFilter = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    throw new AppError("Invalid export date filter.", 400, "EXPORT_FILTER_DATE_INVALID");
+  }
+
+  return value;
+};
+
+const getDateRange = (filters = {}) => {
+  const exactDate = ensureValidDateFilter(filters.date);
+  const startDate = ensureValidDateFilter(filters.start_date || filters.dateFrom || filters.date_from);
+  const endDate = ensureValidDateFilter(filters.end_date || filters.dateTo || filters.date_to);
+
+  if (exactDate) {
+    return {
+      gte: startOfDayUtc(exactDate),
+      lte: endOfDayUtc(exactDate)
+    };
+  }
+
+  if (!startDate && !endDate) {
+    return null;
+  }
+
+  return {
+    ...(startDate ? { gte: startOfDayUtc(startDate) } : {}),
+    ...(endDate ? { lte: endOfDayUtc(endDate) } : {})
+  };
+};
+
+const getLocationFilters = (filters = {}) => {
+  const provinceList = [
+    ...asArray(filters.province),
+    ...asArray(filters.provinceList),
+    ...asArray(filters.province_list),
+    ...asArray(filters.provinces)
+  ];
+  const cityList = [...asArray(filters.city), ...asArray(filters.cities)];
+
+  return {
+    provinces: [...new Set(provinceList)],
+    cities: [...new Set(cityList)]
+  };
+};
+
+const buildTextFilter = (values) => {
+  if (!values.length) {
+    return undefined;
+  }
+
+  if (values.length === 1) {
+    return {
+      contains: values[0],
+      mode: "insensitive"
+    };
+  }
+
+  return {
+    in: values
+  };
+};
+
+const buildLocationWhere = (filters = {}) => {
+  const { provinces, cities } = getLocationFilters(filters);
+  return {
+    ...(buildTextFilter(provinces) ? { province: buildTextFilter(provinces) } : {}),
+    ...(buildTextFilter(cities) ? { city: buildTextFilter(cities) } : {})
+  };
+};
+
+const assertRowsWithinLimit = ({ datasetId, nextTotal, maxRows }) => {
+  if (nextTotal > maxRows) {
+    throw new AppError(
+      `Export exceeds the maximum allowed rows (${maxRows}) after adding ${DATASET_LABELS[datasetId] || datasetId}.`,
+      400,
+      "EXPORT_MAX_ROWS_EXCEEDED"
+    );
+  }
+};
 
 const sanitizeErrorMessage = (error) => {
   if (!error) {
@@ -28,42 +143,28 @@ const sanitizeErrorMessage = (error) => {
     return error.message;
   }
 
+  if (error.name?.startsWith("Prisma") || error.message?.includes("Invalid `prisma.")) {
+    return "Export failed while reading data from the database.";
+  }
+
   return error.message || "Unknown export error.";
 };
 
 const buildDistributionWhere = (filters = {}) => {
+  const dateRange = getDateRange(filters);
+  const locationWhere = buildLocationWhere(filters);
   const where = {
     sppg: {
       deletedAt: null,
-      ...(filters.province
-        ? {
-            province: {
-              contains: filters.province,
-              mode: "insensitive"
-            }
-          }
-        : {}),
-      ...(filters.city
-        ? {
-            city: {
-              contains: filters.city,
-              mode: "insensitive"
-            }
-          }
-        : {})
+      ...locationWhere
     },
     school: {
       deletedAt: null
     }
   };
 
-  if (filters.date) {
-    where.distributionDate = new Date(filters.date);
-  } else if (filters.start_date || filters.end_date) {
-    where.distributionDate = {
-      ...(filters.start_date ? { gte: startOfDayUtc(filters.start_date) } : {}),
-      ...(filters.end_date ? { lte: endOfDayUtc(filters.end_date) } : {})
-    };
+  if (dateRange) {
+    where.distributionDate = dateRange;
   }
 
   if (filters.sppgId) {
@@ -74,8 +175,19 @@ const buildDistributionWhere = (filters = {}) => {
     where.schoolId = Number(filters.schoolId);
   }
 
-  if (filters.status) {
-    where.status = filters.status;
+  const statuses = [
+    ...asArray(filters.status),
+    ...asArray(filters.distributionStatus),
+    ...asArray(filters.distributionStatuses),
+    ...asArray(filters.distribution_statuses)
+  ];
+
+  if (statuses.length === 1) {
+    where.status = statuses[0];
+  } else if (statuses.length > 1) {
+    where.status = {
+      in: statuses
+    };
   }
 
   return where;
@@ -83,7 +195,7 @@ const buildDistributionWhere = (filters = {}) => {
 
 const serializeDistributionRow = (distribution) => ({
   distribution_id: distribution.id,
-  distribution_date: distribution.distributionDate.toISOString().slice(0, 10),
+  distribution_date: toDateString(distribution.distributionDate),
   status: distribution.status,
   portions: distribution.portions,
   received_portions: distribution.validation?.receivedPortions ?? null,
@@ -101,17 +213,516 @@ const serializeDistributionRow = (distribution) => ({
   school_province: distribution.school.province,
   school_city: distribution.school.city,
   failure_reason: distribution.failureReason ?? null,
-  created_at: distribution.createdAt.toISOString(),
-  updated_at: distribution.updatedAt.toISOString()
+  created_at: toIsoString(distribution.createdAt),
+  updated_at: toIsoString(distribution.updatedAt)
 });
+
+const serializeValidationRow = (validation) => ({
+  validation_id: validation.id,
+  distribution_id: validation.distributionId,
+  distribution_date: toDateString(validation.distribution?.distributionDate),
+  school_name: validation.school?.name ?? validation.distribution?.school?.name ?? null,
+  school_province: validation.school?.province ?? validation.distribution?.school?.province ?? null,
+  school_city: validation.school?.city ?? validation.distribution?.school?.city ?? null,
+  sppg_name: validation.distribution?.sppg?.name ?? null,
+  sppg_province: validation.distribution?.sppg?.province ?? null,
+  sppg_city: validation.distribution?.sppg?.city ?? null,
+  received_portions: validation.receivedPortions,
+  quality_ok: validation.qualityOk,
+  status: validation.status,
+  notes: validation.notes ?? null,
+  validated_at: toIsoString(validation.validatedAt),
+  created_at: toIsoString(validation.createdAt),
+  updated_at: toIsoString(validation.updatedAt)
+});
+
+const serializePublicReportRow = (report) => ({
+  report_id: report.id,
+  reporter_name: report.reporterName ?? null,
+  category: report.category,
+  status: report.status,
+  province: report.province ?? null,
+  city: report.city ?? null,
+  message: report.message,
+  follow_up_note: report.followUpNote ?? null,
+  followed_up_by: report.follower?.name ?? report.followedUpBy ?? null,
+  followed_up_at: toIsoString(report.followedUpAt),
+  created_at: toIsoString(report.createdAt)
+});
+
+const serializeAuditLogRow = (log) => ({
+  audit_log_id: log.id,
+  action: log.action,
+  table_name: log.tableName,
+  record_id: log.recordId,
+  user_id: log.userId ?? null,
+  user_name: log.user?.name ?? null,
+  user_role: log.user?.role ?? null,
+  ip_address: log.ipAddress ?? null,
+  created_at: toIsoString(log.createdAt)
+});
+
+const serializeAnomalyRow = (anomaly) => ({
+  anomaly_id: anomaly.id,
+  anomaly_type: anomaly.anomalyType,
+  description: anomaly.description,
+  is_resolved: anomaly.isResolved,
+  distribution_id: anomaly.distributionId ?? null,
+  production_batch_id: anomaly.productionBatchId ?? null,
+  sppg_name: anomaly.distribution?.sppg?.name ?? anomaly.productionBatch?.sppg?.name ?? null,
+  sppg_province: anomaly.distribution?.sppg?.province ?? anomaly.productionBatch?.sppg?.province ?? null,
+  sppg_city: anomaly.distribution?.sppg?.city ?? anomaly.productionBatch?.sppg?.city ?? null,
+  school_name: anomaly.distribution?.school?.name ?? null,
+  resolved_by: anomaly.resolver?.name ?? anomaly.resolvedBy ?? null,
+  resolved_at: toIsoString(anomaly.resolvedAt),
+  created_at: toIsoString(anomaly.createdAt)
+});
+
+const serializeProductionBatchRow = ({ batch, mode }) => {
+  const base = {
+    production_batch_id: batch.id,
+    production_date: toDateString(batch.productionDate),
+    sppg_name: batch.sppg?.name ?? null,
+    sppg_province: batch.sppg?.province ?? null,
+    sppg_city: batch.sppg?.city ?? null,
+    menu_name: batch.menu?.menuName ?? null,
+    total_portions: batch.totalPortions,
+    total_cost: toNumber(batch.totalCost),
+    cost_per_portion: toNumber(batch.costPerPortion),
+    item_count: batch._count?.items ?? 0,
+    anomaly_count: batch._count?.anomalyLogs ?? 0,
+    created_at: toIsoString(batch.createdAt),
+    updated_at: toIsoString(batch.updatedAt)
+  };
+
+  if (mode === "summary") {
+    return base;
+  }
+
+  return {
+    ...base,
+    raw_material_cost: toNumber(batch.rawMaterialCost),
+    operational_cost: toNumber(batch.operationalCost),
+    packaging_cost: toNumber(batch.packagingCost),
+    distribution_cost: toNumber(batch.distributionCost),
+    notes: batch.notes ?? null
+  };
+};
+
+const serializeFoodPriceRow = (price) => ({
+  food_price_id: price.id,
+  date: toDateString(price.date),
+  source: price.source,
+  scope: price.scope,
+  level: price.level ?? null,
+  province: price.province ?? null,
+  city: price.city ?? null,
+  variant_id: price.variantId,
+  variant: price.variant,
+  unit: price.unit,
+  quantity: price.quantity,
+  price: toNumber(price.price),
+  source_endpoint: price.sourceEndpoint ?? null,
+  created_at: toIsoString(price.createdAt),
+  updated_at: toIsoString(price.updatedAt)
+});
+
+const createSection = ({ datasetId, rows }) => ({
+  datasetId,
+  label: DATASET_LABELS[datasetId] || datasetId,
+  rows
+});
+
+const buildDistributionSection = async ({ filters, currentTotal, maxRows }) => {
+  const datasetId = "distributions";
+  const where = buildDistributionWhere(filters);
+  const totalRows = await prisma.distribution.count({ where });
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + totalRows, maxRows });
+
+  const distributions = await prisma.distribution.findMany({
+    where,
+    include: {
+      sppg: true,
+      school: true,
+      validation: true
+    },
+    orderBy: [{ distributionDate: "desc" }, { createdAt: "desc" }]
+  });
+
+  return createSection({
+    datasetId,
+    rows: distributions.map(serializeDistributionRow)
+  });
+};
+
+const buildValidationWhere = (filters = {}) => {
+  const dateRange = getDateRange(filters);
+  const locationWhere = buildLocationWhere(filters);
+  const where = {
+    school: {
+      deletedAt: null,
+      ...locationWhere
+    },
+    distribution: {
+      school: {
+        deletedAt: null
+      },
+      sppg: {
+        deletedAt: null
+      }
+    },
+    ...(filters.validationStatus ? { status: filters.validationStatus } : {})
+  };
+
+  if (dateRange) {
+    where.createdAt = dateRange;
+  }
+
+  return where;
+};
+
+const buildValidationSection = async ({ filters, currentTotal, maxRows }) => {
+  const datasetId = "validations";
+  const where = buildValidationWhere(filters);
+  const totalRows = await prisma.validation.count({ where });
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + totalRows, maxRows });
+
+  const validations = await prisma.validation.findMany({
+    where,
+    include: {
+      school: true,
+      distribution: {
+        include: {
+          sppg: true,
+          school: true
+        }
+      }
+    },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  return createSection({
+    datasetId,
+    rows: validations.map(serializeValidationRow)
+  });
+};
+
+const buildPublicReportWhere = (filters = {}) => {
+  const dateRange = getDateRange(filters);
+  const where = {
+    ...buildLocationWhere(filters),
+    ...(filters.publicReportStatus ? { status: filters.publicReportStatus } : {}),
+    ...(filters.publicReportCategory ? { category: filters.publicReportCategory } : {})
+  };
+
+  if (dateRange) {
+    where.createdAt = dateRange;
+  }
+
+  return where;
+};
+
+const buildPublicReportSection = async ({ filters, currentTotal, maxRows }) => {
+  const datasetId = "public_reports";
+  const where = buildPublicReportWhere(filters);
+  const totalRows = await prisma.publicReport.count({ where });
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + totalRows, maxRows });
+
+  const reports = await prisma.publicReport.findMany({
+    where,
+    include: {
+      follower: {
+        select: {
+          id: true,
+          name: true,
+          role: true
+        }
+      }
+    },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  return createSection({
+    datasetId,
+    rows: reports.map(serializePublicReportRow)
+  });
+};
+
+const buildBudgetByRegionSection = async ({ filters, currentTotal, maxRows }) => {
+  const datasetId = "budget_by_region";
+  const where = buildDistributionWhere(filters);
+  const sourceRows = await prisma.distribution.count({ where });
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + sourceRows, maxRows });
+
+  const distributions = await prisma.distribution.findMany({
+    where,
+    select: {
+      status: true,
+      portions: true,
+      totalCost: true,
+      sppg: {
+        select: {
+          province: true,
+          city: true
+        }
+      }
+    }
+  });
+  const grouped = new Map();
+
+  for (const distribution of distributions) {
+    const province = distribution.sppg?.province || "-";
+    const city = distribution.sppg?.city || "-";
+    const key = `${province}::${city}`;
+    const existing =
+      grouped.get(key) ||
+      {
+        province,
+        city,
+        total_portions: 0,
+        total_cost: 0,
+        distribution_count: 0,
+        delivered_count: 0,
+        failed_count: 0,
+        in_progress_count: 0
+      };
+
+    existing.total_portions += Number(distribution.portions || 0);
+    existing.total_cost += Number(distribution.totalCost || 0);
+    existing.distribution_count += 1;
+    if (distribution.status === "delivered") existing.delivered_count += 1;
+    if (distribution.status === "failed") existing.failed_count += 1;
+    if (distribution.status === "in_progress") existing.in_progress_count += 1;
+    grouped.set(key, existing);
+  }
+
+  const rows = [...grouped.values()].sort((first, second) => {
+    const provinceOrder = first.province.localeCompare(second.province);
+    return provinceOrder || first.city.localeCompare(second.city);
+  });
+
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + rows.length, maxRows });
+
+  return createSection({
+    datasetId,
+    rows
+  });
+};
+
+const buildAuditLogSection = async ({ filters, currentTotal, maxRows }) => {
+  const datasetId = "audit_logs";
+  const dateRange = getDateRange(filters);
+  const where = {
+    ...(dateRange ? { createdAt: dateRange } : {}),
+    ...(filters.auditTableName ? { tableName: filters.auditTableName } : {}),
+    ...(filters.auditAction ? { action: filters.auditAction } : {})
+  };
+  const totalRows = await prisma.auditLog.count({ where });
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + totalRows, maxRows });
+
+  const logs = await prisma.auditLog.findMany({
+    where,
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          role: true
+        }
+      }
+    },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  return createSection({
+    datasetId,
+    rows: logs.map(serializeAuditLogRow)
+  });
+};
+
+const buildAnomalyWhere = (filters = {}) => {
+  const dateRange = getDateRange(filters);
+  const locationWhere = buildLocationWhere(filters);
+  const hasLocationFilter = Object.keys(locationWhere).length > 0;
+  const where = {
+    ...(dateRange ? { createdAt: dateRange } : {}),
+    ...(filters.anomalyStatus === "resolved" ? { isResolved: true } : {}),
+    ...(filters.anomalyStatus === "unresolved" ? { isResolved: false } : {}),
+    ...(hasLocationFilter
+      ? {
+          OR: [
+            {
+              distribution: {
+                sppg: {
+                  deletedAt: null,
+                  ...locationWhere
+                }
+              }
+            },
+            {
+              productionBatch: {
+                sppg: {
+                  deletedAt: null,
+                  ...locationWhere
+                }
+              }
+            }
+          ]
+        }
+      : {})
+  };
+
+  return where;
+};
+
+const buildAnomalySection = async ({ filters, currentTotal, maxRows }) => {
+  const datasetId = "anomalies";
+  const where = buildAnomalyWhere(filters);
+  const totalRows = await prisma.anomalyLog.count({ where });
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + totalRows, maxRows });
+
+  const anomalies = await prisma.anomalyLog.findMany({
+    where,
+    include: {
+      distribution: {
+        include: {
+          sppg: true,
+          school: true
+        }
+      },
+      productionBatch: {
+        include: {
+          sppg: true
+        }
+      },
+      resolver: {
+        select: {
+          id: true,
+          name: true,
+          role: true
+        }
+      }
+    },
+    orderBy: [{ createdAt: "desc" }]
+  });
+
+  return createSection({
+    datasetId,
+    rows: anomalies.map(serializeAnomalyRow)
+  });
+};
+
+const buildProductionBatchSection = async ({ filters, user, currentTotal, maxRows }) => {
+  const datasetId = "production_batches";
+  const dateRange = getDateRange(filters);
+  const where = {
+    sppg: {
+      deletedAt: null,
+      ...buildLocationWhere(filters)
+    },
+    ...(dateRange ? { productionDate: dateRange } : {})
+  };
+  const totalRows = await prisma.productionBatch.count({ where });
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + totalRows, maxRows });
+
+  const batches = await prisma.productionBatch.findMany({
+    where,
+    include: {
+      sppg: true,
+      menu: true,
+      _count: {
+        select: {
+          items: true,
+          anomalyLogs: true
+        }
+      }
+    },
+    orderBy: [{ productionDate: "desc" }, { createdAt: "desc" }]
+  });
+  const datasetModes = filters.datasetModes || filters.dataset_modes || {};
+  const mode = user?.role === "admin" ? datasetModes.production_batches || "detail" : "summary";
+
+  return createSection({
+    datasetId,
+    rows: batches.map((batch) => serializeProductionBatchRow({ batch, mode }))
+  });
+};
+
+const buildFoodPriceSection = async ({ filters, currentTotal, maxRows }) => {
+  const datasetId = "food_prices";
+  const dateRange = getDateRange(filters);
+  const where = {
+    ...buildLocationWhere(filters),
+    ...(dateRange ? { date: dateRange } : {})
+  };
+  const totalRows = await prisma.foodPrice.count({ where });
+  assertRowsWithinLimit({ datasetId, nextTotal: currentTotal + totalRows, maxRows });
+
+  const prices = await prisma.foodPrice.findMany({
+    where,
+    orderBy: [{ date: "desc" }, { province: "asc" }, { city: "asc" }, { variant: "asc" }]
+  });
+
+  return createSection({
+    datasetId,
+    rows: prices.map(serializeFoodPriceRow)
+  });
+};
+
+const DATASET_BUILDERS = {
+  distributions: buildDistributionSection,
+  validations: buildValidationSection,
+  public_reports: buildPublicReportSection,
+  budget_by_region: buildBudgetByRegionSection,
+  audit_logs: buildAuditLogSection,
+  anomalies: buildAnomalySection,
+  production_batches: buildProductionBatchSection,
+  food_prices: buildFoodPriceSection
+};
+
+const buildExportSections = async ({ datasetIds, filters, user, maxRows }) => {
+  const sections = [];
+  let totalRows = 0;
+
+  for (const datasetId of datasetIds) {
+    const builder = DATASET_BUILDERS[datasetId];
+    const section = await builder({
+      filters,
+      user,
+      currentTotal: totalRows,
+      maxRows
+    });
+    totalRows += section.rows.length;
+    assertRowsWithinLimit({ datasetId, nextTotal: totalRows, maxRows });
+    sections.push(section);
+  }
+
+  return {
+    sections,
+    totalRows
+  };
+};
 
 const resolveConfiguredMaxRows = async () =>
   getNumberSystemConfig(prisma, "export_max_rows", DEFAULT_EXPORT_MAX_ROWS);
 
-const generateExcelBuffer = (rows) => {
-  const worksheet = XLSX.utils.json_to_sheet(rows);
+const sanitizeSheetName = (value, fallback) => {
+  const sanitized = String(value || fallback)
+    .replace(/[\\/?*[\]:]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return (sanitized || fallback).slice(0, 31);
+};
+
+const generateExcelBuffer = (sections) => {
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Distributions");
+
+  sections.forEach((section, index) => {
+    const worksheet = XLSX.utils.json_to_sheet(section.rows);
+    const sheetName = sanitizeSheetName(section.label, `Dataset ${index + 1}`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  });
 
   return XLSX.write(workbook, {
     bookType: "xlsx",
@@ -119,7 +730,7 @@ const generateExcelBuffer = (rows) => {
   });
 };
 
-const generatePdfBuffer = async ({ rows, filters }) =>
+const generatePdfBuffer = async ({ sections, filters }) =>
   new Promise((resolve, reject) => {
     const document = new PDFDocument({
       size: "A4",
@@ -131,50 +742,51 @@ const generatePdfBuffer = async ({ rows, filters }) =>
     document.on("error", reject);
     document.on("end", () => resolve(Buffer.concat(chunks)));
 
-    document.fontSize(16).text("MBG Distribution Export", {
+    document.fontSize(16).text("MBG Data Export", {
       align: "left"
     });
     document.moveDown(0.5);
     document.fontSize(10).text(`Generated at: ${new Date().toISOString()}`);
     document.text(`Filters: ${JSON.stringify(filters || {})}`);
-    document.text(`Total rows: ${rows.length}`);
+    document.text(`Total rows: ${sections.reduce((total, section) => total + section.rows.length, 0)}`);
     document.moveDown();
 
-    rows.forEach((row, index) => {
-      const line = [
-        `#${index + 1}`,
-        `Dist:${row.distribution_id}`,
-        `Date:${row.distribution_date}`,
-        `Status:${row.status}`,
-        `SPPG:${row.sppg_name}`,
-        `School:${row.school_name}`,
-        `Portions:${row.portions}`,
-        `Received:${row.received_portions ?? "-"}`,
-        `Price:${row.price_per_portion}`,
-        `Total:${row.total_cost}`
-      ].join(" | ");
-
-      document.fontSize(8).text(line, {
-        width: 520
-      });
-
-      if (row.failure_reason) {
-        document.fontSize(7).fillColor("red").text(`Failure reason: ${row.failure_reason}`, {
-          width: 520
-        });
-        document.fillColor("black");
+    sections.forEach((section, sectionIndex) => {
+      if (sectionIndex > 0) {
+        document.addPage();
       }
 
-      document.moveDown(0.2);
+      document.fontSize(13).text(section.label, {
+        underline: true
+      });
+      document.fontSize(9).text(`Rows: ${section.rows.length}`);
+      document.moveDown(0.4);
+
+      if (!section.rows.length) {
+        document.fontSize(9).text("Tidak ada data untuk filter ini.");
+        document.moveDown();
+        return;
+      }
+
+      section.rows.forEach((row, rowIndex) => {
+        const line = Object.entries(row)
+          .map(([key, value]) => `${key}: ${value === null || value === undefined ? "-" : value}`)
+          .join(" | ");
+
+        document.fontSize(7).text(`#${rowIndex + 1} ${line}`, {
+          width: 520
+        });
+        document.moveDown(0.2);
+      });
     });
 
     document.end();
   });
 
-const generateExportArtifact = async ({ type, rows, filters }) => {
+const generateExportArtifact = async ({ type, sections, filters }) => {
   if (type === "excel") {
     return {
-      buffer: generateExcelBuffer(rows),
+      buffer: generateExcelBuffer(sections),
       mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       extension: getFileExtensionFromMimeType(
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -184,7 +796,7 @@ const generateExportArtifact = async ({ type, rows, filters }) => {
   }
 
   return {
-    buffer: await generatePdfBuffer({ rows, filters }),
+    buffer: await generatePdfBuffer({ sections, filters }),
     mimeType: "application/pdf",
     extension: getFileExtensionFromMimeType("application/pdf", ".pdf")
   };
@@ -254,32 +866,20 @@ const processExportJob = async ({ exportId }) => {
 
   try {
     const filters = exportRecord.filterParams && typeof exportRecord.filterParams === "object" ? exportRecord.filterParams : {};
-    const where = buildDistributionWhere(filters);
-    const maxRows = await resolveConfiguredMaxRows();
-    const totalRows = await prisma.distribution.count({ where });
-
-    if (totalRows > maxRows) {
-      throw new AppError(
-        `Export exceeds the maximum allowed rows (${maxRows}).`,
-        400,
-        "EXPORT_MAX_ROWS_EXCEEDED"
-      );
-    }
-
-    const distributions = await prisma.distribution.findMany({
-      where,
-      include: {
-        sppg: true,
-        school: true,
-        validation: true
-      },
-      orderBy: [{ distributionDate: "desc" }, { createdAt: "desc" }]
+    const datasetIds = assertExportDatasetsAllowed({
+      filterParams: filters,
+      user: exportRecord.user
     });
-
-    const rows = distributions.map(serializeDistributionRow);
+    const maxRows = await resolveConfiguredMaxRows();
+    const { sections, totalRows } = await buildExportSections({
+      datasetIds,
+      filters,
+      user: exportRecord.user,
+      maxRows
+    });
     const artifact = await generateExportArtifact({
       type: exportRecord.type,
-      rows,
+      sections,
       filters
     });
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
@@ -321,7 +921,13 @@ const processExportJob = async ({ exportId }) => {
         data: {
           status: "done",
           fileId: file.id,
-          errorMsg: null
+          errorMsg: null,
+          filterParams: {
+            ...(filters || {}),
+            datasets: datasetIds,
+            rowCount: totalRows,
+            row_count: totalRows
+          }
         }
       });
 

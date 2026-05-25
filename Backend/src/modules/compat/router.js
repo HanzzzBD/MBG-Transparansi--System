@@ -39,6 +39,16 @@ const mapUserQuery = (query = {}) => ({
         : mapBooleanQuery(query.isActive)
 });
 
+router.get(
+  "/roles",
+  authenticate,
+  authorize("admin"),
+  asyncHandler(async (_req, res) => {
+    const result = await adminService.listRoles();
+    sendSuccess(res, result);
+  })
+);
+
 const mapAuditQuery = (query = {}) => {
   const mapped = {
     page: query.page,
@@ -180,6 +190,27 @@ router.post(
       ipAddress: getClientIp(req)
     });
     sendSuccess(res, { data: result.data, statusCode: 201 });
+  })
+);
+
+router.patch(
+  "/users/:id/status",
+  authenticate,
+  authorize("admin"),
+  asyncHandler(async (req, res) => {
+    if (typeof req.body?.isActive !== "boolean") {
+      throw new AppError("isActive boolean is required.", 400, "USER_STATUS_INVALID");
+    }
+
+    const result = await adminService.updateUser({
+      id: req.params.id,
+      payload: {
+        isActive: req.body.isActive
+      },
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req)
+    });
+    sendSuccess(res, result);
   })
 );
 

@@ -37,7 +37,8 @@ const rawEnv = {
   DAPODIK_DEFAULT_SEMESTER_ID: normalizeEnvValue(process.env.DAPODIK_DEFAULT_SEMESTER_ID, "20252"),
   DAPODIK_CACHE_TTL_SECONDS: normalizeEnvValue(process.env.DAPODIK_CACHE_TTL_SECONDS, "600"),
   DAPODIK_TIMEOUT_MS: normalizeEnvValue(process.env.DAPODIK_TIMEOUT_MS, "10000"),
-  DAPODIK_UPSTREAM_LIMIT_PER_MINUTE: normalizeEnvValue(process.env.DAPODIK_UPSTREAM_LIMIT_PER_MINUTE, "30")
+  DAPODIK_UPSTREAM_LIMIT_PER_MINUTE: normalizeEnvValue(process.env.DAPODIK_UPSTREAM_LIMIT_PER_MINUTE, "30"),
+  DAPODIK_IMPORT_MAX_FILE_SIZE_MB: normalizeEnvValue(process.env.DAPODIK_IMPORT_MAX_FILE_SIZE_MB, "50")
 };
 
 const envSchema = z.object({
@@ -65,7 +66,8 @@ const envSchema = z.object({
   DAPODIK_DEFAULT_SEMESTER_ID: z.string().regex(/^\d{5}$/).default("20252"),
   DAPODIK_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(600),
   DAPODIK_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
-  DAPODIK_UPSTREAM_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(30)
+  DAPODIK_UPSTREAM_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(30),
+  DAPODIK_IMPORT_MAX_FILE_SIZE_MB: z.coerce.number().int().positive().default(50)
 });
 
 const parsedEnv = envSchema.safeParse(rawEnv);

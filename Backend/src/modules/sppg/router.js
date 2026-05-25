@@ -4,6 +4,7 @@ const controller = require("./controller");
 const {
   createSppgSchema,
   listSppgSchema,
+  mapMarkersSchema,
   sppgIdParamsSchema,
   updateSppgSchema
 } = require("./validation");
@@ -14,6 +15,20 @@ const { validateRequest } = require("../../middlewares/validateRequest");
 const router = express.Router();
 
 router.get("/", validateRequest(listSppgSchema), controller.listSppg);
+router.get(
+  "/map-markers",
+  authenticate,
+  authorize("admin", "pemerintah", "sppg", "sekolah"),
+  validateRequest(mapMarkersSchema),
+  controller.listMapMarkers
+);
+router.get(
+  "/:id/detail",
+  authenticate,
+  authorize("admin", "pemerintah", "sppg", "sekolah"),
+  validateRequest(sppgIdParamsSchema),
+  controller.getSppgOperationalDetail
+);
 router.get(
   "/:id",
   authenticate,

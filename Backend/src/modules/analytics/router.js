@@ -7,6 +7,7 @@ const {
   byProvinceSchema,
   distributionsSchema,
   priceAnomaliesSchema,
+  publicReportsAnalyticsSchema,
   successRateSchema,
   summarySchema
 } = require("./validation");
@@ -21,21 +22,21 @@ router.get(
   "/public-reports-summary",
   authenticate,
   authorize("pemerintah", "admin"),
-  validateRequest(summarySchema),
+  validateRequest(publicReportsAnalyticsSchema),
   controller.getPublicReportsSummary
 );
 router.get(
   "/public-reports-trend",
   authenticate,
   authorize("pemerintah", "admin"),
-  validateRequest(summarySchema),
+  validateRequest(publicReportsAnalyticsSchema),
   controller.getPublicReportsTrend
 );
 router.get(
   "/public-reports-top-regions",
   authenticate,
   authorize("pemerintah", "admin"),
-  validateRequest(byProvinceSchema),
+  validateRequest(publicReportsAnalyticsSchema),
   controller.getPublicReportsTopRegions
 );
 router.get(

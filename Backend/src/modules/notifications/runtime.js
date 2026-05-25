@@ -248,14 +248,8 @@ const runAutoLockJob = async () => {
         action: "LOCK",
         tableName: "distributions",
         recordId: updated.id,
-        oldData: {
-          isLocked: distribution.isLocked,
-          unlockedUntil: distribution.unlockedUntil
-        },
-        newData: {
-          isLocked: updated.isLocked,
-          unlockedUntil: updated.unlockedUntil
-        }
+        oldData: distribution,
+        newData: updated
       });
 
       await createDistributionLockedNotification({

@@ -9,11 +9,13 @@ const {
   listAnomalyLogsSchema,
   listAuditLogsSchema,
   listPriceThresholdsSchema,
+  listRolesSchema,
   listSystemConfigsSchema,
   listUsersSchema,
   overrideDistributionSchema,
   updatePriceThresholdSchema,
   updateSystemConfigSchema,
+  updateUserStatusSchema,
   updateUserSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
@@ -24,9 +26,12 @@ const router = express.Router();
 
 router.use(authenticate, authorize("admin"));
 
+router.get("/roles", validateRequest(listRolesSchema), controller.listRoles);
 router.get("/users", validateRequest(listUsersSchema), controller.listUsers);
 router.post("/users", validateRequest(createUserSchema), controller.createUser);
+router.patch("/users/:id/status", validateRequest(updateUserStatusSchema), controller.updateUserStatus);
 router.put("/users/:id", validateRequest(updateUserSchema), controller.updateUser);
+router.patch("/users/:id", validateRequest(updateUserSchema), controller.updateUser);
 router.delete("/users/:id", validateRequest(adminUserIdParamsSchema), controller.deleteUser);
 
 router.get("/audit-logs", validateRequest(listAuditLogsSchema), controller.listAuditLogs);

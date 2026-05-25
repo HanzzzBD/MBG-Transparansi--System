@@ -33,7 +33,7 @@ import {
   YAxis,
 } from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestApi } from '../services/api'
+import { getDashboardRoleSummary } from '../services/api'
 import './Dashboard.css'
 
 const ROLE_LABELS = {
@@ -98,44 +98,55 @@ const PROVINCES = [
   'Papua Barat',
 ]
 
-const EMPTY_NATIONAL_DATA = {
-  summary: {
-    totalActiveSppg: 0,
-    distributionsToday: 0,
-    successRate: 0,
-    problematicSppg: 0,
+const EMPTY_DASHBOARD_DATA = {
+  kpis: [],
+  charts: {
+    distributionTrend: [],
+    successRateTrend: [],
+    provinceRanking: [],
+    portionsTrend: [],
+    acceptanceTrend: [],
   },
-  budget: {
-    summary: {
-      total_budget: 0,
-    },
+  recentData: {
+    anomalies: [],
+    distributionsToday: [],
+    pendingValidations: [],
+    validationsRecent: [],
   },
-  publicReportsMeta: {
-    total: 0,
-  },
-  distributionTrend: [],
-  successRateTrend: [],
-  provinceRanking: [],
-  anomalyItems: [],
-  anomalyMeta: {
-    total: 0,
-  },
+  alerts: [],
+  hasRequestError: false,
 }
 
-const EMPTY_SPPG_DATA = {
-  distributionsToday: [],
-  distributionsRecent: [],
-  portionsTrend: [],
+const KPI_ICON_MAP = {
+  totalActiveSppg: Building2,
+  distributionsToday: Truck,
+  successRate: CheckCircle2,
+  anomalyTotal: Zap,
+  budgetTotal: Wallet,
+  publicReportTotal: FileText,
+  totalPortionsToday: UtensilsCrossed,
+  deliveredDistributions: Truck,
+  pendingValidations: Clock3,
+  failedDistributions: AlertTriangle,
+  pendingConfirmations: ClipboardCheck,
+  receivedPortionsToday: School,
+  schoolReportsThisMonth: FileText,
 }
 
-const EMPTY_SCHOOL_DATA = {
-  distributionsToday: [],
-  pendingValidations: [],
-  validationsRecent: [],
-  schoolReportsMeta: {
-    total: 0,
-  },
-  acceptanceTrend: [],
+const KPI_COLOR_MAP = {
+  totalActiveSppg: '#0071e4',
+  distributionsToday: '#057a55',
+  successRate: '#057a55',
+  anomalyTotal: '#9b1c1c',
+  budgetTotal: '#0f4c81',
+  publicReportTotal: '#92400e',
+  totalPortionsToday: '#0071e4',
+  deliveredDistributions: '#057a55',
+  pendingValidations: '#92400e',
+  failedDistributions: '#9b1c1c',
+  pendingConfirmations: '#92400e',
+  receivedPortionsToday: '#057a55',
+  schoolReportsThisMonth: '#6b7280',
 }
 
 function getDefaultDateRange() {
@@ -204,18 +215,6 @@ function formatTime(value) {
   }).format(date)
 }
 
-function formatChartDate(value) {
-  if (!value) return '-'
-
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return String(value)
-
-  return new Intl.DateTimeFormat('id-ID', {
-    day: '2-digit',
-    month: 'short',
-  }).format(date)
-}
-
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
   return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
@@ -236,125 +235,13 @@ function normalizeRole(role) {
   return ROLE_LABELS[role] ? role : 'pemerintah'
 }
 
-async function settleRequests(requestMap) {
-  const entries = Object.entries(requestMap)
-  const results = await Promise.allSettled(entries.map(([, request]) => request))
-
-  return entries.reduce((accumulator, [key], index) => {
-    const result = results[index]
-    accumulator[key] =
-      result.status === 'fulfilled'
-        ? { ok: true, value: result.value }
-        : { ok: false, reason: result.reason?.message || 'Request gagal.' }
-    return accumulator
-  }, {})
-}
-
-function getAnalyticsParams(filters) {
+function getDashboardParams(filters) {
   return {
     province: filters.province,
     city: filters.city,
     start_date: filters.dateFrom,
     end_date: filters.dateTo,
   }
-}
-
-function getLabelByDate(dateValue, defaultLabel) {
-  return dateValue ? formatChartDate(dateValue) : defaultLabel
-}
-
-function buildDistributionTrend(distributionRows = [], successRows = []) {
-  if (!Array.isArray(distributionRows) || distributionRows.length === 0) {
-    return []
-  }
-
-  const successByBucket = new Map(
-    successRows.map((row) => [String(row.bucket || row.date || row.label), row]),
-  )
-
-  return distributionRows.slice(-7).map((row, index) => {
-    const bucket = String(row.bucket || row.date || row.label || index)
-    const successRow = successByBucket.get(bucket) || {}
-    const total = safeNumber(row.total_distributions)
-    const verified = safeNumber(successRow.verified_count, safeNumber(row.delivered_count))
-    const conflict = safeNumber(successRow.conflict_count, safeNumber(row.failed_count))
-
-    return {
-      label: getLabelByDate(row.bucket, row.label || `H-${6 - index}`),
-      verified,
-      conflict,
-      pending: Math.max(total - verified - conflict, 0),
-    }
-  })
-}
-
-function buildSuccessTrend(rows = []) {
-  if (!Array.isArray(rows) || rows.length === 0) return []
-
-  return rows.slice(-30).map((row, index) => ({
-    label: getLabelByDate(row.bucket, row.label || `H-${29 - index}`),
-    successRate: safeNumber(row.success_rate ?? row.successRate),
-  }))
-}
-
-function buildProvinceRanking(rows = []) {
-  if (!Array.isArray(rows) || rows.length === 0) return []
-
-  return rows.slice(0, 10).map((row) => ({
-    province: row.province || '-',
-    totalDistributions: safeNumber(row.total_distributions ?? row.totalDistributions),
-  }))
-}
-
-function getDateKey(value) {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return ''
-  return toInputDate(date)
-}
-
-function buildLastDaysSeries(days, mapper) {
-  const today = new Date()
-
-  return Array.from({ length: days }).map((_, index) => {
-    const date = new Date(today)
-    date.setDate(today.getDate() - (days - 1 - index))
-    const key = toInputDate(date)
-
-    return {
-      key,
-      label: index === days - 1 ? 'Hari ini' : formatChartDate(key),
-      ...mapper(key),
-    }
-  })
-}
-
-function buildPortionsTrend(distributions = []) {
-  if (!Array.isArray(distributions) || distributions.length === 0) return []
-
-  const portionsByDate = distributions.reduce((accumulator, item) => {
-    const dateKey = getDateKey(item.distributionDate)
-    if (!dateKey) return accumulator
-
-    accumulator[dateKey] = (accumulator[dateKey] || 0) + safeNumber(item.portions)
-    return accumulator
-  }, {})
-
-  return buildLastDaysSeries(7, (key) => ({ portions: portionsByDate[key] || 0 }))
-}
-
-function buildSchoolAcceptanceTrend(validations = []) {
-  if (!Array.isArray(validations) || validations.length === 0) return []
-
-  const receivedByDate = validations.reduce((accumulator, item) => {
-    const dateKey = getDateKey(item.validatedAt || item.distribution?.distributionDate || item.createdAt)
-    if (!dateKey) return accumulator
-
-    accumulator[dateKey] = (accumulator[dateKey] || 0) + safeNumber(item.receivedPortions)
-    return accumulator
-  }, {})
-
-  return buildLastDaysSeries(30, (key) => ({ received: receivedByDate[key] || 0 }))
 }
 
 function getStatusLabel(status) {
@@ -373,94 +260,46 @@ function getAnomalyClass(type) {
   return ''
 }
 
-function makeInitialData(role) {
-  if (role === 'sppg') {
-    return {
-      ...EMPTY_SPPG_DATA,
-      hasRequestError: false,
-    }
+function makeInitialData() {
+  return {
+    ...EMPTY_DASHBOARD_DATA,
+    charts: { ...EMPTY_DASHBOARD_DATA.charts },
+    recentData: { ...EMPTY_DASHBOARD_DATA.recentData },
+    alerts: [],
   }
+}
 
-  if (role === 'sekolah') {
-    return {
-      ...EMPTY_SCHOOL_DATA,
-      hasRequestError: false,
-    }
-  }
+function normalizeDashboardData(payload) {
+  const data = payload?.data || payload || {}
 
   return {
-    ...EMPTY_NATIONAL_DATA,
+    kpis: Array.isArray(data.kpis) ? data.kpis : [],
+    charts: {
+      ...EMPTY_DASHBOARD_DATA.charts,
+      ...(data.charts || {}),
+    },
+    recentData: {
+      ...EMPTY_DASHBOARD_DATA.recentData,
+      ...(data.recentData || {}),
+    },
+    alerts: Array.isArray(data.alerts) ? data.alerts : [],
     hasRequestError: false,
   }
 }
 
-function buildNationalData(results) {
-  const summary = results.summary?.ok ? results.summary.value.data : EMPTY_NATIONAL_DATA.summary
-  const distributionRows = results.distributionTrend?.ok ? results.distributionTrend.value.data : []
-  const successPayload = results.successRate?.ok ? results.successRate.value.data : {}
-  const successRows = Array.isArray(successPayload.timeSeries) ? successPayload.timeSeries : []
-  const budget = results.budget?.ok ? results.budget.value.data : EMPTY_NATIONAL_DATA.budget
-  const provinceRows = results.byProvince?.ok ? results.byProvince.value.data : []
-  const anomalyPayload = results.anomaly?.ok ? results.anomaly.value.data : {}
-
-  return {
-    summary,
-    budget,
-    publicReports: results.publicReports?.ok ? results.publicReports.value.data : [],
-    publicReportsMeta: results.publicReports?.ok ? results.publicReports.value.meta : EMPTY_NATIONAL_DATA.publicReportsMeta,
-    distributionTrend: buildDistributionTrend(distributionRows, successRows),
-    successRateTrend: buildSuccessTrend(successRows),
-    provinceRanking: buildProvinceRanking(provinceRows),
-    anomalyItems:
-      Array.isArray(anomalyPayload.items) && anomalyPayload.items.length
-        ? anomalyPayload.items
-        : [],
-    anomalyMeta: results.anomaly?.ok ? results.anomaly.value.meta : EMPTY_NATIONAL_DATA.anomalyMeta,
-    hasRequestError: Object.values(results).some((result) => !result.ok),
-  }
+function getChartRows(data, key) {
+  return Array.isArray(data.charts?.[key]) ? data.charts[key] : []
 }
 
-function buildSppgData(results) {
-  const distributionsToday =
-    results.distributionsToday?.ok && Array.isArray(results.distributionsToday.value.data)
-      ? results.distributionsToday.value.data
-      : []
-  const distributionsRecent =
-    results.distributionsRecent?.ok && Array.isArray(results.distributionsRecent.value.data)
-      ? results.distributionsRecent.value.data
-      : distributionsToday
-
-  return {
-    distributionsToday,
-    distributionsRecent,
-    portionsTrend: buildPortionsTrend(distributionsRecent),
-    hasRequestError: Object.values(results).some((result) => !result.ok),
-  }
+function getRecentRows(data, key) {
+  return Array.isArray(data.recentData?.[key]) ? data.recentData[key] : []
 }
 
-function buildSchoolData(results) {
-  const distributionsToday =
-    results.distributionsToday?.ok && Array.isArray(results.distributionsToday.value.data)
-      ? results.distributionsToday.value.data
-      : []
-  const pendingValidations =
-    results.pendingValidations?.ok && Array.isArray(results.pendingValidations.value.data)
-      ? results.pendingValidations.value.data
-      : []
-  const validationsRecent =
-    results.validationsRecent?.ok && Array.isArray(results.validationsRecent.value.data)
-      ? results.validationsRecent.value.data
-      : pendingValidations
-
-  return {
-    distributionsToday,
-    pendingValidations,
-    validationsRecent,
-    schoolReports: results.schoolReports?.ok ? results.schoolReports.value.data : [],
-    schoolReportsMeta: results.schoolReports?.ok ? results.schoolReports.value.meta : EMPTY_SCHOOL_DATA.schoolReportsMeta,
-    acceptanceTrend: buildSchoolAcceptanceTrend(validationsRecent),
-    hasRequestError: Object.values(results).some((result) => !result.ok),
-  }
+function hasAnyDashboardData(data) {
+  const chartHasRows = Object.values(data.charts || {}).some((value) => Array.isArray(value) && value.length > 0)
+  const recentHasRows = Object.values(data.recentData || {}).some((value) => Array.isArray(value) && value.length > 0)
+  const kpiHasValue = (data.kpis || []).some((item) => safeNumber(item.value) > 0)
+  return chartHasRows || recentHasRows || kpiHasValue || (data.alerts || []).length > 0
 }
 
 function getRoleTitle(role) {
@@ -477,170 +316,30 @@ function getRoleSubtitle(role) {
   return 'Monitor capaian distribusi nasional, tren wilayah, laporan publik, dan anomali.'
 }
 
-function getNationalKpis(data) {
-  const anomalyTotal = data.anomalyMeta?.total ?? data.summary?.problematicSppg ?? 0
-  const publicReportTotal =
-    data.publicReportsMeta?.total ?? data.publicReports?.length ?? 0
-
-  return [
-    {
-      title: 'Total SPPG Aktif',
-      value: formatNumber(data.summary?.totalActiveSppg),
-      change: 'Naik +12 kemarin',
-      color: '#0071e4',
-      icon: Building2,
-    },
-    {
-      title: 'Distribusi Nasional Hari Ini',
-      value: formatNumber(data.summary?.distributionsToday),
-      change: 'Naik +5.2%',
-      color: '#057a55',
-      icon: Truck,
-    },
-    {
-      title: 'Success Rate',
-      value: formatPercent(data.summary?.successRate),
-      change: 'Naik +0.3%',
-      color: '#057a55',
-      icon: CheckCircle2,
-    },
-    {
-      title: 'Anomali Terdeteksi',
-      value: formatNumber(anomalyTotal),
-      change: 'Turun -2',
-      color: '#9b1c1c',
-      icon: Zap,
-      pulse: safeNumber(anomalyTotal) > 0,
-    },
-    {
-      title: 'Total Anggaran Digunakan',
-      value: formatCurrency(data.budget?.summary?.total_budget ?? data.budget?.summary?.totalBudget),
-      change: 'Akumulasi periode filter',
-      color: '#0f4c81',
-      icon: Wallet,
-    },
-    {
-      title: 'Laporan Masyarakat Masuk',
-      value: formatNumber(publicReportTotal),
-      change: 'Perlu tindak lanjut',
-      color: '#92400e',
-      icon: FileText,
-    },
-  ]
+function formatKpiValue(item) {
+  if (item.valueType === 'currency') return formatCurrency(item.value)
+  if (item.valueType === 'percent') return formatPercent(item.value)
+  return formatNumber(item.value)
 }
 
-function getSppgKpis(data) {
-  const rows = data.distributionsToday || []
-  const totalPortions = rows.reduce((total, item) => total + safeNumber(item.portions), 0)
-  const deliveredCount = rows.filter((item) => item.status === 'delivered').length
-  const pendingCount = rows.filter((item) => item.validation?.status === 'pending').length
-  const failedCount = rows.filter((item) => item.status === 'failed').length
-
-  return [
-    {
-      title: 'Total Porsi Diproduksi Hari Ini',
-      value: formatNumber(totalPortions || 1250),
-      change: 'Produksi aktif',
-      color: '#0071e4',
-      icon: UtensilsCrossed,
-    },
-    {
-      title: 'Distribusi Dikirim',
-      value: formatNumber(deliveredCount || 8),
-      change: 'Status delivered',
-      color: '#057a55',
-      icon: Truck,
-    },
-    {
-      title: 'Menunggu Validasi',
-      value: formatNumber(pendingCount || 3),
-      change: 'Butuh konfirmasi sekolah',
-      color: '#92400e',
-      icon: Clock3,
-      pulse: safeNumber(pendingCount || 3) > 0,
-    },
-    {
-      title: 'Distribusi Gagal',
-      value: formatNumber(failedCount || 1),
-      change: 'Perlu ditindaklanjuti',
-      color: '#9b1c1c',
-      icon: AlertTriangle,
-    },
-  ]
+function getDashboardKpis(data) {
+  return (data.kpis || []).map((item) => ({
+    ...item,
+    value: formatKpiValue(item),
+    change: item.description || '',
+    color: KPI_COLOR_MAP[item.key] || '#0071e4',
+    icon: KPI_ICON_MAP[item.key] || Package,
+    pulse: ['anomalyTotal', 'pendingValidations', 'pendingConfirmations', 'failedDistributions'].includes(item.key)
+      && safeNumber(item.value) > 0,
+  }))
 }
 
-function getSchoolKpis(data) {
-  const todayRows = data.distributionsToday || []
-  const pendingRows = data.pendingValidations || []
-  const receivedToday = todayRows.reduce((total, item) => {
-    return total + safeNumber(item.validation?.receivedPortions ?? item.receivedPortions ?? item.portions)
-  }, 0)
-  const reportTotal = data.schoolReportsMeta?.total ?? data.schoolReports?.length ?? 2
-
-  return [
-    {
-      title: 'Distribusi Hari Ini',
-      value: formatNumber(todayRows.length || 1),
-      change: 'Masuk hari ini',
-      color: '#0071e4',
-      icon: Package,
-    },
-    {
-      title: 'Menunggu Konfirmasi',
-      value: formatNumber(pendingRows.length || 1),
-      change: 'Butuh validasi',
-      color: '#92400e',
-      icon: ClipboardCheck,
-      pulse: safeNumber(pendingRows.length || 1) > 0,
-    },
-    {
-      title: 'Total Siswa Menerima Hari Ini',
-      value: formatNumber(receivedToday || 450),
-      change: 'Porsi diterima',
-      color: '#057a55',
-      icon: School,
-    },
-    {
-      title: 'Laporan Terkirim Bulan Ini',
-      value: formatNumber(reportTotal),
-      change: 'Rekap sekolah',
-      color: '#6b7280',
-      icon: FileText,
-    },
-  ]
+function getDashboardAlerts(data) {
+  return Array.isArray(data.alerts) ? data.alerts : []
 }
 
-function getAlerts(role, data) {
-  if (role === 'sppg') {
-    const pending = (data.distributionsToday || []).filter((item) => item.validation?.status === 'pending').length || 3
-    return [
-      {
-        type: 'warning',
-        title: 'Validasi tertunda',
-        message: `${pending} distribusi menunggu konfirmasi sekolah lebih dari 12 jam`,
-      },
-    ]
-  }
-
-  if (role === 'sekolah') {
-    const pending = (data.pendingValidations || []).length || 1
-    return [
-      {
-        type: 'info',
-        title: 'Konfirmasi diperlukan',
-        message: `${pending} distribusi baru menunggu konfirmasi Anda`,
-      },
-    ]
-  }
-
-  const anomalyTotal = data.anomalyMeta?.total ?? data.summary?.problematicSppg ?? 7
-  return [
-    {
-      type: 'danger',
-      title: 'Anomali aktif',
-      message: `${anomalyTotal} anomali belum resolved, 2 high priority`,
-    },
-  ]
+function getDashboardNotificationCount(data) {
+  return getDashboardAlerts(data).reduce((total, alert) => total + safeNumber(alert.count), 0)
 }
 
 function KpiCard({ item, index }) {
@@ -732,7 +431,15 @@ function DataTable({ columns, rows, emptyText }) {
   )
 }
 
+function EmptyState({ children }) {
+  return <div className="dashboard-empty-state">{children}</div>
+}
+
 function AlertStack({ alerts }) {
+  if (!alerts.length) {
+    return <EmptyState>Tidak ada alert operasional.</EmptyState>
+  }
+
   return (
     <div className="dashboard-alert-stack">
       {alerts.map((alert) => (
@@ -804,11 +511,13 @@ function FilterBar({
 }
 
 function renderSppgCharts(data) {
+  const portionsTrend = getChartRows(data, 'portionsTrend')
+
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Porsi Diproduksi 7 Hari Terakhir" className="dashboard-chart-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data.portionsTrend}>
+          <BarChart data={portionsTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -822,11 +531,13 @@ function renderSppgCharts(data) {
 }
 
 function renderSchoolCharts(data) {
+  const acceptanceTrend = getChartRows(data, 'acceptanceTrend')
+
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Tren Penerimaan 30 Hari" className="dashboard-chart-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data.acceptanceTrend}>
+          <LineChart data={acceptanceTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -840,11 +551,15 @@ function renderSchoolCharts(data) {
 }
 
 function renderNationalCharts(data) {
+  const distributionTrend = getChartRows(data, 'distributionTrend')
+  const successRateTrend = getChartRows(data, 'successRateTrend')
+  const provinceRanking = getChartRows(data, 'provinceRanking')
+
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Distribusi Harian 7 Hari" className="dashboard-chart-main">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data.distributionTrend}>
+          <BarChart data={distributionTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -859,7 +574,7 @@ function renderNationalCharts(data) {
 
       <ChartCard title="Tren Success Rate 30 Hari" className="dashboard-chart-side">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data.successRateTrend}>
+          <AreaChart data={successRateTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} domain={[0, 100]} />
@@ -879,7 +594,7 @@ function renderNationalCharts(data) {
 
       <ChartCard title="TOP 10 Provinsi by Distribusi" className="dashboard-chart-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data.provinceRanking} layout="vertical" margin={{ left: 20, right: 24 }}>
+          <BarChart data={provinceRanking} layout="vertical" margin={{ left: 20, right: 24 }}>
             <CartesianGrid stroke="#f4f8fb" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
             <YAxis
@@ -900,7 +615,7 @@ function renderNationalCharts(data) {
 }
 
 function renderSppgTable(data) {
-  const rows = (data.distributionsToday || []).slice(0, 5)
+  const rows = getRecentRows(data, 'distributionsToday').slice(0, 5)
   const columns = [
     {
       key: 'school',
@@ -942,7 +657,7 @@ function renderSppgTable(data) {
 }
 
 function renderSchoolTable(data) {
-  const rows = (data.pendingValidations || []).slice(0, 5)
+  const rows = getRecentRows(data, 'pendingValidations').slice(0, 5)
   const columns = [
     {
       key: 'sppg',
@@ -984,7 +699,7 @@ function renderSchoolTable(data) {
 }
 
 function renderNationalTable(data) {
-  const rows = (data.anomalyItems || []).slice(0, 5)
+  const rows = getRecentRows(data, 'anomalies').slice(0, 5)
   const columns = [
     {
       key: 'sppg',
@@ -1088,90 +803,12 @@ function Dashboard({ userRole, userName, onLogout }) {
       setError('')
 
       try {
-        if (isNationalRole) {
-          const analyticsParams = getAnalyticsParams(filters)
-          const results = await settleRequests({
-            summary: requestApi('/analytics/summary', { params: analyticsParams, signal }),
-            distributionTrend: requestApi('/analytics/distributions', {
-              params: { ...analyticsParams, granularity: 'daily' },
-              signal,
-            }),
-            successRate: requestApi('/analytics/success-rate', {
-              params: { ...analyticsParams, granularity: 'daily' },
-              signal,
-            }),
-            budget: requestApi('/analytics/budget', { params: analyticsParams, signal }),
-            byProvince: requestApi('/analytics/by-province', {
-              params: { ...analyticsParams, limit: 10 },
-              signal,
-            }),
-            anomaly: requestApi('/analytics/anomaly', {
-              params: { ...analyticsParams, page: 1, limit: 5 },
-              signal,
-            }),
-            publicReports: requestApi('/public-reports', {
-              params: {
-                province: filters.province,
-                city: filters.city,
-                page: 1,
-                limit: 5,
-              },
-              signal,
-            }),
-          })
-
-          setDashboardData(buildNationalData(results))
-          if (Object.values(results).some((result) => !result.ok)) {
-            setError('Sebagian data nasional gagal dimuat dari API. Periksa koneksi backend atau filter yang dipakai.')
-          }
-          return
-        }
-
-        if (normalizedRole === 'sppg') {
-          const results = await settleRequests({
-            distributionsToday: requestApi('/distributions', {
-              params: { date: toInputDate(new Date()), limit: 50 },
-              signal,
-            }),
-            distributionsRecent: requestApi('/distributions', {
-              params: { limit: 80 },
-              signal,
-            }),
-          })
-
-          setDashboardData(buildSppgData(results))
-          if (Object.values(results).some((result) => !result.ok)) {
-            setError('Data operasional SPPG gagal dimuat dari API.')
-          }
-          return
-        }
-
-        const results = await settleRequests({
-          distributionsToday: requestApi('/distributions', {
-            params: { date: toInputDate(new Date()), limit: 30 },
-            signal,
-          }),
-          pendingValidations: requestApi('/validations', {
-            params: { status: 'pending', limit: 20 },
-            signal,
-          }),
-          validationsRecent: requestApi('/validations', {
-            params: { limit: 80 },
-            signal,
-          }),
-          schoolReports: requestApi('/school-reports', {
-            params: { limit: 20 },
-            signal,
-          }),
-        })
-
-        setDashboardData(buildSchoolData(results))
-        if (Object.values(results).some((result) => !result.ok)) {
-          setError('Data validasi sekolah gagal dimuat dari API.')
-        }
+        const params = isNationalRole ? getDashboardParams(filters) : undefined
+        const response = await getDashboardRoleSummary(normalizedRole, params, { signal })
+        setDashboardData(normalizeDashboardData(response))
       } catch (fetchError) {
         if (fetchError.name !== 'AbortError') {
-          setDashboardData(makeInitialData(normalizedRole))
+          setDashboardData(makeInitialData())
           setError(fetchError.message || 'Dashboard gagal memuat data dari backend.')
         }
       } finally {
@@ -1188,25 +825,12 @@ function Dashboard({ userRole, userName, onLogout }) {
     return () => controller.abort()
   }, [fetchDashboard])
 
-  const kpis = useMemo(() => {
-    if (normalizedRole === 'sppg') return getSppgKpis(dashboardData)
-    if (normalizedRole === 'sekolah') return getSchoolKpis(dashboardData)
-    return getNationalKpis(dashboardData)
-  }, [dashboardData, normalizedRole])
+  const kpis = useMemo(() => getDashboardKpis(dashboardData), [dashboardData])
 
-  const alerts = useMemo(() => getAlerts(normalizedRole, dashboardData), [dashboardData, normalizedRole])
+  const alerts = useMemo(() => getDashboardAlerts(dashboardData), [dashboardData])
 
-  const notifCount = useMemo(() => {
-    if (normalizedRole === 'sppg') {
-      return (dashboardData.distributionsToday || []).filter((item) => item.validation?.status === 'pending').length
-    }
-
-    if (normalizedRole === 'sekolah') {
-      return (dashboardData.pendingValidations || []).length
-    }
-
-    return dashboardData.anomalyMeta?.total || dashboardData.summary?.problematicSppg || 0
-  }, [dashboardData, normalizedRole])
+  const notifCount = useMemo(() => getDashboardNotificationCount(dashboardData), [dashboardData])
+  const isDashboardEmpty = !loading && !error && !hasAnyDashboardData(dashboardData)
 
   const handleLogout = () => {
     if (onLogout) {
@@ -1270,15 +894,23 @@ function Dashboard({ userRole, userName, onLogout }) {
           </div>
         ) : null}
 
+        {isDashboardEmpty ? (
+          <EmptyState>Belum ada data dashboard untuk role dan filter ini.</EmptyState>
+        ) : null}
+
         <section className="dashboard-section">
           <div className="dashboard-section-header">
             <h2 className="dashboard-section-title">Ringkasan KPI</h2>
           </div>
-          <div className={`dashboard-kpi-grid ${isNationalRole ? 'dashboard-kpi-grid-6' : 'dashboard-kpi-grid-4'}`}>
-            {kpis.map((item, index) => (
-              <KpiCard key={item.title} item={item} index={index} />
-            ))}
-          </div>
+          {kpis.length ? (
+            <div className={`dashboard-kpi-grid ${isNationalRole ? 'dashboard-kpi-grid-6' : 'dashboard-kpi-grid-4'}`}>
+              {kpis.map((item, index) => (
+                <KpiCard key={item.title} item={item} index={index} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState>Ringkasan KPI belum tersedia.</EmptyState>
+          )}
         </section>
 
         <section className="dashboard-section">
@@ -1319,7 +951,7 @@ function Dashboard({ userRole, userName, onLogout }) {
                     render: (row) => <StatusBadge status={row.status} />,
                   },
                 ]}
-                rows={(dashboardData.validationsRecent || []).slice(0, 5)}
+                rows={getRecentRows(dashboardData, 'validationsRecent').slice(0, 5)}
                 emptyText="Riwayat validasi belum tersedia."
               />
             </div>
