@@ -1,19 +1,4 @@
 import { create } from 'zustand'
-import { createJSONStorage, persist } from 'zustand/middleware'
-
-function readStorage(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function parseJson(value) {
-  if (!value) return null
-  try {
-    return JSON.parse(value)
-  } catch {
-    return null
-  }
-}
 
 function normalizeUser(userData) {
   if (!userData) return null
@@ -26,77 +11,71 @@ function normalizeUser(userData) {
   }
 }
 
-function readLegacySession() {
-  const user = normalizeUser(parseJson(readStorage('mbg.user') || readStorage('user')))
-  const token = readStorage('mbg.accessToken') || readStorage('accessToken') || readStorage('token') || null
-  return {
-    user,
-    token,
-    // TODO: Jika backend sepenuhnya memakai cookie httpOnly, token boleh null dan auth cukup berdasarkan user.
-    isAuthenticated: Boolean(user),
-  }
-}
-
 function clearLegacySession() {
   if (typeof window === 'undefined') return
-  ;['mbg.accessToken', 'mbg.user', 'accessToken', 'token', 'user'].forEach((key) => {
+  ;['mbg.accessToken', 'mbg.user', 'accessToken', 'token', 'user', 'mbg-auth-storage'].forEach((key) => {
     window.localStorage.removeItem(key)
     window.sessionStorage.removeItem(key)
   })
 }
 
-const legacySession = readLegacySession()
+const useAuthStore = create((set) => ({
+  user: null,
+  token: null,
+  isAuthenticated: false,
+  isRefreshingSession: false,
+  isSessionChecked: false,
 
-const useAuthStore = create(
-  persist(
-    (set) => ({
-      user: legacySession.user,
-      token: legacySession.token,
-      isAuthenticated: legacySession.isAuthenticated,
+  login: (userData, token = null) => {
+    const user = normalizeUser(userData)
+    clearLegacySession()
+    set({
+      user,
+      token: token || null,
+      isAuthenticated: Boolean(user && token),
+      isRefreshingSession: false,
+      isSessionChecked: true,
+    })
+  },
 
-      login: (userData, token = null) => {
-        const user = normalizeUser(userData)
-        set({
-          user,
-          token: token || null,
-          isAuthenticated: Boolean(user),
-        })
-      },
+  logout: () => {
+    clearLegacySession()
+    set({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      isRefreshingSession: false,
+      isSessionChecked: true,
+    })
+  },
 
-      logout: () => {
-        clearLegacySession()
-        set({
-          user: null,
-          token: null,
-          isAuthenticated: false,
-        })
-      },
+  setUser: (userData) => {
+    const user = normalizeUser(userData)
+    set((state) => ({
+      user,
+      isAuthenticated: Boolean(user && state.token),
+    }))
+  },
 
-      setUser: (userData) => {
-        const user = normalizeUser(userData)
-        set((state) => ({
-          user,
-          isAuthenticated: Boolean(user || state.token),
-        }))
-      },
+  setToken: (token) => {
+    set((state) => ({
+      token: token || null,
+      isAuthenticated: Boolean(state.user && token),
+    }))
+  },
 
-      setToken: (token) => {
-        set((state) => ({
-          token: token || null,
-          isAuthenticated: Boolean(state.user || token),
-        }))
-      },
-    }),
-    {
-      name: 'mbg-auth-storage',
-      storage: createJSONStorage(() => window.localStorage),
-      partialize: (state) => ({
-        user: state.user,
-        token: state.token,
-        isAuthenticated: state.isAuthenticated,
-      }),
-    },
-  ),
-)
+  startSessionCheck: () => {
+    set({
+      isRefreshingSession: true,
+    })
+  },
+
+  finishSessionCheck: () => {
+    set({
+      isRefreshingSession: false,
+      isSessionChecked: true,
+    })
+  },
+}))
 
 export default useAuthStore

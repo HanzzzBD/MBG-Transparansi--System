@@ -12,29 +12,8 @@ export class ApiError extends Error {
   }
 }
 
-function readPersistedToken() {
-  if (typeof window === 'undefined') return null
-
-  const directToken =
-    window.localStorage.getItem('mbg.accessToken') ||
-    window.sessionStorage.getItem('mbg.accessToken') ||
-    window.localStorage.getItem('accessToken') ||
-    window.sessionStorage.getItem('accessToken') ||
-    window.localStorage.getItem('token') ||
-    window.sessionStorage.getItem('token')
-
-  if (directToken) return directToken
-
-  try {
-    const persisted = JSON.parse(window.localStorage.getItem('mbg-auth-storage') || '{}')
-    return persisted?.state?.token || persisted?.token || null
-  } catch {
-    return null
-  }
-}
-
 function getAccessToken() {
-  return useAuthStore.getState().token || readPersistedToken()
+  return useAuthStore.getState().token || null
 }
 
 function normalizePath(path) {
@@ -98,6 +77,26 @@ function getErrorMessage(payload, response) {
   )
 }
 
+async function refreshAccessToken() {
+  const payload = await apiRequest('/auth/refresh', {
+    method: 'POST',
+    skipAuth: true,
+    skipRefresh: true,
+  })
+  const data = payload?.data || payload || {}
+
+  if (!data.accessToken || !data.user) {
+    throw new ApiError('Refresh session tidak mengembalikan access token.', {
+      status: 401,
+      code: 'REFRESH_SESSION_INVALID',
+      data: payload,
+    })
+  }
+
+  useAuthStore.getState().login(data.user, data.accessToken)
+  return data.accessToken
+}
+
 export async function apiRequest(path, options = {}) {
   const {
     method = 'GET',
@@ -107,11 +106,13 @@ export async function apiRequest(path, options = {}) {
     token,
     signal,
     credentials = 'include',
+    skipAuth = false,
+    skipRefresh = false,
     ...fetchOptions
   } = options
 
   const requestHeaders = new Headers(headers)
-  const accessToken = token ?? getAccessToken()
+  const accessToken = skipAuth ? null : token ?? getAccessToken()
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
 
   if (accessToken && !requestHeaders.has('Authorization')) {
@@ -134,6 +135,19 @@ export async function apiRequest(path, options = {}) {
   const payload = await parseResponse(response)
 
   if (!response.ok) {
+    if (!skipRefresh && response.status === 401 && normalizePath(path) !== '/auth/refresh') {
+      try {
+        const refreshedToken = await refreshAccessToken()
+        return apiRequest(path, {
+          ...options,
+          token: refreshedToken,
+          skipRefresh: true,
+        })
+      } catch {
+        useAuthStore.getState().logout()
+      }
+    }
+
     throw new ApiError(getErrorMessage(payload, response), {
       status: response.status,
       code: payload?.code || payload?.error?.code || 'API_ERROR',
@@ -145,9 +159,9 @@ export async function apiRequest(path, options = {}) {
 }
 
 export async function apiBlobRequest(path, options = {}) {
-  const { params, headers = {}, token, credentials = 'include', ...fetchOptions } = options
+  const { params, headers = {}, token, credentials = 'include', skipAuth = false, ...fetchOptions } = options
   const requestHeaders = new Headers(headers)
-  const accessToken = token ?? getAccessToken()
+  const accessToken = skipAuth ? null : token ?? getAccessToken()
 
   if (accessToken && !requestHeaders.has('Authorization')) {
     requestHeaders.set('Authorization', `Bearer ${accessToken}`)
@@ -176,6 +190,15 @@ export const loginRequest = (payload) =>
   apiRequest('/auth/login', {
     method: 'POST',
     body: payload,
+    skipAuth: true,
+    skipRefresh: true,
+  })
+
+export const refreshSessionRequest = () =>
+  apiRequest('/auth/refresh', {
+    method: 'POST',
+    skipAuth: true,
+    skipRefresh: true,
   })
 
 export const getCurrentUser = () => apiRequest('/auth/me')
@@ -183,6 +206,8 @@ export const getCurrentUser = () => apiRequest('/auth/me')
 export const logoutRequest = () =>
   apiRequest('/auth/logout', {
     method: 'POST',
+    skipAuth: true,
+    skipRefresh: true,
   })
 
 export const getDashboardSummary = (params) => apiRequest('/analytics/summary', { params })

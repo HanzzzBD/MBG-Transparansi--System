@@ -12,6 +12,8 @@
     "import:dapodik": "node src/scripts/importDapodikLocal.js",
     "import:food-prices": "node src/scripts/importFoodPrices.js",
     "verify:food-prices": "node src/scripts/verifyFoodPriceIntegration.js",
+    "test": "node --test",
+    "test:security": "node --test test/security-role-guard.test.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Anggaran from './pages/Anggaran.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -14,6 +14,7 @@ import PublicPetaSPPG from './pages/PublicPetaSPPG.jsx'
 import ProductionBatches from './pages/ProductionBatches.jsx'
 import UserManagement from './pages/UserManagement.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
+import { logoutRequest, refreshSessionRequest } from './services/api.js'
 import useAuthStore from './store/authStore.js'
 
 const Analytics = lazy(() => import('./pages/Analytics.jsx'))
@@ -70,15 +71,6 @@ const legacyRouteRedirects = [
   ['/validations', '/konfirmasi'],
 ]
 
-function readStorage(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredToken() {
-  return readStorage('mbg.accessToken') || readStorage('accessToken') || readStorage('token') || null
-}
-
 function getUserName(user) {
   return user?.name || user?.email || 'Pengguna MBG'
 }
@@ -98,9 +90,13 @@ function RouteFallback() {
 function ProtectedRoute({ allowedRoles, children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, token, isAuthenticated, logout } = useAuthStore()
+  const { user, token, isAuthenticated, isRefreshingSession, isSessionChecked, logout } = useAuthStore()
   const role = normalizeRole(user?.role)
-  const authenticated = Boolean(isAuthenticated && user)
+  const authenticated = Boolean(isAuthenticated && user && token)
+
+  if (!isSessionChecked || isRefreshingSession) {
+    return <RouteFallback />
+  }
 
   if (!authenticated) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />
@@ -110,9 +106,15 @@ function ProtectedRoute({ allowedRoles, children }) {
     return <Navigate to="/dashboard" replace />
   }
 
-  const handleLogout = () => {
-    logout()
-    navigate('/login', { replace: true })
+  const handleLogout = async () => {
+    try {
+      await logoutRequest()
+    } catch {
+      // Frontend session must still be cleared if revoke fails or the cookie is already gone.
+    } finally {
+      logout()
+      navigate('/login', { replace: true })
+    }
   }
 
   const routeProps = {
@@ -145,14 +147,18 @@ function ProtectedRoute({ allowedRoles, children }) {
 function LoginRoute() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, isAuthenticated, login } = useAuthStore()
+  const { user, token, isAuthenticated, isSessionChecked, login } = useAuthStore()
 
-  if (isAuthenticated && user) {
+  if (!isSessionChecked) {
+    return <RouteFallback />
+  }
+
+  if (isAuthenticated && user && token) {
     return <Navigate to="/dashboard" replace />
   }
 
   const handleLoginSuccess = (userData, accessToken) => {
-    login(userData, accessToken || getStoredToken())
+    login(userData, accessToken)
     navigate(location.state?.from || '/dashboard', { replace: true })
   }
 
@@ -160,11 +166,53 @@ function LoginRoute() {
 }
 
 function FallbackRoute() {
-  const { user, isAuthenticated } = useAuthStore()
-  return <Navigate to={isAuthenticated && user ? '/dashboard' : '/'} replace />
+  const { user, token, isAuthenticated, isSessionChecked } = useAuthStore()
+
+  if (!isSessionChecked) {
+    return <RouteFallback />
+  }
+
+  return <Navigate to={isAuthenticated && user && token ? '/dashboard' : '/'} replace />
 }
 
 function AppRoutes() {
+  const { finishSessionCheck, login, logout, startSessionCheck } = useAuthStore()
+
+  useEffect(() => {
+    let isMounted = true
+
+    const restoreSession = async () => {
+      startSessionCheck()
+
+      try {
+        const payload = await refreshSessionRequest()
+        const data = payload?.data || payload || {}
+
+        if (!isMounted) return
+
+        if (data.user && data.accessToken) {
+          login(data.user, data.accessToken)
+        } else {
+          logout()
+        }
+      } catch {
+        if (isMounted) {
+          logout()
+        }
+      } finally {
+        if (isMounted) {
+          finishSessionCheck()
+        }
+      }
+    }
+
+    restoreSession()
+
+    return () => {
+      isMounted = false
+    }
+  }, [finishSessionCheck, login, logout, startSessionCheck])
+
   return (
     <Routes>
       <Route path="/" element={<Landing />} />

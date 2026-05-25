@@ -58,25 +58,10 @@ async function postLogin({ email, password }) {
   return normalizeLoginResponse(payload)
 }
 
-function saveSession({ accessToken, user, remember }) {
-  const storage = remember ? window.localStorage : window.sessionStorage
-  const otherStorage = remember ? window.sessionStorage : window.localStorage
-
-  otherStorage.removeItem('mbg.accessToken')
-  otherStorage.removeItem('mbg.user')
-
-  if (accessToken) {
-    storage.setItem('mbg.accessToken', accessToken)
-  }
-
-  storage.setItem('mbg.user', JSON.stringify(user))
-}
-
 function Login({ onLoginSuccess }) {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [remember, setRemember] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
@@ -117,6 +102,10 @@ function Login({ onLoginSuccess }) {
         throw new Error('Response login tidak memuat data user.')
       }
 
+      if (!result.accessToken) {
+        throw new Error('Response login tidak memuat access token.')
+      }
+
       if (!VALID_ROLES.has(result.user.role)) {
         throw new Error('Role user tidak dikenali oleh frontend.')
       }
@@ -124,12 +113,6 @@ function Login({ onLoginSuccess }) {
       if (result.user.isActive === false || result.user.deletedAt) {
         throw new Error('Akun ini tidak aktif. Hubungi administrator.')
       }
-
-      saveSession({
-        accessToken: result.accessToken,
-        user: result.user,
-        remember,
-      })
 
       onLoginSuccess?.(result.user, result.accessToken)
 
@@ -292,14 +275,6 @@ function Login({ onLoginSuccess }) {
             </div>
 
             <div className="login-options">
-              <label className="login-remember">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(event) => setRemember(event.target.checked)}
-                />
-                <span>Ingat saya</span>
-              </label>
               <a className="login-forgot" href="#forgot-password">
                 Lupa password?
               </a>
