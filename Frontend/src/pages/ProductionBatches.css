@@ -178,6 +178,32 @@
   color: var(--white);
 }
 
+.batch-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.batch-comparison > div {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  background: #eef9fc;
+  border: 1px solid var(--sky);
+  border-radius: 12px;
+}
+
+.batch-comparison strong {
+  color: var(--navy);
+  font-size: 18px;
+}
+
+.batch-comparison small {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
 .batch-table-wrap {
   margin-top: 18px;
   overflow-x: auto;
@@ -382,6 +408,7 @@
   }
 
   .batch-cost-grid,
+  .batch-comparison,
   .batch-form {
     grid-template-columns: 1fr;
   }

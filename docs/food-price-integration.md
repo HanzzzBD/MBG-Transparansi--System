@@ -115,6 +115,10 @@ GET /api/food-prices/estimate?province=Jawa%20Barat
 POST /api/food-prices/import
 GET /api/price-thresholds
 POST /api/price-thresholds/generate-from-food-prices
+GET /api/production-batches
+POST /api/production-batches
+GET /api/production-batches/:id
+GET /api/production-batches/:id/cost-summary
 GET /api/analytics/budget-summary
 GET /api/analytics/price-per-province
 GET /api/analytics/price-anomalies
@@ -165,6 +169,15 @@ raw_material_cost = sum(production_batch_items.total_price)
 total_cost = raw_material_cost + operational_cost + packaging_cost + distribution_cost
 cost_per_portion = total_cost / total_portions
 ```
+
+`GET /api/production-batches/:id/cost-summary` menjadi sumber utama costing frontend dan mengembalikan:
+
+- `rawMaterialCost` / `rawMaterialTotals` termasuk daftar item bahan baku.
+- `operationalCost`, `packagingCost`, `distributionCost`.
+- `totalCost`, `totalPortions`, `costPerPortion`.
+- `sp2kpComparison` berisi estimasi SP2KP per porsi, variance terhadap cost batch, dan perbandingan per bahan baku.
+
+Jika data SP2KP belum tersedia, `sp2kpComparison.available` bernilai `false`, nilai estimasi dikembalikan `null`, dan field `reason` menjelaskan penyebabnya. Frontend tidak boleh menampilkan angka estimasi palsu.
 
 Setiap item bahan baku otomatis dibandingkan dengan harga pasar terbaru dari `food_prices` berdasarkan provinsi SPPG dan `variant_id`/nama komoditas. Field yang disimpan:
 

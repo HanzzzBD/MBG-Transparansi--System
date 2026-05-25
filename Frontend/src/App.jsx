@@ -1,25 +1,27 @@
+import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Anggaran from './pages/Anggaran.jsx'
-import Analytics from './pages/Analytics.jsx'
-import AnomalyDetection from './pages/AnomalyDetection.jsx'
-import ApiMonitoring from './pages/ApiMonitoring.jsx'
-import AuditLog from './pages/AuditLog.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Distribusi from './pages/Distribusi.jsx'
 import DapodikImport from './pages/DapodikImport.jsx'
-import ExportData from './pages/ExportData.jsx'
 import Konfirmasi from './pages/Konfirmasi.jsx'
 import Landing from './pages/Landing.jsx'
 import LaporanMasyarakat from './pages/LaporanMasyarakat.jsx'
 import LockUnlock from './pages/LockUnlock.jsx'
 import Login from './pages/Login.jsx'
 import OverrideData from './pages/OverrideData.jsx'
-import PetaSPPG from './pages/PetaSPPG.jsx'
 import PublicPetaSPPG from './pages/PublicPetaSPPG.jsx'
 import ProductionBatches from './pages/ProductionBatches.jsx'
 import UserManagement from './pages/UserManagement.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
 import useAuthStore from './store/authStore.js'
+
+const Analytics = lazy(() => import('./pages/Analytics.jsx'))
+const AnomalyDetection = lazy(() => import('./pages/AnomalyDetection.jsx'))
+const ApiMonitoring = lazy(() => import('./pages/ApiMonitoring.jsx'))
+const AuditLog = lazy(() => import('./pages/AuditLog.jsx'))
+const ExportData = lazy(() => import('./pages/ExportData.jsx'))
+const PetaSPPG = lazy(() => import('./pages/PetaSPPG.jsx'))
 
 const routeAccess = {
   '/dashboard': ['admin', 'pemerintah', 'sppg', 'sekolah'],
@@ -85,6 +87,14 @@ function normalizeRole(role) {
   return String(role || '').toLowerCase()
 }
 
+function RouteFallback() {
+  return (
+    <div style={{ padding: '24px', fontWeight: 700 }}>
+      Memuat halaman...
+    </div>
+  )
+}
+
 function ProtectedRoute({ allowedRoles, children }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -109,7 +119,7 @@ function ProtectedRoute({ allowedRoles, children }) {
     userRole: role,
     userName: getUserName(user),
     currentPath: location.pathname,
-    notifCount: user?.notifCount || user?.notificationCount || 3,
+    notifCount: user?.notifCount || user?.notificationCount || 0,
     token,
     user,
     onLogout: handleLogout,
@@ -125,7 +135,9 @@ function ProtectedRoute({ allowedRoles, children }) {
       notifCount={routeProps.notifCount}
       onLogout={routeProps.onLogout}
     >
-      {page}
+      <Suspense fallback={<RouteFallback />}>
+        {page}
+      </Suspense>
     </DashboardLayout>
   )
 }

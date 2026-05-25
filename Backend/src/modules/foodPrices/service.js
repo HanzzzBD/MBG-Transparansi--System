@@ -447,10 +447,6 @@ const saveGeneratedThreshold = async ({ client = prisma, province, estimate, act
   });
 
   if (existing) {
-    if (!current) {
-      throw error;
-    }
-
     const updated = await client.priceThreshold.update({
       where: {
         id: existing.id

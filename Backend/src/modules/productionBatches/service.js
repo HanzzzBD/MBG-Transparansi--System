@@ -150,6 +150,168 @@ const compareWithMarketPrice = async ({ batchItem, batch, client = prisma }) =>
     client
   });
 
+const toDateKey = (value) => {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+};
+
+const buildRawMaterialComparison = async ({ item, batch, thresholdPercent, client = prisma }) => {
+  const liveMarketPrice = item.marketReferencePrice
+    ? null
+    : await foodPriceService.findLatestMarketPrice({
+        province: batch.sppg?.province,
+        variantId: item.variantId,
+        commodityName: item.commodityName,
+        client
+      });
+  const referencePrice = item.marketReferencePrice
+    ? toNumber(item.marketReferencePrice)
+    : liveMarketPrice
+      ? toNumber(liveMarketPrice.price)
+      : null;
+
+  if (!referencePrice) {
+    return {
+      id: item.id,
+      commodityName: item.commodityName,
+      commodity_name: item.commodityName,
+      variantId: item.variantId,
+      variant_id: item.variantId,
+      quantity: toNumber(item.quantity),
+      unit: item.unit,
+      unitPrice: toNumber(item.unitPrice),
+      unit_price: toNumber(item.unitPrice),
+      totalPrice: toNumber(item.totalPrice),
+      total_price: toNumber(item.totalPrice),
+      available: false,
+      reason: "Data harga SP2KP untuk komoditas ini belum tersedia.",
+      marketReferencePrice: null,
+      market_reference_price: null,
+      differencePercent: null,
+      difference_percent: null,
+      thresholdPercent,
+      threshold_percent: thresholdPercent,
+      status: "unavailable",
+      source: null,
+      sourceDate: null,
+      source_date: null
+    };
+  }
+
+  const unitPrice = toNumber(item.unitPrice);
+  const differencePercent = referencePrice > 0
+    ? Number((((unitPrice - referencePrice) / referencePrice) * 100).toFixed(2))
+    : null;
+  const sourceDate = toDateKey(item.sourceFoodPrice?.date || liveMarketPrice?.date);
+  const source = item.sourcePrice || item.sourceFoodPrice?.source || liveMarketPrice?.source || null;
+  const status =
+    differencePercent !== null && differencePercent > thresholdPercent
+      ? "above_threshold"
+      : differencePercent !== null && differencePercent < -thresholdPercent
+        ? "below_threshold"
+        : "normal";
+
+  return {
+    id: item.id,
+    commodityName: item.commodityName,
+    commodity_name: item.commodityName,
+    variantId: item.variantId,
+    variant_id: item.variantId,
+    quantity: toNumber(item.quantity),
+    unit: item.unit,
+    unitPrice,
+    unit_price: unitPrice,
+    totalPrice: toNumber(item.totalPrice),
+    total_price: toNumber(item.totalPrice),
+    available: true,
+    reason: null,
+    marketReferencePrice: referencePrice,
+    market_reference_price: referencePrice,
+    differencePercent,
+    difference_percent: differencePercent,
+    thresholdPercent,
+    threshold_percent: thresholdPercent,
+    status,
+    source,
+    sourceDate,
+    source_date: sourceDate
+  };
+};
+
+const buildSp2kpComparison = async ({ batch, client = prisma }) => {
+  const thresholdPercent = await readConfigNumber({
+    client,
+    key: "raw_material_price_anomaly_percent",
+    fallback: 25
+  });
+  const [estimate, items] = await Promise.all([
+    foodPriceService.calculateEstimatedPortionPrice({
+      province: batch.sppg?.province,
+      client
+    }),
+    Promise.all(
+      batch.items.map((item) =>
+        buildRawMaterialComparison({
+          item,
+          batch,
+          thresholdPercent,
+          client
+        })
+      )
+    )
+  ]);
+  const comparedItems = items.filter((item) => item.available);
+  const missingReferenceCount = items.length - comparedItems.length;
+  const hasPortionEstimate = Boolean(estimate.sourceDate && estimate.estimatedPortionPrice > 0);
+  const available = comparedItems.length > 0 || hasPortionEstimate;
+  const varianceAmount = hasPortionEstimate
+    ? Number((toNumber(batch.costPerPortion) - Number(estimate.estimatedPortionPrice)).toFixed(2))
+    : null;
+  const variancePercent = hasPortionEstimate && Number(estimate.estimatedPortionPrice) > 0
+    ? Number(((varianceAmount / Number(estimate.estimatedPortionPrice)) * 100).toFixed(2))
+    : null;
+  const latestSourceDate =
+    [estimate.sourceDate, ...items.map((item) => item.sourceDate)]
+      .filter(Boolean)
+      .sort()
+      .pop() || null;
+
+  return {
+    available,
+    reason: available
+      ? null
+      : `Data SP2KP belum tersedia untuk provinsi ${batch.sppg?.province || "SPPG ini"} dan komoditas batch ini.`,
+    province: batch.sppg?.province || null,
+    source: available ? "SP2KP Kemendag" : null,
+    sourceDate: latestSourceDate,
+    source_date: latestSourceDate,
+    estimatedPortionPrice: hasPortionEstimate ? Number(estimate.estimatedPortionPrice) : null,
+    estimated_portion_price: hasPortionEstimate ? Number(estimate.estimatedPortionPrice) : null,
+    estimatedPortionReason: hasPortionEstimate
+      ? null
+      : "Estimasi harga porsi SP2KP belum tersedia karena komponen referensi belum lengkap.",
+    estimated_portion_reason: hasPortionEstimate
+      ? null
+      : "Estimasi harga porsi SP2KP belum tersedia karena komponen referensi belum lengkap.",
+    batchCostPerPortion: Number(batch.costPerPortion),
+    batch_cost_per_portion: Number(batch.costPerPortion),
+    varianceAmount,
+    variance_amount: varianceAmount,
+    variancePercent,
+    variance_percent: variancePercent,
+    rawMaterialThresholdPercent: thresholdPercent,
+    raw_material_threshold_percent: thresholdPercent,
+    comparedItemCount: comparedItems.length,
+    compared_item_count: comparedItems.length,
+    missingReferenceCount,
+    missing_reference_count: missingReferenceCount,
+    items,
+    components: hasPortionEstimate ? estimate.components : null
+  };
+};
+
 const checkRawMaterialPriceAnomaly = async ({ batchItem, batch, actorUserId = null, ipAddress = null, client = prisma }) => {
   if (!batchItem.marketReferencePrice || batchItem.priceDifferencePercent === null) {
     return {
@@ -624,16 +786,71 @@ const getCostSummary = async ({ id, user }) => {
     batchId: id
   });
   ensureBatchAccess(user, batch);
+  const sp2kpComparison = await buildSp2kpComparison({
+    batch
+  });
+  const rawMaterialItems = batch.items.map((item) => ({
+    id: item.id,
+    commodityName: item.commodityName,
+    commodity_name: item.commodityName,
+    variantId: item.variantId,
+    variant_id: item.variantId,
+    quantity: toNumber(item.quantity),
+    unit: item.unit,
+    unitPrice: toNumber(item.unitPrice),
+    unit_price: toNumber(item.unitPrice),
+    totalPrice: toNumber(item.totalPrice),
+    total_price: toNumber(item.totalPrice),
+    marketReferencePrice: item.marketReferencePrice ? toNumber(item.marketReferencePrice) : null,
+    market_reference_price: item.marketReferencePrice ? toNumber(item.marketReferencePrice) : null,
+    priceDifferencePercent: item.priceDifferencePercent !== null && item.priceDifferencePercent !== undefined
+      ? Number(item.priceDifferencePercent)
+      : null,
+    price_difference_percent: item.priceDifferencePercent !== null && item.priceDifferencePercent !== undefined
+      ? Number(item.priceDifferencePercent)
+      : null,
+    sourcePrice: item.sourcePrice || null,
+    source_price: item.sourcePrice || null
+  }));
 
   return {
     data: {
+      id: batch.id,
+      batchId: batch.id,
+      batch_id: batch.id,
+      productionDate: batch.productionDate,
+      production_date: batch.productionDate,
+      sppg: batch.sppg,
       rawMaterialCost: Number(batch.rawMaterialCost),
+      raw_material_cost: Number(batch.rawMaterialCost),
+      rawMaterialTotals: {
+        total: Number(batch.rawMaterialCost),
+        total_cost: Number(batch.rawMaterialCost),
+        itemCount: rawMaterialItems.length,
+        item_count: rawMaterialItems.length,
+        items: rawMaterialItems
+      },
+      raw_material_totals: {
+        total: Number(batch.rawMaterialCost),
+        total_cost: Number(batch.rawMaterialCost),
+        itemCount: rawMaterialItems.length,
+        item_count: rawMaterialItems.length,
+        items: rawMaterialItems
+      },
       operationalCost: Number(batch.operationalCost),
+      operational_cost: Number(batch.operationalCost),
       packagingCost: Number(batch.packagingCost),
+      packaging_cost: Number(batch.packagingCost),
       distributionCost: Number(batch.distributionCost),
+      distribution_cost: Number(batch.distributionCost),
       totalCost: Number(batch.totalCost),
+      total_cost: Number(batch.totalCost),
       totalPortions: batch.totalPortions,
-      costPerPortion: Number(batch.costPerPortion)
+      total_portions: batch.totalPortions,
+      costPerPortion: Number(batch.costPerPortion),
+      cost_per_portion: Number(batch.costPerPortion),
+      sp2kpComparison,
+      sp2kp_comparison: sp2kpComparison
     }
   };
 };

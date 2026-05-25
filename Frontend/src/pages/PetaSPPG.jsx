@@ -65,43 +65,6 @@ const MARKER_COLORS = {
   inactive: '#9b1c1c',
 }
 
-const PROVINCES = [
-  'Aceh',
-  'Sumatera Utara',
-  'Sumatera Barat',
-  'Riau',
-  'Kepulauan Riau',
-  'Jambi',
-  'Bengkulu',
-  'Sumatera Selatan',
-  'Kepulauan Bangka Belitung',
-  'Lampung',
-  'Banten',
-  'DKI Jakarta',
-  'Jawa Barat',
-  'Jawa Tengah',
-  'DI Yogyakarta',
-  'Jawa Timur',
-  'Bali',
-  'Nusa Tenggara Barat',
-  'Nusa Tenggara Timur',
-  'Kalimantan Barat',
-  'Kalimantan Tengah',
-  'Kalimantan Selatan',
-  'Kalimantan Timur',
-  'Kalimantan Utara',
-  'Sulawesi Utara',
-  'Gorontalo',
-  'Sulawesi Tengah',
-  'Sulawesi Barat',
-  'Sulawesi Selatan',
-  'Sulawesi Tenggara',
-  'Maluku',
-  'Maluku Utara',
-  'Papua',
-  'Papua Barat',
-]
-
 const TABS = [
   { value: 'info', label: 'Info' },
   { value: 'distribusi', label: 'Distribusi' },
@@ -585,6 +548,13 @@ function PetaSPPG() {
   const chartData = useMemo(() => buildDistributionChart(detailDistributions), [detailDistributions])
   const normalizedMenu = menuToday || activeSppg?.latestMenu || null
   const nutritionRows = useMemo(() => getNutritionRows(normalizedMenu), [normalizedMenu])
+  const provinceOptions = useMemo(
+    () =>
+      Array.from(new Set(sppgList.map((item) => item.province).filter((value) => value && value !== '-'))).sort((first, second) =>
+        first.localeCompare(second, 'id-ID'),
+      ),
+    [sppgList],
+  )
 
   const openDetail = (sppg) => {
     setSelectedSppg(sppg)
@@ -624,7 +594,7 @@ function PetaSPPG() {
           <span className="peta-filter-label">Provinsi</span>
           <select className="peta-select" value={province} onChange={(event) => setProvince(event.target.value)} aria-label="Filter provinsi">
             <option value="">Semua Provinsi</option>
-            {PROVINCES.map((provinceName) => (
+            {provinceOptions.map((provinceName) => (
               <option key={provinceName} value={provinceName}>
                 {provinceName}
               </option>

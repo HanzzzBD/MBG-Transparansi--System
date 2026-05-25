@@ -27,43 +27,6 @@ import './LockUnlock.css'
 
 const PAGE_SIZE = 10
 
-const PROVINCES = [
-  'Aceh',
-  'Sumatera Utara',
-  'Sumatera Barat',
-  'Riau',
-  'Kepulauan Riau',
-  'Jambi',
-  'Bengkulu',
-  'Sumatera Selatan',
-  'Kepulauan Bangka Belitung',
-  'Lampung',
-  'Banten',
-  'DKI Jakarta',
-  'Jawa Barat',
-  'Jawa Tengah',
-  'DI Yogyakarta',
-  'Jawa Timur',
-  'Bali',
-  'Nusa Tenggara Barat',
-  'Nusa Tenggara Timur',
-  'Kalimantan Barat',
-  'Kalimantan Tengah',
-  'Kalimantan Selatan',
-  'Kalimantan Timur',
-  'Kalimantan Utara',
-  'Sulawesi Utara',
-  'Gorontalo',
-  'Sulawesi Tengah',
-  'Sulawesi Barat',
-  'Sulawesi Selatan',
-  'Sulawesi Tenggara',
-  'Maluku',
-  'Maluku Utara',
-  'Papua',
-  'Papua Barat',
-]
-
 function getStorageItem(key) {
   if (typeof window === 'undefined') return null
   return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
@@ -424,14 +387,14 @@ function LockUnlock({ userRole, userName, onLogout }) {
 
             <label className="lock-filter-field">
               <span className="lock-label">Provinsi</span>
-              <select className="lock-select" name="province" value={filters.province} onChange={handleFilterChange}>
-                <option value="">Semua Provinsi</option>
-                {PROVINCES.map((provinceName) => (
-                  <option key={provinceName} value={provinceName}>
-                    {provinceName}
-                  </option>
-                ))}
-              </select>
+              <input
+                className="lock-input"
+                name="province"
+                type="search"
+                value={filters.province}
+                onChange={handleFilterChange}
+                placeholder="Semua provinsi"
+              />
             </label>
 
             <button className="lock-reset-btn" type="button" onClick={resetFilters}>

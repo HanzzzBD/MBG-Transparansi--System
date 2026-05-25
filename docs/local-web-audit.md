@@ -233,3 +233,65 @@ Data sensitif operasional tidak relevan untuk transparansi publik dan berpotensi
 - Klik marker di `/peta-publik` melakukan lazy fetch ke `GET /api/public/sppg/:id`.
 - Jika detail gagal dimuat, UI menampilkan pesan `Detail SPPG tidak tersedia`.
 - Route internal `/peta` dan komponen `PetaSPPG` tidak diubah untuk fitur ini.
+
+# Fixed In Phase 3
+
+## Hardcoded yang Sudah Dihapus
+- Dashboard, Export Data, Lock/Unlock, dan Peta SPPG tidak lagi memakai daftar provinsi hardcoded.
+- Export Data tidak lagi menghitung estimasi row/file size dari angka frontend (`baseRows`, `estimatedRows`, dan estimasi MB dihapus dari payload/UI).
+- Audit ulang 11 halaman target tidak menemukan lagi string `94.7`, `2.847`, `fake`, `dummy`, `PROVINCES`, `baseRows`, atau `estimatedRows`.
+
+## Endpoint yang Sekarang Real
+- Dashboard role summary: `/api/dashboard/admin-summary`, `/api/dashboard/gov-summary`, `/api/dashboard/sppg-summary`, `/api/dashboard/school-summary`.
+- Public report analytics: `/api/public-reports/summary`, `/api/analytics/public-reports-summary`, `/api/analytics/public-reports-trend`, `/api/analytics/public-reports-top-regions`.
+- Export: `/api/exports`, `/api/exports/:id`, `/api/exports/:id/retry`, `/api/exports/:id/download`.
+- Monitoring: `/api/monitoring/summary`, `/api/monitoring/apis`, `/api/monitoring/errors`, `/api/monitoring/sync-sources`.
+- Audit: `/api/audit-logs`, `/api/audit-logs/summary`.
+- User/role association: `/api/users`, `/api/roles`, `/api/sppg`, `/api/schools`.
+- Lock/override: `/api/distributions/:id/lock`, `/api/distributions/:id/unlock`, `/api/distributions/:id/override`.
+- SPPG map: `/api/sppg/map-markers`, `/api/sppg/:id/detail`.
+
+## Halaman yang Sudah Fully Dynamic
+- Dashboard memakai summary backend sesuai role login.
+- Analytics memakai backend summary/trend/top-region untuk laporan publik dan analytics utama.
+- Anggaran memakai backend budget/price/anomaly data tanpa row dummy.
+- Export Data memakai history, retry, download, progress/status, row count, dan file size dari backend.
+- Audit Log memakai pagination, filter, severity/category summary dari backend.
+- Laporan Masyarakat memakai list, summary cards, trend, top wilayah, dan status count dari backend.
+- User Management memakai CRUD backend dan autocomplete relasi SPPG/sekolah bertahap dari server.
+- Lock/Unlock dan Override memakai API backend sebagai source utama.
+- API Monitoring memakai summary/API/error/sync source dari backend.
+- Peta SPPG memakai marker backend dan lazy fetch detail dari `/api/sppg/:id/detail`.
+
+## Fallback yang Masih Tersisa
+- Loading/skeleton/spinner saat request berjalan.
+- Empty state saat backend mengembalikan array kosong.
+- Error/retry state saat API gagal sementara.
+- Progress bar export masih boleh bergerak secara UI ketika status backend `processing`; status akhir tetap dari backend.
+- Route-level Suspense fallback `Memuat halaman...` untuk page chunk lazy.
+
+## Unresolved Issues
+- Perlu verifikasi browser manual lanjutan untuk warning layout Recharts pada container yang sangat kecil.
+- Role option di User Management tetap memakai label domain statis untuk rendering teks, sedangkan data user/role tetap dari backend.
+- Filter provinsi Dashboard/Export/Lock sekarang input teks agar tidak memakai dummy list; endpoint wilayah terpusat bisa ditambahkan nanti jika dibutuhkan autocomplete wilayah.
+
+## Verifikasi Phase 3 - 2026-05-25
+- Frontend lint sukses: `npm.cmd --prefix Frontend run lint`.
+- Frontend build sukses: `npm.cmd --prefix Frontend run build`.
+- Backend boot sukses di port verifikasi `4011`; `/api/health` 200.
+- Smoke endpoint kritikal read/detail 200: dashboard per role, SPPG map marker/detail, monitoring summary/apis/errors/sync-sources, exports list, audit logs list/summary, public reports list/summary, public reports analytics summary/trend/top regions, users list, distributions list, lock summary, production batches list.
+- Tidak ditemukan 404/500 pada endpoint kritikal yang diverifikasi.
+
+| Halaman | Dynamic % | Remaining Dummy | Status |
+|---|---:|---|---|
+| Dashboard | 100% | Tidak ada row/stat dummy; hanya empty/error/loading state | Done |
+| Analytics | 100% | Tidak ada chart/stat dummy | Done |
+| Anggaran | 100% | Tidak ada budget/anomaly dummy | Done |
+| ExportData | 100% | Tidak ada fake history/row estimate; progress UI sementara saat processing | Done |
+| AuditLog | 100% | Tidak ada fake audit log | Done |
+| LaporanMasyarakat | 100% | Tidak ada fake report statistics | Done |
+| UserManagement | 100% | Tidak ada fake user rows | Done |
+| LockUnlock | 100% | Tidak ada local-only lock rows | Done |
+| OverrideData | 100% | Tidak ada local-only override rows | Done |
+| ApiMonitoring | 100% | Tidak ada fake uptime/sync records | Done |
+| PetaSPPG | 100% | Tidak ada hardcoded marker/detail/menu/distribusi | Done |

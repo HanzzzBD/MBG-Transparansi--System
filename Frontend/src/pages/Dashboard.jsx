@@ -61,43 +61,6 @@ const ANOMALY_LABELS = {
   PENDING_TIMEOUT: 'Pending Timeout',
 }
 
-const PROVINCES = [
-  'Aceh',
-  'Sumatera Utara',
-  'Sumatera Barat',
-  'Riau',
-  'Kepulauan Riau',
-  'Jambi',
-  'Bengkulu',
-  'Sumatera Selatan',
-  'Kepulauan Bangka Belitung',
-  'Lampung',
-  'Banten',
-  'DKI Jakarta',
-  'Jawa Barat',
-  'Jawa Tengah',
-  'DI Yogyakarta',
-  'Jawa Timur',
-  'Bali',
-  'Nusa Tenggara Barat',
-  'Nusa Tenggara Timur',
-  'Kalimantan Barat',
-  'Kalimantan Tengah',
-  'Kalimantan Selatan',
-  'Kalimantan Timur',
-  'Kalimantan Utara',
-  'Sulawesi Utara',
-  'Gorontalo',
-  'Sulawesi Tengah',
-  'Sulawesi Barat',
-  'Sulawesi Selatan',
-  'Sulawesi Tenggara',
-  'Maluku',
-  'Maluku Utara',
-  'Papua',
-  'Papua Barat',
-]
-
 const EMPTY_DASHBOARD_DATA = {
   kpis: [],
   charts: {
@@ -470,24 +433,22 @@ function FilterBar({
     <div className="dashboard-filter-bar">
       <label className="dashboard-filter-field">
         <span>Provinsi</span>
-        <select value={selectedProvince} onChange={(event) => onProvinceChange(event.target.value)}>
-          <option value="">Semua provinsi</option>
-          {PROVINCES.map((province) => (
-            <option key={province} value={province}>
-              {province}
-            </option>
-          ))}
-        </select>
+        <input
+          type="search"
+          value={selectedProvince}
+          onChange={(event) => onProvinceChange(event.target.value)}
+          placeholder="Semua provinsi"
+        />
       </label>
 
       <label className="dashboard-filter-field">
         <span>Kota</span>
-        {/* TODO: Integrasikan opsi kota per provinsi jika endpoint wilayah backend sudah tersedia. */}
-        <select value={selectedCity} onChange={(event) => onCityChange(event.target.value)} disabled={!selectedProvince}>
-          <option value="">
-            {selectedProvince ? 'Semua kota' : 'Pilih provinsi dulu'}
-          </option>
-        </select>
+        <input
+          type="search"
+          value={selectedCity}
+          onChange={(event) => onCityChange(event.target.value)}
+          placeholder="Semua kota"
+        />
       </label>
 
       <label className="dashboard-filter-field">

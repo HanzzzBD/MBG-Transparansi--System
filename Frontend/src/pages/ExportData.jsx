@@ -28,52 +28,15 @@ const RETENTION_DAYS = 7
 const EXPORT_POLL_MS = 2500
 const ACCESS_ROLES = ['admin', 'pemerintah']
 
-const PROVINCES = [
-  'Aceh',
-  'Sumatera Utara',
-  'Sumatera Barat',
-  'Riau',
-  'Kepulauan Riau',
-  'Jambi',
-  'Sumatera Selatan',
-  'Bangka Belitung',
-  'Bengkulu',
-  'Lampung',
-  'DKI Jakarta',
-  'Jawa Barat',
-  'Banten',
-  'Jawa Tengah',
-  'DI Yogyakarta',
-  'Jawa Timur',
-  'Bali',
-  'Nusa Tenggara Barat',
-  'Nusa Tenggara Timur',
-  'Kalimantan Barat',
-  'Kalimantan Tengah',
-  'Kalimantan Selatan',
-  'Kalimantan Timur',
-  'Kalimantan Utara',
-  'Sulawesi Utara',
-  'Gorontalo',
-  'Sulawesi Tengah',
-  'Sulawesi Barat',
-  'Sulawesi Selatan',
-  'Sulawesi Tenggara',
-  'Maluku',
-  'Maluku Utara',
-  'Papua',
-  'Papua Barat',
-]
-
 const DATASETS = [
-  { id: 'distributions', label: 'Data Distribusi', baseRows: 720 },
-  { id: 'validations', label: 'Validasi Sekolah', baseRows: 520 },
-  { id: 'public_reports', label: 'Laporan Masyarakat', baseRows: 90 },
-  { id: 'budget_by_region', label: 'Anggaran per Wilayah', baseRows: 45 },
-  { id: 'audit_logs', label: 'Audit Log', baseRows: 980, adminOnly: true },
-  { id: 'anomalies', label: 'Anomali Terdeteksi', baseRows: 160 },
-  { id: 'production_batches', label: 'Production Batch & Costing', baseRows: 380, summaryForGovernment: true },
-  { id: 'food_prices', label: 'Food Prices SP2KP', baseRows: 520, summaryForGovernment: true },
+  { id: 'distributions', label: 'Data Distribusi' },
+  { id: 'validations', label: 'Validasi Sekolah' },
+  { id: 'public_reports', label: 'Laporan Masyarakat' },
+  { id: 'budget_by_region', label: 'Anggaran per Wilayah' },
+  { id: 'audit_logs', label: 'Audit Log', adminOnly: true },
+  { id: 'anomalies', label: 'Anomali Terdeteksi' },
+  { id: 'production_batches', label: 'Production Batch & Costing', summaryForGovernment: true },
+  { id: 'food_prices', label: 'Food Prices SP2KP', summaryForGovernment: true },
 ]
 
 const DISTRIBUTION_STATUSES = [
@@ -107,13 +70,6 @@ function getStoredUser() {
 
 function normalizeRole(role) {
   return typeof role === 'string' ? role.trim().toLowerCase() : ''
-}
-
-function getSelectedProvinces(provinces = ['all']) {
-  if (!Array.isArray(provinces) || !provinces.length || provinces.includes('all')) {
-    return PROVINCES
-  }
-  return provinces.filter((province) => PROVINCES.includes(province))
 }
 
 function getConfiguredValue(result) {
@@ -164,14 +120,6 @@ function addDays(value, days) {
   return date.toISOString()
 }
 
-function getDaysBetween(dateFrom, dateTo) {
-  if (!dateFrom || !dateTo) return 0
-  const from = new Date(`${dateFrom}T00:00:00`)
-  const to = new Date(`${dateTo}T00:00:00`)
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 0
-  return Math.max(1, Math.round((to - from) / 86400000) + 1)
-}
-
 function getDaysUntil(value) {
   if (!value) return 7
   return Math.ceil((new Date(value).getTime() - Date.now()) / 86400000)
@@ -203,7 +151,7 @@ function normalizeExport(row) {
     type,
     fileName,
     createdAt,
-    rows: Number(row.rows || row.rowCount || row.row_count || filterParams.rowCount || filterParams.row_count || filterParams.estimatedRows || 0),
+    rows: Number(row.rows || row.rowCount || row.row_count || filterParams.rowCount || filterParams.row_count || 0),
     sizeBytes: Number(row.sizeBytes || row.size_bytes || row.fileSize || row.file_size || file.sizeBytes || file.size_bytes || 0),
     status,
     progress: Number(row.progressPercent ?? row.progress_percent ?? row.progress ?? (getStatus({ status, expiresAt: row.expiresAt || row.expires_at }) === 'completed' ? 100 : 0)),
@@ -224,27 +172,6 @@ function isAdminOnlyDataset(datasetId) {
   return DATASETS.find((item) => item.id === datasetId)?.adminOnly || false
 }
 
-function calculateEstimate({ checkedData, filters, maxRows }) {
-  const days = getDaysBetween(filters.dateFrom, filters.dateTo)
-  const selectedDatasets = DATASETS.filter((item) => checkedData.includes(item.id))
-  const provinceValues = Array.isArray(filters.provinces) ? filters.provinces : ['all']
-  const selectedProvinceCount = getSelectedProvinces(provinceValues).length
-  const provinceMultiplier = provinceValues.includes('all')
-    ? 1
-    : Math.max(0.08, selectedProvinceCount / PROVINCES.length)
-  const statusMultiplier = Math.max(0.35, filters.distributionStatuses.length / DISTRIBUTION_STATUSES.length)
-  const anomalyMultiplier = filters.anomalyStatus === 'all' ? 1 : 0.55
-  const datasetRows = selectedDatasets.reduce((sum, dataset) => sum + dataset.baseRows, 0)
-  const rows = Math.ceil(datasetRows * days * provinceMultiplier * statusMultiplier * anomalyMultiplier)
-  const sizeMb = Math.max(0.1, (rows * 1.2) / 1024)
-
-  return {
-    rows,
-    sizeMb,
-    exceedsMax: rows > maxRows,
-  }
-}
-
 function ExportData({ userRole, userName, onLogout }) {
   const navigate = useNavigate()
   const location = useLocation()
@@ -258,7 +185,7 @@ function ExportData({ userRole, userName, onLogout }) {
   const [format, setFormat] = useState('pdf')
   const [checkedData, setCheckedData] = useState(['distributions', 'budget_by_region'])
   const [filters, setFilters] = useState({
-    provinces: ['all'],
+    province: '',
     dateFrom: daysAgoInput(30),
     dateTo: todayInput(),
     distributionStatuses: ['in_progress', 'delivered', 'failed'],
@@ -277,11 +204,6 @@ function ExportData({ userRole, userName, onLogout }) {
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
   }, [])
-
-  const estimate = useMemo(
-    () => calculateEstimate({ checkedData, filters, maxRows }),
-    [checkedData, filters, maxRows],
-  )
 
   const stopPolling = useCallback((exportId) => {
     const key = String(exportId)
@@ -418,14 +340,6 @@ function ExportData({ userRole, userName, onLogout }) {
     })
   }
 
-  const handleProvinceChange = (event) => {
-    const selected = Array.from(event.target.selectedOptions, (option) => option.value)
-    setFilters((current) => ({
-      ...current,
-      provinces: selected.includes('all') || selected.length === 0 ? ['all'] : selected,
-    }))
-  }
-
   const toggleDistributionStatus = (status) => {
     setFilters((current) => {
       const exists = current.distributionStatuses.includes(status)
@@ -446,14 +360,11 @@ function ExportData({ userRole, userName, onLogout }) {
       return 'Pilih minimal 1 status distribusi.'
     }
     if (!isAdmin && checkedData.some(isAdminOnlyDataset)) return 'Dataset admin-only tidak boleh dipilih role pemerintah.'
-    if (estimate.exceedsMax) return `Estimasi melebihi batas maksimal ${formatNumber(maxRows)} baris.`
     return ''
   }
 
   const buildExportPayload = () => {
-    const selectedProvinces = getSelectedProvinces(filters.provinces)
-    const provinceFilters = filters.provinces.includes('all') ? [] : selectedProvinces
-    const backendProvince = provinceFilters.length === 1 ? provinceFilters[0] : undefined
+    const backendProvince = filters.province.trim() || undefined
     const backendStatus = filters.distributionStatuses.length === 1 ? filters.distributionStatuses[0] : undefined
     const datasetModes = checkedData.reduce((accumulator, datasetId) => {
       const dataset = DATASETS.find((item) => item.id === datasetId)
@@ -465,14 +376,12 @@ function ExportData({ userRole, userName, onLogout }) {
       type: format,
       filterParams: {
         datasets: checkedData,
-        provinces: provinceFilters,
+        provinces: backendProvince ? [backendProvince] : [],
         dateFrom: filters.dateFrom,
         dateTo: filters.dateTo,
         distributionStatuses: filters.distributionStatuses,
         anomalyStatus: filters.anomalyStatus,
         datasetModes,
-        estimatedRows: estimate.rows,
-        estimatedSizeMb: Number(estimate.sizeMb.toFixed(2)),
         page: 'export-data',
         exportScope: 'selected_datasets',
         province: backendProvince,
@@ -502,7 +411,7 @@ function ExportData({ userRole, userName, onLogout }) {
         ...created,
         status: createdStatus === 'completed' ? 'completed' : 'processing',
         progress: createdStatus === 'completed' ? 100 : Math.max(18, created.progress || 18),
-        rows: created.rows || estimate.rows,
+        rows: created.rows,
         sizeBytes: created.sizeBytes,
       }
       setProgress(100)
@@ -647,19 +556,13 @@ function ExportData({ userRole, userName, onLogout }) {
                 <div className="export-filter-grid">
                   <label className="export-field">
                     <span className="export-label">Provinsi</span>
-                    <select
-                      className="export-select export-select-multiple"
-                      value={filters.provinces}
-                      multiple
-                      onChange={handleProvinceChange}
-                    >
-                      <option value="all">Semua Provinsi</option>
-                      {PROVINCES.map((province) => (
-                        <option key={province} value={province}>
-                          {province}
-                        </option>
-                      ))}
-                    </select>
+                    <input
+                      className="export-input"
+                      type="search"
+                      value={filters.province}
+                      placeholder="Semua provinsi"
+                      onChange={(event) => setFilters((current) => ({ ...current, province: event.target.value }))}
+                    />
                   </label>
 
                   <label className="export-field">
@@ -713,13 +616,10 @@ function ExportData({ userRole, userName, onLogout }) {
                 </div>
               </div>
 
-              <div className={`export-estimate ${estimate.exceedsMax ? 'export-estimate-warning' : ''}`}>
-                <strong>Estimasi: ~{formatNumber(estimate.rows)} baris data | ~{estimate.sizeMb.toFixed(1)} MB</strong>
+              <div className="export-estimate">
+                <strong>Row count dan ukuran file dihitung backend setelah export diproses.</strong>
                 <span>Limit konfigurasi: {formatNumber(maxRows)} baris. File export berlaku 7 hari setelah selesai dibuat.</span>
-                {estimate.exceedsMax ? (
-                  <small>Melebihi batas maksimal {formatNumber(maxRows)} baris. Persempit filter tanggal atau wilayah.</small>
-                ) : null}
-                {validationMessage && !estimate.exceedsMax ? <small className="export-form-warning">{validationMessage}</small> : null}
+                {validationMessage ? <small className="export-form-warning">{validationMessage}</small> : null}
               </div>
 
               {isGenerating ? (

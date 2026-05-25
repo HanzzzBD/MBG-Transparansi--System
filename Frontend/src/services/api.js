@@ -251,9 +251,9 @@ export const updateDistribution = (id, payload) =>
     body: payload,
   })
 
-export const getProductionBatches = (params) => apiRequest('/production-batches', { params })
+export const getProductionBatches = (params, options = {}) => apiRequest('/production-batches', { ...options, params })
 
-export const getProductionBatchDetail = (id) => apiRequest(`/production-batches/${id}`)
+export const getProductionBatchDetail = (id, options = {}) => apiRequest(`/production-batches/${id}`, options)
 
 export const createProductionBatch = (payload) =>
   apiRequest('/production-batches', {
@@ -267,8 +267,8 @@ export const createProductionBatchItem = (batchId, payload) =>
     body: payload,
   })
 
-export const getProductionBatchCostSummary = (batchId) =>
-  apiRequest(`/production-batches/${batchId}/cost-summary`)
+export const getProductionBatchCostSummary = (batchId, options = {}) =>
+  apiRequest(`/production-batches/${batchId}/cost-summary`, options)
 
 export const getProductionBatchAnomalies = (batchId) =>
   apiRequest(`/production-batches/${batchId}/anomalies`)

@@ -3,30 +3,6 @@ import { AlertTriangle, CheckCircle2, Loader2, RefreshCcw, ShieldAlert, Zap } fr
 import { getAnomalies, resolveAnomaly } from '../services/api'
 import './AnomalyDetection.css'
 
-const FALLBACK_ANOMALIES = [
-  {
-    id: 'fallback-1',
-    anomalyType: 'PRICE_ANOMALY',
-    description: 'Harga porsi Rp 18.500 berada di luar threshold wilayah Papua.',
-    isResolved: false,
-    createdAt: new Date().toISOString(),
-    distribution: {
-      sppg: { name: 'SPPG Jayapura Abepura', province: 'Papua' },
-      school: { name: 'SDN Abepura 01' },
-    },
-  },
-  {
-    id: 'fallback-2',
-    anomalyType: 'RAW_MATERIAL_PRICE_ANOMALY',
-    description: 'Harga bahan baku ayam 30% di atas referensi SP2KP.',
-    isResolved: false,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    productionBatch: {
-      sppg: { name: 'SPPG Bandung Selatan', province: 'Jawa Barat' },
-    },
-  },
-]
-
 const TYPE_LABELS = {
   OVER_CAPACITY: 'Melebihi Kapasitas',
   PRICE_ANOMALY: 'Anomali Harga Porsi',
@@ -91,15 +67,9 @@ function AnomalyDetection({ userRole = 'pemerintah' }) {
       })
       const normalized = Array.isArray(payload.data) ? payload.data.map(normalizeAnomaly) : []
 
-      if (!normalized.length) {
-        setRows(FALLBACK_ANOMALIES)
-        setError('Data anomali API kosong. Fallback preview ditampilkan sementara.')
-        return
-      }
-
       setRows(normalized)
     } catch (fetchError) {
-      setRows(FALLBACK_ANOMALIES)
+      setRows([])
       setError(fetchError.message || 'Anomaly log gagal dimuat dari backend.')
     } finally {
       setLoading(false)
@@ -124,7 +94,7 @@ function AnomalyDetection({ userRole = 'pemerintah' }) {
   }, [rows])
 
   const handleResolve = async (row) => {
-    if (!isAdmin || String(row.id).startsWith('fallback')) return
+    if (!isAdmin) return
 
     setResolvingId(row.id)
     try {
@@ -218,7 +188,7 @@ function AnomalyDetection({ userRole = 'pemerintah' }) {
                     </span>
                   </td>
                   <td>
-                    {isAdmin && !row.isResolved && !String(row.id).startsWith('fallback') ? (
+                    {isAdmin && !row.isResolved ? (
                       <button
                         className="anomaly-btn anomaly-btn-primary"
                         type="button"
@@ -233,8 +203,13 @@ function AnomalyDetection({ userRole = 'pemerintah' }) {
                     )}
                   </td>
                 </tr>
-              ))}
-            </tbody>
+                ))}
+                {!loading && rows.length === 0 ? (
+                  <tr>
+                    <td colSpan="7">Tidak ada anomaly log untuk filter ini.</td>
+                  </tr>
+                ) : null}
+              </tbody>
           </table>
         </div>
       </section>

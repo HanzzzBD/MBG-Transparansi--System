@@ -1,35 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Loader2, Plus, RefreshCcw, Utensils } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { AlertTriangle, Loader2, Plus, RefreshCcw } from 'lucide-react'
 import {
   createProductionBatch,
   createProductionBatchItem,
+  getProductionBatchCostSummary,
   getProductionBatchDetail,
   getProductionBatches,
 } from '../services/api'
 import './ProductionBatches.css'
 
 const TODAY = new Date().toISOString().slice(0, 10)
-
-const FALLBACK_BATCHES = [
-  {
-    id: 'fallback-batch-1',
-    productionDate: TODAY,
-    totalPortions: 1250,
-    rawMaterialCost: 8750000,
-    operationalCost: 1500000,
-    packagingCost: 950000,
-    distributionCost: 750000,
-    totalCost: 11950000,
-    costPerPortion: 9560,
-    notes: 'Fallback preview ketika API batch kosong.',
-    _count: { items: 5, anomalyLogs: 0 },
-    sppg: { name: 'SPPG Demo Bandung' },
-    items: [
-      { id: 'item-1', commodityName: 'Beras Medium', quantity: 180, unit: 'kg', unitPrice: 15000, totalPrice: 2700000 },
-      { id: 'item-2', commodityName: 'Daging Ayam Ras', quantity: 110, unit: 'kg', unitPrice: 42000, totalPrice: 4620000 },
-    ],
-  },
-]
 
 const initialBatchForm = {
   sppgId: '',
@@ -66,6 +46,7 @@ function formatDate(value) {
 }
 
 function normalizeBatch(item) {
+  if (!item) return null
   return {
     ...item,
     productionDate: item.productionDate || item.production_date,
@@ -81,6 +62,30 @@ function normalizeBatch(item) {
   }
 }
 
+function normalizeCostSummary(item) {
+  if (!item) return null
+  return {
+    ...item,
+    batchId: item.batchId ?? item.batch_id ?? item.id,
+    rawMaterialCost: safeNumber(item.rawMaterialCost ?? item.raw_material_cost),
+    operationalCost: safeNumber(item.operationalCost ?? item.operational_cost),
+    packagingCost: safeNumber(item.packagingCost ?? item.packaging_cost),
+    distributionCost: safeNumber(item.distributionCost ?? item.distribution_cost),
+    totalCost: safeNumber(item.totalCost ?? item.total_cost),
+    totalPortions: safeNumber(item.totalPortions ?? item.total_portions),
+    costPerPortion: safeNumber(item.costPerPortion ?? item.cost_per_portion),
+    rawMaterialTotals: item.rawMaterialTotals || item.raw_material_totals || { items: [] },
+    sp2kpComparison: item.sp2kpComparison || item.sp2kp_comparison || null,
+  }
+}
+
+function getComparisonStatusLabel(status) {
+  if (status === 'above_threshold') return 'Di atas batas'
+  if (status === 'below_threshold') return 'Di bawah batas'
+  if (status === 'normal') return 'Normal'
+  return 'Belum tersedia'
+}
+
 function getErrorMessage(error, fallback) {
   return error?.message || fallback
 }
@@ -88,6 +93,7 @@ function getErrorMessage(error, fallback) {
 function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user }) {
   const [batches, setBatches] = useState([])
   const [selectedBatch, setSelectedBatch] = useState(null)
+  const [costSummary, setCostSummary] = useState(null)
   const [filterDate, setFilterDate] = useState(TODAY)
   const [batchForm, setBatchForm] = useState(initialBatchForm)
   const [itemForm, setItemForm] = useState(initialItemForm)
@@ -95,6 +101,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
   const [itemErrors, setItemErrors] = useState({})
   const [loading, setLoading] = useState(true)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [costLoading, setCostLoading] = useState(false)
   const [submitLoading, setSubmitLoading] = useState('')
   const [error, setError] = useState('')
   const [toast, setToast] = useState(null)
@@ -102,61 +109,99 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
   const isAdmin = userRole === 'admin'
   const canCreate = userRole === 'sppg' || isAdmin
   const activeBatch = selectedBatch || batches[0]
+  const activeCostSummary = costSummary && String(costSummary.batchId) === String(activeBatch?.id) ? costSummary : null
 
   const showToast = useCallback((type, message) => {
     setToast({ type, message })
     window.setTimeout(() => setToast(null), 3200)
   }, [])
 
+  const fetchCostSummary = useCallback(
+    async (batchId, signal) => {
+      if (!batchId) {
+        setCostSummary(null)
+        return null
+      }
+
+      setCostLoading(true)
+      try {
+        const payload = await getProductionBatchCostSummary(batchId, { signal })
+        const normalized = normalizeCostSummary(payload.data)
+        if (!signal?.aborted) setCostSummary(normalized)
+        return normalized
+      } catch (costError) {
+        if (costError.name !== 'AbortError') {
+          setCostSummary(null)
+          showToast('warning', getErrorMessage(costError, 'Ringkasan costing belum bisa dimuat.'))
+        }
+        return null
+      } finally {
+        if (!signal?.aborted) setCostLoading(false)
+      }
+    },
+    [showToast],
+  )
+
+  const fetchDetail = useCallback(
+    async (batchId, signal) => {
+      if (!batchId) return
+
+      setDetailLoading(true)
+      try {
+        const payload = await getProductionBatchDetail(batchId, { signal })
+        const detail = normalizeBatch(payload.data)
+        if (!signal?.aborted) setSelectedBatch(detail)
+      } catch (detailError) {
+        if (detailError.name !== 'AbortError') {
+          showToast('warning', getErrorMessage(detailError, 'Detail batch belum bisa dimuat.'))
+        }
+      } finally {
+        if (!signal?.aborted) setDetailLoading(false)
+      }
+
+      await fetchCostSummary(batchId, signal)
+    },
+    [fetchCostSummary, showToast],
+  )
+
   const fetchBatches = useCallback(
-    async (signal) => {
+    async (signal, preferredBatchId = null) => {
       setLoading(true)
       setError('')
 
       try {
-        const payload = await getProductionBatches({
-          date: filterDate,
-          limit: 25,
-        })
+        const payload = await getProductionBatches(
+          {
+            date: filterDate,
+            limit: 25,
+          },
+          { signal },
+        )
         const rows = Array.isArray(payload.data) ? payload.data.map(normalizeBatch) : []
 
         if (!rows.length) {
-          setBatches(FALLBACK_BATCHES)
-          setSelectedBatch(FALLBACK_BATCHES[0])
-          setError('Data production batch API kosong. Fallback preview ditampilkan sementara.')
+          setBatches([])
+          setSelectedBatch(null)
+          setCostSummary(null)
           return
         }
 
+        const nextSelected = rows.find((item) => String(item.id) === String(preferredBatchId)) || rows[0]
         setBatches(rows)
-        setSelectedBatch((current) => rows.find((item) => item.id === current?.id) || rows[0])
+        setSelectedBatch(nextSelected)
+        await fetchDetail(nextSelected.id, signal)
       } catch (fetchError) {
         if (fetchError.name !== 'AbortError') {
-          setBatches(FALLBACK_BATCHES)
-          setSelectedBatch(FALLBACK_BATCHES[0])
+          setBatches([])
+          setSelectedBatch(null)
+          setCostSummary(null)
           setError(getErrorMessage(fetchError, 'Production batch gagal dimuat dari backend.'))
         }
       } finally {
         if (!signal?.aborted) setLoading(false)
       }
     },
-    [filterDate],
-  )
-
-  const fetchDetail = useCallback(
-    async (batchId) => {
-      if (!batchId || String(batchId).startsWith('fallback')) return
-
-      setDetailLoading(true)
-      try {
-        const payload = await getProductionBatchDetail(batchId)
-        setSelectedBatch(normalizeBatch(payload.data))
-      } catch (detailError) {
-        showToast('warning', getErrorMessage(detailError, 'Detail batch belum bisa dimuat.'))
-      } finally {
-        setDetailLoading(false)
-      }
-    },
-    [showToast],
+    [fetchDetail, filterDate],
   )
 
   useEffect(() => {
@@ -166,20 +211,9 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
     return () => controller.abort()
   }, [fetchBatches])
 
-  const costPreview = useMemo(() => {
-    const total =
-      safeNumber(batchForm.operationalCost) +
-      safeNumber(batchForm.packagingCost) +
-      safeNumber(batchForm.distributionCost)
-    const portions = safeNumber(batchForm.totalPortions)
-
-    return {
-      total,
-      costPerPortion: portions > 0 ? total / portions : 0,
-    }
-  }, [batchForm])
-
   const itemTotalPreview = safeNumber(itemForm.quantity) * safeNumber(itemForm.unitPrice)
+  const comparison = activeCostSummary?.sp2kpComparison
+  const comparisonRows = comparison?.items || activeCostSummary?.rawMaterialTotals?.items || []
 
   const handleBatchFormChange = (event) => {
     const { name, value } = event.target
@@ -208,7 +242,6 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
     const nextErrors = {}
 
     if (!activeBatch?.id) nextErrors.batch = 'Pilih batch terlebih dahulu.'
-    if (String(activeBatch?.id).startsWith('fallback')) nextErrors.batch = 'Fallback batch tidak bisa menerima item baru.'
     if (!itemForm.commodityName.trim()) nextErrors.commodityName = 'Nama bahan baku wajib diisi.'
     if (!safeNumber(itemForm.quantity)) nextErrors.quantity = 'Jumlah wajib lebih dari 0.'
     if (!itemForm.unit.trim()) nextErrors.unit = 'Satuan wajib diisi.'
@@ -234,7 +267,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
         notes: batchForm.notes || null,
       })
       const created = normalizeBatch(payload.data)
-      setBatches((current) => [created, ...current.filter((item) => !String(item.id).startsWith('fallback'))])
+      setBatches((current) => [created, ...current])
       setSelectedBatch(created)
       setBatchForm({ ...initialBatchForm, productionDate: batchForm.productionDate })
       showToast('success', 'Production batch berhasil dibuat.')
@@ -260,7 +293,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
       })
       setItemForm(initialItemForm)
       await fetchDetail(activeBatch.id)
-      await fetchBatches()
+      await fetchBatches(undefined, activeBatch.id)
       showToast('success', 'Bahan baku berhasil ditambahkan dan costing dihitung ulang.')
     } catch (submitError) {
       showToast('danger', getErrorMessage(submitError, 'Gagal menambahkan bahan baku.'))
@@ -281,7 +314,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
         </div>
         <div className="batch-header-actions">
           <span>{userName || user?.name || 'Pengguna'}</span>
-          <button className="batch-btn batch-btn-secondary" type="button" onClick={() => fetchBatches()}>
+          <button className="batch-btn batch-btn-secondary" type="button" onClick={() => fetchBatches(undefined, activeBatch?.id)}>
             <RefreshCcw aria-hidden="true" />
             Muat Ulang
           </button>
@@ -302,7 +335,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
           <span className="batch-label">Tanggal Produksi</span>
           <input className="batch-input" type="date" value={filterDate} onChange={(event) => setFilterDate(event.target.value)} />
         </label>
-        <p>Backend menjadi sumber utama. Jika API gagal/kosong, preview fallback hanya ditampilkan untuk menjaga halaman tetap hidup.</p>
+        <p>Backend menjadi sumber utama costing. Data kosong ditampilkan sebagai empty state tanpa angka palsu.</p>
       </section>
 
       <div className="batch-layout">
@@ -336,19 +369,52 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
         <section className="batch-card batch-detail-card">
           <div className="batch-section-header">
             <h2>Ringkasan Costing</h2>
-            {detailLoading ? <Loader2 className="batch-spin" aria-hidden="true" /> : null}
+            {detailLoading || costLoading ? <Loader2 className="batch-spin" aria-hidden="true" /> : null}
           </div>
 
           {activeBatch ? (
             <>
-              <div className="batch-cost-grid">
-                <CostItem label="Bahan Baku" value={formatRupiah(activeBatch.rawMaterialCost)} />
-                <CostItem label="Operasional" value={formatRupiah(activeBatch.operationalCost)} />
-                <CostItem label="Packaging" value={formatRupiah(activeBatch.packagingCost)} />
-                <CostItem label="Distribusi" value={formatRupiah(activeBatch.distributionCost)} />
-                <CostItem label="Total Cost" value={formatRupiah(activeBatch.totalCost)} highlight />
-                <CostItem label="Cost/Porsi" value={formatRupiah(activeBatch.costPerPortion)} highlight />
-              </div>
+              {activeCostSummary ? (
+                <div className="batch-cost-grid">
+                  <CostItem label="Bahan Baku" value={formatRupiah(activeCostSummary.rawMaterialCost)} />
+                  <CostItem label="Operasional" value={formatRupiah(activeCostSummary.operationalCost)} />
+                  <CostItem label="Packaging" value={formatRupiah(activeCostSummary.packagingCost)} />
+                  <CostItem label="Distribusi" value={formatRupiah(activeCostSummary.distributionCost)} />
+                  <CostItem label="Total Cost" value={formatRupiah(activeCostSummary.totalCost)} highlight />
+                  <CostItem label="Cost/Porsi" value={formatRupiah(activeCostSummary.costPerPortion)} highlight />
+                </div>
+              ) : (
+                <div className="batch-empty">Ringkasan costing belum dimuat dari backend.</div>
+              )}
+
+              {activeCostSummary ? (
+                <div className="batch-comparison">
+                  <div>
+                    <span className="batch-label">Perbandingan SP2KP</span>
+                    {comparison?.available ? (
+                      <strong>
+                        {comparison.estimatedPortionPrice
+                          ? `${formatRupiah(comparison.estimatedPortionPrice)} estimasi/porsi`
+                          : 'Referensi bahan baku tersedia'}
+                      </strong>
+                    ) : (
+                      <strong>Belum tersedia</strong>
+                    )}
+                    <small>
+                      {comparison?.available
+                        ? `Sumber ${comparison.source || 'SP2KP'}${comparison.sourceDate ? `, ${comparison.sourceDate}` : ''}`
+                        : comparison?.reason || 'Data SP2KP belum tersedia.'}
+                    </small>
+                  </div>
+                  {comparison?.estimatedPortionPrice ? (
+                    <div>
+                      <span className="batch-label">Selisih Cost/Porsi</span>
+                      <strong>{formatRupiah(comparison.varianceAmount)}</strong>
+                      <small>{safeNumber(comparison.variancePercent).toLocaleString('id-ID')}% dari estimasi SP2KP</small>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="batch-table-wrap">
                 <table className="batch-table">
@@ -359,11 +425,12 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
                       <th>Harga Satuan</th>
                       <th>Total</th>
                       <th>Ref Pasar</th>
+                      <th>Status SP2KP</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {activeBatch.items?.length ? (
-                      activeBatch.items.map((item) => (
+                    {comparisonRows.length ? (
+                      comparisonRows.map((item) => (
                         <tr key={item.id}>
                           <td>{item.commodityName || item.commodity_name}</td>
                           <td>
@@ -376,11 +443,12 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
                               ? formatRupiah(item.marketReferencePrice ?? item.market_reference_price)
                               : '-'}
                           </td>
+                          <td>{item.available === false ? item.reason : getComparisonStatusLabel(item.status)}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5">Belum ada bahan baku pada batch ini.</td>
+                        <td colSpan="6">Belum ada bahan baku pada batch ini.</td>
                       </tr>
                     )}
                   </tbody>
@@ -440,12 +508,6 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
                 <span className="batch-label">Catatan</span>
                 <textarea className="batch-textarea" name="notes" value={batchForm.notes} onChange={handleBatchFormChange} />
               </label>
-
-              <div className="batch-preview">
-                <Utensils aria-hidden="true" />
-                <span>Estimasi cost awal tanpa bahan baku</span>
-                <strong>{formatRupiah(costPreview.costPerPortion)}/porsi</strong>
-              </div>
 
               <button className="batch-btn batch-btn-primary" type="submit" disabled={submitLoading === 'batch'}>
                 {submitLoading === 'batch' ? <Loader2 aria-hidden="true" /> : <Plus aria-hidden="true" />}
