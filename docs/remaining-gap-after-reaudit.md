@@ -40,3 +40,53 @@
 - PR 7: Audit Coverage Completion - tambah test old_data/new_data untuk Schools create/update/soft delete/restore, user restore jika dipakai, override, dan pastikan restore admin-only masuk audit.
 - PR 8: Browser E2E Operational Flows - Playwright isolated login/session untuk SPPG dan sekolah, termasuk `/input-menu`, `/laporan-kendala`, `/validasi` verified/conflict, upload proof dengan fixture file.
 - PR 9: QA Polish - bersihkan Recharts warnings, tambahkan fresh-context protected-route smoke, dan pecah bundle besar dengan lazy loading tambahan.
+
+# Playwright Endpoint Audit Update
+
+- Tanggal audit browser: 2026-05-26, Asia/Jakarta.
+- Laporan detail: `docs/playwright-endpoint-feature-audit.md`.
+- Endpoint OK: 48 unique endpoint/pattern.
+- Endpoint WARNING: 5 unique endpoint/pattern.
+- Endpoint ERROR: 0.
+- Endpoint BLOCKED: 3.
+- Fitur OK: 36.
+- Fitur WARNING: 7.
+- Fitur ERROR/BLOCKED: 3.
+
+## Endpoint OK
+
+- Public endpoints `/api/public/statistics`, `/api/public/sppg`, `/api/public/budget`.
+- Auth/session endpoints `/api/auth/session`, `/api/auth/login`, `/api/auth/logout`.
+- Dashboard endpoints untuk admin, pemerintah, SPPG, sekolah.
+- Admin endpoints `/api/users`, `/api/roles`, `/api/sppg`, `/api/schools`, `/api/audit-logs`, `/api/monitoring/*`, `/api/distributions/lock-summary`.
+- Pemerintah endpoints `/api/analytics/*`, `/api/anomaly-logs`, `/api/public-reports*`, `/api/exports`.
+- SPPG endpoints `/api/distributions`, `/api/sppg/me/schools`, `/api/price-thresholds/my-region`, `/api/menus`, `/api/issues`.
+- Sekolah endpoints `/api/validations`, `/api/school-reports`, `/api/schools/1`.
+
+## Endpoint WARNING
+
+- `/api/auth/session` 200 tetapi terpanggil sangat sering saat route navigation.
+- `/api/notifications?limit=6` 200 tetapi terpanggil di hampir semua protected route.
+- `/api/audit-logs/summary` dan `/api/audit-logs?page=1&limit=10` punya aborted duplicate saat navigasi cepat.
+- `/api/system-configs/export_max_rows` dan `/api/exports?page=1&limit=10` punya aborted duplicate sebelum 200.
+
+## Endpoint ERROR
+
+- Tidak ditemukan endpoint 5xx, CORS error, role leak, atau public route yang butuh login pada audit browser ini.
+
+## Fitur WARNING/BLOCKED
+
+- `/distribusi` dan `/riwayat` menampilkan teks `signal is aborted without reason` walau endpoint 200.
+- `/dashboard` dan `/anggaran` masih memunculkan Recharts width/height `-1` warning.
+- Click tombol `Masuk` tidak mengirim request pada manual SPPG/sekolah check, tetapi submit via Enter berhasil.
+- Logout pemerintah dari `/export` tidak redirect ke `/login` pada run ini.
+- Public report valid-submit BLOCKED karena CAPTCHA provider token asli.
+- Upload proof dan export create/download via browser BLOCKED karena butuh fixture/aksi mutasi yang belum disiapkan untuk audit-only pass.
+
+## Prioritas Fix Berikutnya
+
+- P2: Sembunyikan AbortError/abort signal dari UI user-facing.
+- P2: Perbaiki reliability tombol login dan logout redirect.
+- P2: Tambahkan Playwright E2E isolated untuk upload proof, validation verified/conflict, dan export create/download.
+- P3: Bersihkan Recharts chart container warning.
+- P3: Kurangi duplicate fetch/aborted request pada route navigation, session check, dan notifications.
