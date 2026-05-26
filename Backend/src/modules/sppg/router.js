@@ -3,11 +3,17 @@ const express = require("express");
 const controller = require("./controller");
 const {
   createSppgSchema,
+  adminAssignSppgSchoolsSchema,
+  adminSppgSchoolsSchema,
+  adminUnassignSppgSchoolSchema,
+  assignMySchoolsSchema,
   listDeletedSppgSchema,
+  listMyDapodikSchoolsSchema,
   listSppgSchema,
   listMySchoolsSchema,
   mapMarkersSchema,
   sppgIdParamsSchema,
+  unassignMySchoolSchema,
   updateSppgSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
@@ -32,11 +38,53 @@ router.get(
   controller.listMapMarkers
 );
 router.get(
+  "/me/dapodik-schools",
+  authenticate,
+  authorize("sppg"),
+  validateRequest(listMyDapodikSchoolsSchema),
+  controller.listMyDapodikSchools
+);
+router.post(
+  "/me/schools/assign",
+  authenticate,
+  authorize("sppg"),
+  validateRequest(assignMySchoolsSchema),
+  controller.assignMySchools
+);
+router.patch(
+  "/me/schools/:assignmentId/unassign",
+  authenticate,
+  authorize("sppg"),
+  validateRequest(unassignMySchoolSchema),
+  controller.unassignMySchool
+);
+router.get(
   "/me/schools",
   authenticate,
   authorize("sppg"),
   validateRequest(listMySchoolsSchema),
   controller.listMySchools
+);
+router.get(
+  "/:id/schools",
+  authenticate,
+  authorize("admin"),
+  validateRequest(adminSppgSchoolsSchema),
+  controller.listAdminSppgSchools
+);
+router.post(
+  "/:id/schools/assign",
+  authenticate,
+  authorize("admin"),
+  validateRequest(adminAssignSppgSchoolsSchema),
+  controller.assignAdminSppgSchools
+);
+router.patch(
+  "/:id/schools/:assignmentId/unassign",
+  authenticate,
+  authorize("admin"),
+  validateRequest(adminUnassignSppgSchoolSchema),
+  controller.unassignAdminSppgSchool
 );
 router.get(
   "/:id/detail",

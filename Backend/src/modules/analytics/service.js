@@ -254,11 +254,11 @@ const getSuccessRate = async ({ filters, granularity }) => {
         ${bucketExpression} AS bucket,
         COUNT(v.id) FILTER (WHERE v.status = 'verified')::int AS verified_count,
         COUNT(v.id) FILTER (WHERE v.status = 'conflict')::int AS conflict_count,
-        COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict'))::int AS validated_count,
+        COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported'))::int AS validated_count,
         COALESCE(
           ROUND(
             100.0 * COUNT(v.id) FILTER (WHERE v.status = 'verified')
-            / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict')), 0),
+            / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported')), 0),
             2
           ),
           0
@@ -276,11 +276,11 @@ const getSuccessRate = async ({ filters, granularity }) => {
         s.province,
         COUNT(v.id) FILTER (WHERE v.status = 'verified')::int AS verified_count,
         COUNT(v.id) FILTER (WHERE v.status = 'conflict')::int AS conflict_count,
-        COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict'))::int AS validated_count,
+        COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported'))::int AS validated_count,
         COALESCE(
           ROUND(
             100.0 * COUNT(v.id) FILTER (WHERE v.status = 'verified')
-            / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict')), 0),
+            / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported')), 0),
             2
           ),
           0
@@ -299,11 +299,11 @@ const getSuccessRate = async ({ filters, granularity }) => {
         s.city,
         COUNT(v.id) FILTER (WHERE v.status = 'verified')::int AS verified_count,
         COUNT(v.id) FILTER (WHERE v.status = 'conflict')::int AS conflict_count,
-        COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict'))::int AS validated_count,
+        COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported'))::int AS validated_count,
         COALESCE(
           ROUND(
             100.0 * COUNT(v.id) FILTER (WHERE v.status = 'verified')
-            / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict')), 0),
+            / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported')), 0),
             2
           ),
           0
@@ -614,7 +614,7 @@ const getByProvince = async ({ filters, limit }) => {
       COALESCE(
         ROUND(
           100.0 * COUNT(v.id) FILTER (WHERE v.status = 'verified')
-          / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict')), 0),
+          / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported')), 0),
           2
         ),
         0

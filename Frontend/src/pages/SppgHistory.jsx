@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, RefreshCcw } from 'lucide-react'
-import { getDistributions, getIssues, getMenus } from '../services/api.js'
+import { getDistributions, getIssues, getMenus, getSchoolReports, isAbortError } from '../services/api.js'
 import './SppgOperational.css'
 
 function formatDate(value) {
@@ -45,11 +45,26 @@ function normalizeIssue(item) {
   }
 }
 
+function normalizeSchoolReport(item) {
+  const distribution = item.distribution || {}
+  const validation = distribution.validation || {}
+  return {
+    id: item.id,
+    category: item.category,
+    status: validation.status || 'issue_reported',
+    message: item.message || '-',
+    schoolName: item.school?.name || distribution.school?.name || '-',
+    distributionId: item.distributionId || item.distribution_id || distribution.id,
+    createdAt: item.createdAt || item.created_at,
+  }
+}
+
 function SppgHistory({ user }) {
   const sppgId = user?.sppgId || user?.sppg_id || ''
   const [distributions, setDistributions] = useState([])
   const [menus, setMenus] = useState([])
   const [issues, setIssues] = useState([])
+  const [schoolReports, setSchoolReports] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -58,31 +73,42 @@ function SppgHistory({ user }) {
     setError('')
 
     try {
-      const [distributionResult, menuResult, issueResult] = await Promise.allSettled([
+      const [distributionResult, menuResult, issueResult, schoolReportResult] = await Promise.allSettled([
         getDistributions({ limit: 20 }, { signal }),
         sppgId ? getMenus({ sppgId, limit: 20 }, { signal }) : Promise.resolve({ data: [] }),
         getIssues({ limit: 20 }, { signal }),
+        getSchoolReports({ limit: 20 }, { signal }),
       ])
+
+      if (signal?.aborted) return
 
       if (distributionResult.status === 'fulfilled') {
         setDistributions(Array.isArray(distributionResult.value.data) ? distributionResult.value.data.map(normalizeDistribution) : [])
-      } else {
+      } else if (!isAbortError(distributionResult.reason)) {
         setDistributions([])
       }
 
       if (menuResult.status === 'fulfilled') {
         setMenus(Array.isArray(menuResult.value.data) ? menuResult.value.data.map(normalizeMenu) : [])
-      } else {
+      } else if (!isAbortError(menuResult.reason)) {
         setMenus([])
       }
 
       if (issueResult.status === 'fulfilled') {
         setIssues(Array.isArray(issueResult.value.data) ? issueResult.value.data.map(normalizeIssue) : [])
-      } else {
+      } else if (!isAbortError(issueResult.reason)) {
         setIssues([])
       }
 
-      const failed = [distributionResult, menuResult, issueResult].find((result) => result.status === 'rejected')
+      if (schoolReportResult.status === 'fulfilled') {
+        setSchoolReports(Array.isArray(schoolReportResult.value.data) ? schoolReportResult.value.data.map(normalizeSchoolReport) : [])
+      } else if (!isAbortError(schoolReportResult.reason)) {
+        setSchoolReports([])
+      }
+
+      const failed = [distributionResult, menuResult, issueResult, schoolReportResult].find((result) => (
+        result.status === 'rejected' && !isAbortError(result.reason)
+      ))
       if (failed) {
         setError(failed.reason?.message || 'Sebagian riwayat gagal dimuat.')
       }
@@ -151,6 +177,21 @@ function SppgHistory({ user }) {
                 <strong>{issue.description}</strong>
                 <span>{formatDate(issue.createdAt)} | {issue.category}</span>
                 <small>{issue.status}</small>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="sppg-op-card">
+          <h2>Laporan Sekolah</h2>
+          {!loading && schoolReports.length === 0 ? <div className="sppg-op-empty">Belum ada laporan masalah dari sekolah.</div> : null}
+          <div className="sppg-op-list">
+            {schoolReports.map((report) => (
+              <article className="sppg-op-item" key={report.id}>
+                <strong>{report.schoolName}</strong>
+                <span>{formatDate(report.createdAt)} | Distribusi #{report.distributionId || '-'}</span>
+                <small>{report.category} | {report.status}</small>
+                <p>{report.message}</p>
               </article>
             ))}
           </div>

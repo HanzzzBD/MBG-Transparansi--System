@@ -106,6 +106,8 @@ const listSchoolReportsSchema = z.object({
     page: z.coerce.number().int().positive().optional(),
     limit: z.coerce.number().int().positive().optional(),
     schoolId: z.coerce.number().int().positive().optional(),
+    sppgId: z.coerce.number().int().positive().optional(),
+    distributionId: z.coerce.number().int().positive().optional(),
     category: reportCategoryEnum.optional()
   })
 });
@@ -113,6 +115,8 @@ const listSchoolReportsSchema = z.object({
 const createSchoolReportSchema = z.object({
   body: z.object({
     schoolId: z.coerce.number().int().positive().optional(),
+    distributionId: z.coerce.number().int().positive().optional(),
+    validationId: z.coerce.number().int().positive().optional(),
     category: reportCategoryEnum,
     message: z.string().trim().min(1).max(4000)
   }),

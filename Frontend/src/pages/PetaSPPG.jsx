@@ -28,6 +28,7 @@ import {
   YAxis,
 } from 'recharts'
 import { getSppgMapMarkers, getSppgOperationalDetail } from '../services/api'
+import { matchesSearchTokens, rankBySearch } from '../utils/search.js'
 import './PetaSPPG.css'
 
 const INDONESIA_CENTER = [-2.5, 118]
@@ -491,19 +492,24 @@ function PetaSPPG() {
 
   useEffect(() => {
     let isCurrent = true
-    const keyword = search.trim().toLowerCase()
     const filtered = sppgList.filter((item) => {
       const matchesProvince = province ? normalizeRegionKey(item.province) === normalizeRegionKey(province) : true
       const matchesStatus = status ? item.status === status : true
-      const matchesSearch = keyword
-        ? [item.name, item.city, item.province, item.address].some((value) => String(value || '').toLowerCase().includes(keyword))
-        : true
+      const matchesSearch = matchesSearchTokens([item.name, item.city, item.province, item.address], search)
 
       return matchesProvince && matchesStatus && matchesSearch
     })
+    const ranked = search.trim()
+      ? rankBySearch(filtered, search, [
+        { field: 'name', weight: 6 },
+        { field: 'city', weight: 3 },
+        { field: 'province', weight: 2 },
+        { field: 'address', weight: 1 },
+      ])
+      : filtered
 
     Promise.resolve().then(() => {
-      if (isCurrent) setFilteredSppg(filtered)
+      if (isCurrent) setFilteredSppg(ranked)
     })
 
     return () => {

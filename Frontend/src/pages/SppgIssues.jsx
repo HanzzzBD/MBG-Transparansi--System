@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, RefreshCcw, Send } from 'lucide-react'
-import { createIssue, getIssues } from '../services/api.js'
+import { createIssue, getIssues, getSchoolReports } from '../services/api.js'
 import './SppgOperational.css'
 
 const ISSUE_CATEGORIES = [
@@ -39,8 +39,23 @@ function normalizeIssue(item) {
   }
 }
 
+function normalizeSchoolReport(item) {
+  const distribution = item.distribution || {}
+  const validation = distribution.validation || {}
+  return {
+    id: item.id,
+    category: item.category,
+    status: validation.status || 'issue_reported',
+    description: item.message || '-',
+    schoolName: item.school?.name || distribution.school?.name || '-',
+    distributionId: item.distributionId || item.distribution_id || distribution.id,
+    createdAt: item.createdAt || item.created_at,
+  }
+}
+
 function SppgIssues() {
   const [issues, setIssues] = useState([])
+  const [schoolReports, setSchoolReports] = useState([])
   const [form, setForm] = useState(initialForm)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -52,11 +67,32 @@ function SppgIssues() {
     setError('')
 
     try {
-      const { data } = await getIssues({ limit: 20 }, { signal })
-      setIssues(Array.isArray(data) ? data.map(normalizeIssue) : [])
+      const [issueResult, schoolReportResult] = await Promise.allSettled([
+        getIssues({ limit: 20 }, { signal }),
+        getSchoolReports({ limit: 20 }, { signal }),
+      ])
+      if (signal?.aborted) return
+
+      if (issueResult.status === 'fulfilled') {
+        setIssues(Array.isArray(issueResult.value.data) ? issueResult.value.data.map(normalizeIssue) : [])
+      } else {
+        setIssues([])
+      }
+
+      if (schoolReportResult.status === 'fulfilled') {
+        setSchoolReports(Array.isArray(schoolReportResult.value.data) ? schoolReportResult.value.data.map(normalizeSchoolReport) : [])
+      } else {
+        setSchoolReports([])
+      }
+
+      const failed = [issueResult, schoolReportResult].find((result) => result.status === 'rejected')
+      if (failed) {
+        setError(failed.reason?.message || 'Sebagian laporan kendala gagal dimuat.')
+      }
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
         setIssues([])
+        setSchoolReports([])
         setError(fetchError.message || 'Laporan kendala gagal dimuat.')
       }
     } finally {
@@ -152,6 +188,24 @@ function SppgIssues() {
                 <small>
                   {issue.category} | {issue.status}
                 </small>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="sppg-op-card">
+          <h2>Laporan Masalah Sekolah</h2>
+          {loading ? <div className="sppg-op-state"><Loader2 aria-hidden="true" /> Memuat laporan sekolah...</div> : null}
+          {!loading && schoolReports.length === 0 ? <div className="sppg-op-empty">Belum ada laporan masalah dari sekolah.</div> : null}
+          <div className="sppg-op-list">
+            {schoolReports.map((report) => (
+              <article className="sppg-op-item" key={report.id}>
+                <strong>{report.schoolName}</strong>
+                <span>{formatDateTime(report.createdAt)} | Distribusi #{report.distributionId || '-'}</span>
+                <small>
+                  {report.category} | {report.status}
+                </small>
+                <p>{report.description}</p>
               </article>
             ))}
           </div>

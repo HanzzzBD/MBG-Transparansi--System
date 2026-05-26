@@ -33,7 +33,7 @@ import {
   YAxis,
 } from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { getDashboardRoleSummary } from '../services/api'
+import { getDashboardRoleSummary, isAbortError } from '../services/api'
 import './Dashboard.css'
 
 const ROLE_LABELS = {
@@ -50,6 +50,7 @@ const STATUS_LABELS = {
   pending: 'Menunggu',
   verified: 'Terverifikasi',
   conflict: 'Konflik',
+  issue_reported: 'Masalah Dilaporkan',
   resolved: 'Resolved',
   open: 'Open',
 }
@@ -461,7 +462,7 @@ function renderSppgCharts(data) {
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Porsi Diproduksi 7 Hari Terakhir" className="dashboard-chart-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <BarChart data={portionsTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -481,7 +482,7 @@ function renderSchoolCharts(data) {
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Tren Penerimaan 30 Hari" className="dashboard-chart-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <LineChart data={acceptanceTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -503,7 +504,7 @@ function renderNationalCharts(data) {
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Distribusi Harian 7 Hari" className="dashboard-chart-main">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <BarChart data={distributionTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -518,7 +519,7 @@ function renderNationalCharts(data) {
       </ChartCard>
 
       <ChartCard title="Tren Success Rate 30 Hari" className="dashboard-chart-side">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <AreaChart data={successRateTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -538,7 +539,7 @@ function renderNationalCharts(data) {
       </ChartCard>
 
       <ChartCard title="TOP 10 Provinsi by Distribusi" className="dashboard-chart-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <BarChart data={provinceRanking} layout="vertical" margin={{ left: 20, right: 24 }}>
             <CartesianGrid stroke="#f4f8fb" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -751,7 +752,7 @@ function Dashboard({ userRole, userName, onLogout }) {
         const response = await getDashboardRoleSummary(normalizedRole, params, { signal })
         setDashboardData(normalizeDashboardData(response))
       } catch (fetchError) {
-        if (fetchError.name !== 'AbortError') {
+        if (!isAbortError(fetchError)) {
           setDashboardData(makeInitialData())
           setError(fetchError.message || 'Dashboard gagal memuat data dari backend.')
         }

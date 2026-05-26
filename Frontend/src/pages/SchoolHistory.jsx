@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, RefreshCcw } from 'lucide-react'
-import { getDistributions, getValidations } from '../services/api.js'
+import { getDistributions, getValidations, isAbortError } from '../services/api.js'
 import './SppgOperational.css'
 
 function formatDate(value) {
@@ -47,19 +47,23 @@ function SchoolHistory() {
         getValidations({ limit: 20 }, { signal }),
       ])
 
+      if (signal?.aborted) return
+
       if (distributionResult.status === 'fulfilled') {
         setDistributions(Array.isArray(distributionResult.value.data) ? distributionResult.value.data.map(normalizeDistribution) : [])
-      } else {
+      } else if (!isAbortError(distributionResult.reason)) {
         setDistributions([])
       }
 
       if (validationResult.status === 'fulfilled') {
         setValidations(Array.isArray(validationResult.value.data) ? validationResult.value.data.map(normalizeValidation) : [])
-      } else {
+      } else if (!isAbortError(validationResult.reason)) {
         setValidations([])
       }
 
-      const failed = [distributionResult, validationResult].find((result) => result.status === 'rejected')
+      const failed = [distributionResult, validationResult].find((result) => (
+        result.status === 'rejected' && !isAbortError(result.reason)
+      ))
       if (failed) setError(failed.reason?.message || 'Sebagian riwayat sekolah gagal dimuat.')
     } finally {
       if (!signal?.aborted) setLoading(false)

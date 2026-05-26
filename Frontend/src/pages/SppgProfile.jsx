@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Loader2, RefreshCcw } from 'lucide-react'
 import { getSppgDetail } from '../services/api.js'
 import './SppgOperational.css'
@@ -85,7 +86,14 @@ function SppgProfile({ user }) {
           </section>
 
           <section className="sppg-op-card">
-            <h2>Ringkasan</h2>
+            <div className="sppg-op-section-head">
+              <div>
+                <h2>Ringkasan</h2>
+              </div>
+              <Link className="sppg-op-btn sppg-op-btn-secondary" to="/sekolah-saluran">
+                Kelola Sekolah Saluran
+              </Link>
+            </div>
             <div className="sppg-op-kpi-grid">
               <div className="sppg-op-kpi">
                 <span>Kapasitas</span>

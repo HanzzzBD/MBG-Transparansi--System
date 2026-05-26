@@ -146,6 +146,7 @@ async function setupData() {
 
   await createPendingValidation({ key: "verified", school: state.schools.a, portions: 300 });
   await createPendingValidation({ key: "conflict", school: state.schools.a, portions: 280 });
+  await createPendingValidation({ key: "reported", school: state.schools.a, portions: 310 });
   await createPendingValidation({ key: "otherSchool", school: state.schools.b, portions: 260 });
 
   state.tokens = {
@@ -182,7 +183,16 @@ async function cleanupData() {
     where: {
       OR: [
         { userId: { in: userIds.length ? userIds : [-1] } },
-        { tableName: "validations", recordId: { in: validationIds.length ? validationIds : [-1] } }
+        { tableName: "validations", recordId: { in: validationIds.length ? validationIds : [-1] } },
+        { tableName: "school_reports", userId: { in: userIds.length ? userIds : [-1] } }
+      ]
+    }
+  });
+  await prisma.schoolReport.deleteMany({
+    where: {
+      OR: [
+        { schoolId: { in: schoolIds.length ? schoolIds : [-1] } },
+        { distributionId: { in: distributionIds.length ? distributionIds : [-1] } }
       ]
     }
   });
@@ -344,6 +354,69 @@ describe("PR 5 school validation flow isolated E2E", () => {
     });
 
     assert.ok(anomaly);
+  });
+
+  it("turns a school issue report into a non-pending validation visible to SPPG", async () => {
+    const response = await request("/api/school-reports", {
+      method: "POST",
+      token: state.tokens.schoolA,
+      body: {
+        distributionId: state.distributions.reported.id,
+        validationId: state.validations.reported.id,
+        category: "keterlambatan",
+        message: "Distribusi datang terlambat dan beberapa porsi perlu ditinjau ulang."
+      }
+    });
+
+    assert.equal(response.status, 201);
+    assert.equal(response.body?.data?.distributionId, state.distributions.reported.id);
+    assert.equal(response.body?.data?.schoolId, state.schools.a.id);
+    assert.equal(response.body?.data?.sppgId, state.sppg.id);
+
+    const validation = await prisma.validation.findUnique({
+      where: {
+        id: state.validations.reported.id
+      }
+    });
+
+    assert.equal(validation.status, "issue_reported");
+    assert.ok(validation.validatedAt);
+
+    const pendingResponse = await request("/api/validations?status=pending&limit=20", {
+      token: state.tokens.schoolA
+    });
+
+    assert.equal(pendingResponse.status, 200);
+    assert.ok(pendingResponse.body.data.every((item) => item.id !== state.validations.reported.id));
+
+    const sppgReportResponse = await request(`/api/school-reports?distributionId=${state.distributions.reported.id}`, {
+      token: state.tokens.sppg
+    });
+
+    assert.equal(sppgReportResponse.status, 200);
+    assert.equal(sppgReportResponse.body.data.length, 1);
+    assert.equal(sppgReportResponse.body.data[0].distributionId, state.distributions.reported.id);
+
+    const validationAudit = await prisma.auditLog.findFirst({
+      where: {
+        tableName: "validations",
+        recordId: state.validations.reported.id,
+        action: "UPDATE"
+      }
+    });
+    const reportAudit = await prisma.auditLog.findFirst({
+      where: {
+        tableName: "school_reports",
+        action: "INSERT",
+        newData: {
+          path: ["distributionId"],
+          equals: state.distributions.reported.id
+        }
+      }
+    });
+
+    assert.ok(validationAudit);
+    assert.ok(reportAudit);
   });
 
   it("prevents another school from reading or validating the validation", async () => {

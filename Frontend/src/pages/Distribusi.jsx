@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   Camera,
@@ -17,7 +17,9 @@ import {
   apiRequest as requestJson,
   getAssignedSppgSchools,
   getMyRegionPriceThreshold,
+  isAbortError,
 } from '../services/api'
+import { rankBySearch } from '../utils/search.js'
 import './Distribusi.css'
 
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -197,7 +199,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
         const normalized = Array.isArray(data) ? data.map(normalizeDistribution) : []
         setDistributions(normalized)
       } catch (fetchError) {
-        if (fetchError.name !== 'AbortError') {
+        if (!isAbortError(fetchError)) {
           setDistributions([])
           setError(fetchError.message || 'Data distribusi gagal dimuat dari API.')
         }
@@ -228,10 +230,12 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
       sppgResult,
     ])
 
+    if (signal?.aborted) return
+
     if (schoolsSettled.status === 'fulfilled') {
       const assignedSchools = Array.isArray(schoolsSettled.value.data) ? schoolsSettled.value.data : []
       setSchools(assignedSchools.map(normalizeSchool))
-    } else {
+    } else if (!isAbortError(schoolsSettled.reason)) {
       setSchools([])
       setSetupError(schoolsSettled.reason?.message || 'Sekolah tujuan gagal dimuat dari API.')
     }
@@ -240,7 +244,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
       const maxPrice = getThresholdMaxPrice(thresholdSettled.value.data)
       setPriceThreshold(maxPrice)
       setThresholdStatus(maxPrice ? '' : 'Threshold harga wilayah belum tersedia dari backend.')
-    } else {
+    } else if (!isAbortError(thresholdSettled.reason)) {
       setPriceThreshold(null)
       setThresholdStatus(thresholdSettled.reason?.message || 'Threshold harga wilayah gagal dimuat.')
     }
@@ -264,8 +268,8 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
         },
       })
       setProductionBatches(Array.isArray(data) ? data.map(normalizeProductionBatch) : [])
-    } catch {
-      setProductionBatches([])
+    } catch (fetchError) {
+      if (!isAbortError(fetchError)) setProductionBatches([])
     }
   }, [formData.distributionDate, sppgId])
 
@@ -305,12 +309,14 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
   }, [distributions, selectedDistribution])
 
   const filteredSchools = useMemo(() => {
-    const keyword = schoolSearch.trim().toLowerCase()
-    if (!keyword) return schools
+    if (!schoolSearch.trim()) return schools
 
-    return schools.filter((school) => {
-      return [school.name, school.city, school.province].some((value) => String(value || '').toLowerCase().includes(keyword))
-    })
+    return rankBySearch(schools, schoolSearch, [
+      { field: 'name', weight: 6 },
+      { field: 'npsn', weight: 4 },
+      { field: 'city', weight: 3 },
+      { field: 'province', weight: 2 },
+    ])
   }, [schoolSearch, schools])
 
   const totalPortions = filteredDistributions.reduce((total, item) => total + item.portions, 0)
@@ -694,7 +700,11 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                     ))}
                   </select>
                   {formErrors.schoolId ? <small className="distribusi-field-error">{formErrors.schoolId}</small> : null}
-                  {!schools.length ? <small className="distribusi-helper">Belum ada sekolah tujuan yang terhubung ke SPPG ini.</small> : null}
+                  {!schools.length ? (
+                    <small className="distribusi-helper">
+                      Belum ada sekolah saluran. <Link to="/sekolah-saluran">Tambahkan sekolah dulu</Link>.
+                    </small>
+                  ) : null}
                 </label>
 
                 <label className="distribusi-field distribusi-field-wide">

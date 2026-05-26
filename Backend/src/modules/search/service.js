@@ -1,4 +1,12 @@
 const { getPrismaClient } = require("../../config/prisma");
+const {
+  buildLooseTokenSearchWhere,
+  buildTokenSearchOr,
+  getRankedSearchCandidateLimit,
+  mergeWhereWithAnd,
+  rankBySearch,
+  textContains,
+} = require("../../utils/search");
 
 const prisma = getPrismaClient();
 
@@ -17,11 +25,6 @@ const PUBLIC_REPORT_STATUSES = ["baru", "ditinjau", "ditindak", "ditutup"];
 
 const isAdminScoped = (user) => ADMIN_SCOPED_ROLES.has(user.role);
 
-const textContains = (value) => ({
-  contains: value,
-  mode: "insensitive"
-});
-
 const numericIdFilter = (query) => (Number.isInteger(Number(query)) ? [{ id: Number(query) }] : []);
 
 const enumFilters = (field, query, values) => {
@@ -34,27 +37,43 @@ const enumFilters = (field, query, values) => {
     }));
 };
 
-const createResult = ({ id, entity, title, subtitle, url, meta = {} }) => ({
+const createResult = ({ id, entity, title, subtitle, url, meta = {}, searchText }) => ({
   id: String(id),
   entity,
   title,
   subtitle,
   url,
+  searchText,
   meta
 });
 
 const formatDate = (value) => (value instanceof Date ? value.toISOString().slice(0, 10) : null);
 
+const SEARCH_MODE = "partial_fuzzy_ranked";
+const searchOrWhere = (conditions) => {
+  const filtered = conditions.filter(Boolean);
+  if (filtered.length === 0) return {};
+  return filtered.length === 1 ? filtered[0] : { OR: filtered };
+};
+const maybeWhere = (condition) => (condition && Object.keys(condition).length ? [condition] : []);
+
+const buildLooseNestedSearchWhere = (query, builders = []) => {
+  return buildTokenSearchOr(query, builders);
+};
+
 const matchSppgWhere = ({ query, user }) => {
   const base = {
     deletedAt: null,
-    OR: [
-      { name: textContains(query) },
-      { province: textContains(query) },
-      { city: textContains(query) },
-      { address: textContains(query) },
-      ...numericIdFilter(query)
-    ]
+    ...(() => {
+      const searchWhere = buildTokenSearchOr(query, [
+        (token) => ({ name: textContains(token) }),
+        (token) => ({ province: textContains(token) }),
+        (token) => ({ city: textContains(token) }),
+        (token) => ({ address: textContains(token) })
+      ]);
+      const searchOr = [...maybeWhere(searchWhere), ...numericIdFilter(query)];
+      return searchOrWhere(searchOr);
+    })()
   };
 
   if (isAdminScoped(user)) return base;
@@ -87,13 +106,17 @@ const matchSchoolWhere = ({ query, user }) => {
     sppg: {
       deletedAt: null
     },
-    OR: [
-      { name: textContains(query) },
-      { npsn: textContains(query) },
-      { city: textContains(query) },
-      { district: textContains(query) },
-      ...numericIdFilter(query)
-    ]
+    ...(() => {
+      const searchWhere = buildTokenSearchOr(query, [
+        (token) => ({ name: textContains(token) }),
+        (token) => ({ npsn: textContains(token) }),
+        (token) => ({ city: textContains(token) }),
+        (token) => ({ district: textContains(token) }),
+        (token) => ({ province: textContains(token) })
+      ]);
+      const searchOr = [...maybeWhere(searchWhere), ...numericIdFilter(query)];
+      return searchOrWhere(searchOr);
+    })()
   };
 
   if (isAdminScoped(user)) return base;
@@ -116,6 +139,27 @@ const matchSchoolWhere = ({ query, user }) => {
 };
 
 const matchDistributionWhere = ({ query, user }) => {
+  const searchWhere = buildTokenSearchOr(query, [
+    (token) => ({
+      sppg: {
+        deletedAt: null,
+        name: textContains(token)
+      }
+    }),
+    (token) => ({
+      school: {
+        deletedAt: null,
+        name: textContains(token)
+      }
+    }),
+    (token) => ({
+      school: {
+        deletedAt: null,
+        city: textContains(token)
+      }
+    })
+  ]);
+  const searchOr = [...maybeWhere(searchWhere), ...numericIdFilter(query)];
   const base = {
     school: {
       deletedAt: null
@@ -123,27 +167,7 @@ const matchDistributionWhere = ({ query, user }) => {
     sppg: {
       deletedAt: null
     },
-    OR: [
-      {
-        sppg: {
-          deletedAt: null,
-          name: textContains(query)
-        }
-      },
-      {
-        school: {
-          deletedAt: null,
-          name: textContains(query)
-        }
-      },
-      {
-        school: {
-          deletedAt: null,
-          city: textContains(query)
-        }
-      },
-      ...numericIdFilter(query)
-    ]
+    ...searchOrWhere(searchOr)
   };
 
   if (isAdminScoped(user)) return base;
@@ -166,35 +190,45 @@ const matchDistributionWhere = ({ query, user }) => {
 };
 
 const publicReportWhere = (query) => ({
-  OR: [
-    { message: textContains(query) },
-    { province: textContains(query) },
-    { city: textContains(query) },
+  ...(() => {
+    const searchWhere = buildTokenSearchOr(query, [
+      (token) => ({ message: textContains(token) }),
+      (token) => ({ province: textContains(token) }),
+      (token) => ({ city: textContains(token) })
+    ]);
+    const searchOr = [
+      ...maybeWhere(searchWhere),
     ...enumFilters("status", query, PUBLIC_REPORT_STATUSES),
     ...enumFilters("category", query, REPORT_CATEGORIES),
     ...numericIdFilter(query)
-  ]
+    ];
+    return searchOrWhere(searchOr);
+  })()
 });
 
 const schoolReportWhere = ({ query, user }) => {
+  const searchWhere = buildTokenSearchOr(query, [
+    (token) => ({ message: textContains(token) }),
+    (token) => ({
+      school: {
+        deletedAt: null,
+        name: textContains(token)
+      }
+    }),
+    (token) => ({
+      school: {
+        deletedAt: null,
+        city: textContains(token)
+      }
+    })
+  ]);
+  const searchOr = [
+    ...maybeWhere(searchWhere),
+    ...enumFilters("category", query, REPORT_CATEGORIES),
+    ...numericIdFilter(query)
+  ];
   const base = {
-    OR: [
-      { message: textContains(query) },
-      ...enumFilters("category", query, REPORT_CATEGORIES),
-      {
-        school: {
-          deletedAt: null,
-          name: textContains(query)
-        }
-      },
-      {
-        school: {
-          deletedAt: null,
-          city: textContains(query)
-        }
-      },
-      ...numericIdFilter(query)
-    ],
+    ...searchOrWhere(searchOr),
     school: {
       deletedAt: null
     }
@@ -213,23 +247,27 @@ const schoolReportWhere = ({ query, user }) => {
 };
 
 const issueReportWhere = ({ query, user }) => {
+  const searchWhere = buildTokenSearchOr(query, [
+    (token) => ({ description: textContains(token) }),
+    (token) => ({
+      sppg: {
+        deletedAt: null,
+        name: textContains(token)
+      }
+    })
+  ]);
+  const searchOr = [
+    ...maybeWhere(searchWhere),
+    ...enumFilters("category", query, ISSUE_CATEGORIES),
+    ...enumFilters("status", query, ISSUE_STATUSES),
+    ...numericIdFilter(query)
+  ];
   const base = {
     deletedAt: null,
     sppg: {
       deletedAt: null
     },
-    OR: [
-      { description: textContains(query) },
-      ...enumFilters("category", query, ISSUE_CATEGORIES),
-      ...enumFilters("status", query, ISSUE_STATUSES),
-      {
-        sppg: {
-          deletedAt: null,
-          name: textContains(query)
-        }
-      },
-      ...numericIdFilter(query)
-    ]
+    ...searchOrWhere(searchOr)
   };
 
   if (isAdminScoped(user)) return base;
@@ -247,19 +285,49 @@ const issueReportWhere = ({ query, user }) => {
 const searchSppg = async ({ query, user, limit }) => {
   const where = matchSppgWhere({ query, user });
   if (!where) return [];
+  const candidateLimit = getRankedSearchCandidateLimit({ page: 1, limit });
+  const baseWhere = matchSppgWhere({ query: "", user });
+  const candidateWhere = mergeWhereWithAnd(
+    baseWhere,
+    buildLooseTokenSearchWhere(query, ["name", "province", "city", "address"])
+  );
 
-  const rows = await prisma.sppg.findMany({
-    where,
-    take: limit,
+  let rows = await prisma.sppg.findMany({
+    where: candidateWhere,
+    take: candidateLimit,
     orderBy: [{ name: "asc" }],
     select: {
       id: true,
       name: true,
       province: true,
       city: true,
+      address: true,
       status: true
     }
   });
+
+  rows = rankBySearch(rows, query, [
+    { field: "name", weight: 7 },
+    { field: "city", weight: 3 },
+    { field: "province", weight: 2 },
+    { field: "address", weight: 1 },
+    { field: "status", weight: 0.5 }
+  ]).slice(0, limit);
+
+  if (!rows.length && where !== candidateWhere) {
+    rows = await prisma.sppg.findMany({
+      where,
+      take: limit,
+      orderBy: [{ name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        province: true,
+        city: true,
+        status: true
+      }
+    });
+  }
 
   return rows.map((row) =>
     createResult({
@@ -280,17 +348,26 @@ const searchSppg = async ({ query, user, limit }) => {
 const searchSchools = async ({ query, user, limit }) => {
   const where = matchSchoolWhere({ query, user });
   if (!where) return [];
+  const candidateLimit = getRankedSearchCandidateLimit({ page: 1, limit });
+  const baseWhere = matchSchoolWhere({ query: "", user });
+  const candidateWhere = mergeWhereWithAnd(
+    baseWhere,
+    buildLooseTokenSearchWhere(query, ["name", "npsn", "city", "district", "province", "educationLevel", "schoolStatus"])
+  );
 
-  const rows = await prisma.school.findMany({
-    where,
-    take: limit,
+  let rows = await prisma.school.findMany({
+    where: candidateWhere,
+    take: candidateLimit,
     orderBy: [{ name: "asc" }],
     select: {
       id: true,
       name: true,
       npsn: true,
-      city: true,
       province: true,
+      city: true,
+      district: true,
+      educationLevel: true,
+      schoolStatus: true,
       sppg: {
         select: {
           id: true,
@@ -299,6 +376,43 @@ const searchSchools = async ({ query, user, limit }) => {
       }
     }
   });
+
+  rows = rankBySearch(rows, query, [
+    { field: "name", weight: 7 },
+    { field: "npsn", weight: 4 },
+    { field: "city", weight: 3 },
+    { field: "district", weight: 2 },
+    { field: "province", weight: 2 },
+    { field: "educationLevel", weight: 1 },
+    { field: "schoolStatus", weight: 1 },
+    { value: (row) => row.sppg?.name, weight: 1 }
+  ]).slice(0, limit);
+
+  if (rows.length < limit) {
+    const strictRows = await prisma.school.findMany({
+      where,
+      take: limit,
+      orderBy: [{ name: "asc" }],
+      select: {
+        id: true,
+        name: true,
+        npsn: true,
+        city: true,
+        district: true,
+        province: true,
+        educationLevel: true,
+        schoolStatus: true,
+        sppg: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+    const knownIds = new Set(rows.map((row) => row.id));
+    rows = [...rows, ...strictRows.filter((row) => !knownIds.has(row.id))].slice(0, limit);
+  }
 
   return rows.map((row) =>
     createResult({
@@ -321,10 +435,35 @@ const searchSchools = async ({ query, user, limit }) => {
 const searchDistributions = async ({ query, user, limit }) => {
   const where = matchDistributionWhere({ query, user });
   if (!where) return [];
+  const candidateLimit = getRankedSearchCandidateLimit({ page: 1, limit });
+  const baseWhere = matchDistributionWhere({ query: "", user });
+  const candidateWhere = mergeWhereWithAnd(
+    baseWhere,
+    buildLooseNestedSearchWhere(query, [
+      (token) => ({
+        sppg: {
+          deletedAt: null,
+          name: textContains(token)
+        }
+      }),
+      (token) => ({
+        school: {
+          deletedAt: null,
+          name: textContains(token)
+        }
+      }),
+      (token) => ({
+        school: {
+          deletedAt: null,
+          city: textContains(token)
+        }
+      })
+    ])
+  );
 
-  const rows = await prisma.distribution.findMany({
-    where,
-    take: limit,
+  let rows = await prisma.distribution.findMany({
+    where: candidateWhere,
+    take: candidateLimit,
     orderBy: [{ distributionDate: "desc" }, { id: "desc" }],
     select: {
       id: true,
@@ -346,6 +485,43 @@ const searchDistributions = async ({ query, user, limit }) => {
       }
     }
   });
+
+  rows = rankBySearch(rows, query, [
+    { value: (row) => row.school?.name, weight: 7 },
+    { value: (row) => row.sppg?.name, weight: 5 },
+    { value: (row) => row.school?.city, weight: 3 },
+    { field: "status", weight: 2 },
+    { field: "id", weight: 0.25 }
+  ]).slice(0, limit);
+
+  if (rows.length < limit) {
+    const strictRows = await prisma.distribution.findMany({
+      where,
+      take: limit,
+      orderBy: [{ distributionDate: "desc" }, { id: "desc" }],
+      select: {
+        id: true,
+        status: true,
+        portions: true,
+        distributionDate: true,
+        school: {
+          select: {
+            id: true,
+            name: true,
+            city: true
+          }
+        },
+        sppg: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
+    });
+    const knownIds = new Set(rows.map((row) => row.id));
+    rows = [...rows, ...strictRows.filter((row) => !knownIds.has(row.id))].slice(0, limit);
+  }
 
   return rows.map((row) =>
     createResult({
@@ -369,12 +545,38 @@ const searchDistributions = async ({ query, user, limit }) => {
 
 const searchReports = async ({ query, user, limit }) => {
   const tasks = [];
+  const candidateLimit = getRankedSearchCandidateLimit({ page: 1, limit });
 
   if (isAdminScoped(user)) {
+    const publicBaseWhere = publicReportWhere("");
+    const publicCandidateWhere = mergeWhereWithAnd(
+      publicBaseWhere,
+      buildLooseTokenSearchWhere(query, ["message", "province", "city"])
+    );
+    const schoolBaseWhere = schoolReportWhere({ query: "", user });
+    const schoolCandidateWhere = mergeWhereWithAnd(
+      schoolBaseWhere,
+      buildLooseNestedSearchWhere(query, [
+        (token) => ({ message: textContains(token) }),
+        (token) => ({
+          school: {
+            deletedAt: null,
+            name: textContains(token)
+          }
+        }),
+        (token) => ({
+          school: {
+            deletedAt: null,
+            city: textContains(token)
+          }
+        })
+      ])
+    );
+
     tasks.push(
       prisma.publicReport.findMany({
-        where: publicReportWhere(query),
-        take: limit,
+        where: publicCandidateWhere,
+        take: candidateLimit,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: {
           id: true,
@@ -382,16 +584,18 @@ const searchReports = async ({ query, user, limit }) => {
           status: true,
           province: true,
           city: true,
+          message: true,
           createdAt: true
         }
       }),
       prisma.schoolReport.findMany({
-        where: schoolReportWhere({ query, user }),
-        take: limit,
+        where: schoolCandidateWhere,
+        take: candidateLimit,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: {
           id: true,
           category: true,
+          message: true,
           createdAt: true,
           school: {
             select: {
@@ -407,15 +611,34 @@ const searchReports = async ({ query, user, limit }) => {
     tasks.push(Promise.resolve([]), Promise.resolve([]));
   }
 
-  const schoolReportFilter = !isAdminScoped(user) ? schoolReportWhere({ query, user }) : null;
+  const schoolReportFilter = !isAdminScoped(user) ? schoolReportWhere({ query: "", user }) : null;
   if (schoolReportFilter) {
+    const schoolCandidateWhere = mergeWhereWithAnd(
+      schoolReportFilter,
+      buildLooseNestedSearchWhere(query, [
+        (token) => ({ message: textContains(token) }),
+        (token) => ({
+          school: {
+            deletedAt: null,
+            name: textContains(token)
+          }
+        }),
+        (token) => ({
+          school: {
+            deletedAt: null,
+            city: textContains(token)
+          }
+        })
+      ])
+    );
     tasks[1] = prisma.schoolReport.findMany({
-      where: schoolReportFilter,
-      take: limit,
+      where: schoolCandidateWhere,
+      take: candidateLimit,
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         category: true,
+        message: true,
         createdAt: true,
         school: {
           select: {
@@ -428,16 +651,31 @@ const searchReports = async ({ query, user, limit }) => {
     });
   }
 
-  const issueFilter = issueReportWhere({ query, user });
+  const issueFilter = issueReportWhere({ query: "", user });
+  const issueCandidateWhere = issueFilter
+    ? mergeWhereWithAnd(
+        issueFilter,
+        buildLooseNestedSearchWhere(query, [
+          (token) => ({ description: textContains(token) }),
+          (token) => ({
+            sppg: {
+              deletedAt: null,
+              name: textContains(token)
+            }
+          })
+        ])
+      )
+    : null;
   const issueTask = issueFilter
     ? prisma.issue.findMany({
-        where: issueFilter,
-        take: limit,
+        where: issueCandidateWhere,
+        take: candidateLimit,
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         select: {
           id: true,
           category: true,
           status: true,
+          description: true,
           createdAt: true,
           sppg: {
             select: {
@@ -451,7 +689,7 @@ const searchReports = async ({ query, user, limit }) => {
 
   const [publicReports, schoolReports, issues] = await Promise.all([...tasks, issueTask]);
 
-  return [
+  return rankBySearch([
     ...publicReports.map((row) =>
       createResult({
         id: `public-${row.id}`,
@@ -459,6 +697,7 @@ const searchReports = async ({ query, user, limit }) => {
         title: `Laporan masyarakat #${row.id}`,
         subtitle: [row.category, row.status, row.city, row.province].filter(Boolean).join(" - "),
         url: `/laporan-masyarakat?reportId=${row.id}`,
+        searchText: row.message,
         meta: {
           source: "public_report",
           category: row.category,
@@ -474,6 +713,7 @@ const searchReports = async ({ query, user, limit }) => {
         title: `Laporan sekolah #${row.id}`,
         subtitle: [row.school?.name, row.category, formatDate(row.createdAt)].filter(Boolean).join(" - "),
         url: `/dashboard/laporan-sekolah?reportId=${row.id}`,
+        searchText: row.message,
         meta: {
           source: "school_report",
           category: row.category,
@@ -490,6 +730,7 @@ const searchReports = async ({ query, user, limit }) => {
         title: `Kendala SPPG #${row.id}`,
         subtitle: [row.sppg?.name, row.category, row.status].filter(Boolean).join(" - "),
         url: `/dashboard/kendala?issueId=${row.id}`,
+        searchText: row.description,
         meta: {
           source: "issue",
           category: row.category,
@@ -500,7 +741,15 @@ const searchReports = async ({ query, user, limit }) => {
         }
       })
     )
-  ].slice(0, limit);
+  ], query, [
+    { field: "title", weight: 6 },
+    { field: "searchText", weight: 5 },
+    { field: "subtitle", weight: 3 },
+    { value: (item) => item.meta?.category, weight: 3 },
+    { value: (item) => item.meta?.status, weight: 2 },
+    { value: (item) => item.meta?.schoolName, weight: 3 },
+    { value: (item) => item.meta?.sppgName, weight: 3 }
+  ]).slice(0, limit).map(({ searchText, ...item }) => item);
 };
 
 const search = async ({ query = {}, user }) => {
@@ -535,6 +784,7 @@ const search = async ({ query = {}, user }) => {
     meta: {
       q,
       limit,
+      searchMode: SEARCH_MODE,
       total:
         sppg.length +
         schools.length +

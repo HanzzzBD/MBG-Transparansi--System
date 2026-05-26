@@ -30,6 +30,7 @@ enum ValidationStatus {
   verified
   conflict
   pending
+  issue_reported
 }
 
 enum IssueCategory {
@@ -129,6 +130,7 @@ model User {
   updatedSystemConfigs   SystemConfig[]   @relation("SystemConfigUpdater")
   notifications          Notification[]   @relation("UserNotifications")
   followedUpPublicReports PublicReport[]   @relation("PublicReportFollower")
+  schoolAssignments      SppgSchoolAssignment[]
 
   @@index([deletedAt], map: "idx_users_deleted_at")
   @@index([sppgId], map: "idx_users_sppg")
@@ -170,9 +172,11 @@ model Sppg {
   updatedAt     DateTime       @updatedAt @map("updated_at")
   users         User[]         @relation("SppgUsers")
   schools       School[]
+  schoolAssignments SppgSchoolAssignment[]
   distributions Distribution[]
   menus         Menu[]
   issues        Issue[]
+  schoolReports SchoolReport[]
   productionBatches ProductionBatch[]
 
   @@index([province, city], map: "idx_sppg_location")
@@ -204,6 +208,7 @@ model School {
   validations     Validation[]
   schoolReports   SchoolReport[]
   dapodikLink     SchoolDapodikLink?
+  sppgAssignments SppgSchoolAssignment[]
 
   @@index([sppgId], map: "idx_schools_sppg")
   @@index([province, city], map: "idx_schools_location")
@@ -212,6 +217,27 @@ model School {
   @@index([schoolStatus], map: "idx_schools_school_status")
   @@index([deletedAt], map: "idx_schools_deleted_at")
   @@map("schools")
+}
+
+model SppgSchoolAssignment {
+  id           Int       @id @default(autoincrement())
+  sppgId       Int       @map("sppg_id")
+  schoolId     Int       @map("school_id")
+  assignedBy   Int?      @map("assigned_by")
+  status       String    @default("active")
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
+  unassignedAt DateTime? @map("unassigned_at")
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  sppg         Sppg      @relation(fields: [sppgId], references: [id], onDelete: Cascade)
+  school       School    @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  assigner     User?     @relation(fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@index([sppgId, status], map: "idx_sppg_school_assignments_sppg_status")
+  @@index([schoolId, status], map: "idx_sppg_school_assignments_school_status")
+  @@index([assignedBy], map: "idx_sppg_school_assignments_assigned_by")
+  @@map("sppg_school_assignments")
 }
 
 model DapodikProvince {
@@ -385,6 +411,7 @@ model Distribution {
   validation       Validation?        @relation("DistributionValidation")
   proofs           Proof[]
   anomalyLogs      AnomalyLog[]
+  schoolReports    SchoolReport[]
 
   @@index([sppgId], map: "idx_distributions_sppg")
   @@index([schoolId], map: "idx_distributions_school")
@@ -520,16 +547,22 @@ model Issue {
 }
 
 model SchoolReport {
-  id         Int            @id @default(autoincrement())
-  schoolId   Int            @map("school_id")
-  reportedBy Int            @map("reported_by")
-  category   ReportCategory
-  message    String
-  createdAt  DateTime       @default(now()) @map("created_at")
-  school     School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
-  reporter   User           @relation("SchoolReportReporter", fields: [reportedBy], references: [id])
+  id             Int            @id @default(autoincrement())
+  schoolId       Int            @map("school_id")
+  sppgId         Int?           @map("sppg_id")
+  distributionId Int?           @map("distribution_id")
+  reportedBy     Int            @map("reported_by")
+  category       ReportCategory
+  message        String
+  createdAt      DateTime       @default(now()) @map("created_at")
+  school         School         @relation(fields: [schoolId], references: [id], onDelete: Cascade)
+  sppg           Sppg?          @relation(fields: [sppgId], references: [id], onDelete: SetNull)
+  distribution   Distribution?  @relation(fields: [distributionId], references: [id], onDelete: SetNull)
+  reporter       User           @relation("SchoolReportReporter", fields: [reportedBy], references: [id])
 
   @@index([schoolId], map: "idx_school_reports_school")
+  @@index([sppgId], map: "idx_school_reports_sppg")
+  @@index([distributionId], map: "idx_school_reports_distribution")
   @@map("school_reports")
 }
 

@@ -1,6 +1,6 @@
 const { z } = require("zod");
 
-const validationStatusEnum = z.enum(["verified", "conflict", "pending"]);
+const validationStatusEnum = z.enum(["verified", "conflict", "pending", "issue_reported"]);
 
 const listValidationsSchema = z.object({
   body: z.object({}).optional().default({}),

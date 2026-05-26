@@ -5,6 +5,16 @@ const AppError = require("../../utils/appError");
 const { createAuditLog } = require("../../utils/auditLog");
 const { requireSppgScope } = require("../../utils/ownership");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
+const {
+  buildLooseTokenSearchWhere,
+  buildRankedSearchCandidateWhere,
+  buildTokenSearchWhere,
+  getRankedSearchCandidateLimit,
+  hasSearchQuery,
+  paginateRankedSearch,
+  rankBySearch,
+  tokenizeSearch
+} = require("../../utils/search");
 
 const prisma = getPrismaClient();
 
@@ -47,20 +57,17 @@ const normalizeValue = (value) => {
 
 const normalizeRows = (rows) => rows.map((row) => normalizeValue(row));
 
+const buildSppgSqlSearchConditions = (query = {}) =>
+  tokenizeSearch(query.search).map((token) => {
+    const search = `%${token}%`;
+    return Prisma.sql`(s.name ILIKE ${search} OR s.province ILIKE ${search} OR s.city ILIKE ${search} OR s.address ILIKE ${search})`;
+  });
+
 const buildSppgWhere = (query = {}) => ({
   deletedAt: null,
   ...(query.province ? { province: { contains: query.province, mode: "insensitive" } } : {}),
   ...(query.city ? { city: { contains: query.city, mode: "insensitive" } } : {}),
-  ...(query.search
-    ? {
-        OR: [
-          { name: { contains: query.search, mode: "insensitive" } },
-          { province: { contains: query.search, mode: "insensitive" } },
-          { city: { contains: query.search, mode: "insensitive" } },
-          { address: { contains: query.search, mode: "insensitive" } }
-        ]
-      }
-    : {}),
+  ...buildTokenSearchWhere(query.search, ["name", "province", "city", "address"]),
   ...(query.status ? { status: query.status } : {})
 });
 
@@ -73,6 +80,21 @@ const buildDeletedSppgWhere = (query = {}) => {
     }
   };
 };
+
+const buildSppgBaseWhere = (query = {}) =>
+  buildSppgWhere({
+    ...query,
+    search: undefined
+  });
+
+const SPPG_SEARCH_FIELDS = ["name", "province", "city", "address"];
+const SPPG_SEARCH_RANK_FIELDS = [
+  { field: "name", weight: 7 },
+  { field: "city", weight: 3 },
+  { field: "province", weight: 2 },
+  { field: "address", weight: 1 },
+  { field: "status", weight: 0.5 }
+];
 
 const buildSppgSelect = (fields) => {
   if (!fields) {
@@ -142,12 +164,7 @@ const buildMapMarkerSqlWhere = (query = {}) => {
     conditions.push(Prisma.sql`s.city ILIKE ${`%${query.city}%`}`);
   }
 
-  if (query.search) {
-    const search = `%${query.search}%`;
-    conditions.push(
-      Prisma.sql`(s.name ILIKE ${search} OR s.province ILIKE ${search} OR s.city ILIKE ${search} OR s.address ILIKE ${search})`
-    );
-  }
+  conditions.push(...buildSppgSqlSearchConditions(query));
 
   if (query.status) {
     conditions.push(Prisma.sql`s.status = ${query.status}::"SppgStatus"`);
@@ -160,6 +177,50 @@ const listSppg = async ({ query }) => {
   const pagination = query.all ? null : parsePagination(query);
   const where = buildSppgWhere(query);
   const select = buildSppgSelect(query.fields);
+
+  if (hasSearchQuery(query.search)) {
+    const baseWhere = buildSppgBaseWhere(query);
+    const candidateLimit = pagination ? getRankedSearchCandidateLimit(pagination) : 5000;
+    let candidates = await prisma.sppg.findMany({
+      where: buildRankedSearchCandidateWhere(baseWhere, query.search, SPPG_SEARCH_FIELDS),
+      ...(select ? { select } : {}),
+      take: candidateLimit,
+      orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
+    });
+
+    const ranked = pagination
+      ? paginateRankedSearch({
+          items: candidates,
+          query: query.search,
+          fieldConfigs: SPPG_SEARCH_RANK_FIELDS,
+          pagination
+        })
+      : (() => {
+          const rankedItems = rankBySearch(candidates, query.search, SPPG_SEARCH_RANK_FIELDS);
+          return { items: rankedItems, total: rankedItems.length };
+        })();
+
+    return {
+      data: ranked.items,
+      meta: pagination
+        ? {
+            ...buildPaginationMeta({
+              page: pagination.page,
+              limit: pagination.limit,
+              total: ranked.total
+            }),
+            searchMode: "partial_fuzzy_ranked"
+          }
+        : {
+            page: 1,
+            limit: ranked.total,
+            total: ranked.total,
+            totalPages: ranked.total === 0 ? 0 : 1,
+            all: true,
+            searchMode: "partial_fuzzy_ranked"
+          }
+    };
+  }
 
   const [items, total] = await Promise.all([
     prisma.sppg.findMany({
@@ -192,6 +253,38 @@ const listSppg = async ({ query }) => {
 const listDeletedSppg = async ({ query }) => {
   const pagination = parsePagination(query);
   const where = buildDeletedSppgWhere(query);
+
+  if (hasSearchQuery(query.search)) {
+    const baseWhere = buildDeletedSppgWhere({
+      ...query,
+      search: undefined
+    });
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await prisma.sppg.findMany({
+      where: buildRankedSearchCandidateWhere(baseWhere, query.search, SPPG_SEARCH_FIELDS),
+      take: candidateLimit,
+      orderBy: [{ deletedAt: "desc" }, { province: "asc" }, { city: "asc" }, { name: "asc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: SPPG_SEARCH_RANK_FIELDS,
+      pagination
+    });
+
+    return {
+      data: ranked.items,
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: ranked.total
+        }),
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
 
   const [items, total] = await Promise.all([
     prisma.sppg.findMany({
@@ -229,7 +322,7 @@ const listMapMarkers = async ({ query = {} }) => {
       COALESCE(
         ROUND(
           100.0 * COUNT(v.id) FILTER (WHERE v.status = 'verified')
-          / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict')), 0),
+          / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported')), 0),
           1
         ),
         0
@@ -263,7 +356,10 @@ const listMapMarkers = async ({ query = {} }) => {
 };
 
 const serializeAssignedSchool = (school) => ({
-  id: school.id,
+  assignmentId: school.assignmentId,
+  schoolId: school.schoolId ?? school.id,
+  id: school.schoolId ?? school.id,
+  dapodikSchoolId: school.dapodikSchoolId ?? null,
   name: school.name,
   province: school.province,
   city: school.city,
@@ -271,18 +367,18 @@ const serializeAssignedSchool = (school) => ({
   address: school.address,
   npsn: school.npsn,
   totalStudents: school.totalStudents,
-  total_students: school.totalStudents
+  total_students: school.totalStudents,
+  assignmentStatus: school.assignmentStatus || "active",
+  assignedAt: school.assignedAt,
+  unassignedAt: school.unassignedAt || null,
+  notes: school.notes || null
 });
 
-const listMySchools = async ({ query = {}, user }) => {
-  const sppgId = requireSppgScope(user);
-  const pagination = parsePagination(query);
-  const where = {
-    sppgId,
+const buildAssignedSchoolsWhere = ({ sppgId, query = {} }) => ({
+  sppgId: Number(sppgId),
+  ...(query.status && query.status !== "all" ? { status: query.status } : { status: "active" }),
+  school: {
     deletedAt: null,
-    sppg: {
-      deletedAt: null
-    },
     ...(query.province
       ? {
           province: {
@@ -299,65 +395,553 @@ const listMySchools = async ({ query = {}, user }) => {
           }
         }
       : {}),
-    ...(query.search
-      ? {
-          OR: [
-            {
-              name: {
-                contains: query.search,
-                mode: "insensitive"
-              }
-            },
-            {
-              city: {
-                contains: query.search,
-                mode: "insensitive"
-              }
-            },
-            {
-              province: {
-                contains: query.search,
-                mode: "insensitive"
-              }
-            },
-            {
-              npsn: {
-                contains: query.search,
-                mode: "insensitive"
-              }
-            }
-          ]
-        }
-      : {})
+    ...buildTokenSearchWhere(query.search, ["name", "city", "province", "npsn"])
+  }
+});
+
+const buildAssignedSchoolsBaseWhere = ({ sppgId, query = {} }) =>
+  buildAssignedSchoolsWhere({
+    sppgId,
+    query: {
+      ...query,
+      search: undefined
+    }
+  });
+
+const ASSIGNED_SCHOOL_SEARCH_FIELDS = ["name", "city", "province", "district", "npsn"];
+const ASSIGNED_SCHOOL_RANK_FIELDS = [
+  { value: (item) => item.school?.name, weight: 7 },
+  { value: (item) => item.school?.npsn, weight: 4 },
+  { value: (item) => item.school?.city, weight: 3 },
+  { value: (item) => item.school?.district, weight: 2 },
+  { value: (item) => item.school?.province, weight: 2 }
+];
+
+const serializeAssignment = (assignment) =>
+  serializeAssignedSchool({
+    assignmentId: assignment.id,
+    schoolId: assignment.school.id,
+    dapodikSchoolId: assignment.school.dapodikLink?.dapodikSchoolRecordId ?? null,
+    name: assignment.school.name,
+    province: assignment.school.province,
+    city: assignment.school.city,
+    district: assignment.school.district,
+    address: assignment.school.address,
+    npsn: assignment.school.npsn,
+    totalStudents: assignment.school.totalStudents,
+    assignmentStatus: assignment.status,
+    assignedAt: assignment.assignedAt,
+    unassignedAt: assignment.unassignedAt,
+    notes: assignment.notes
+  });
+
+const listAssignedSchoolsForSppg = async ({ sppgId, query = {} }) => {
+  const pagination = parsePagination(query);
+  const where = buildAssignedSchoolsWhere({ sppgId, query });
+  const include = {
+    school: {
+      include: {
+        dapodikLink: true
+      }
+    }
   };
 
-  const [items, total] = await Promise.all([
-    prisma.school.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        province: true,
-        city: true,
-        district: true,
-        address: true,
-        npsn: true,
-        totalStudents: true
+  if (hasSearchQuery(query.search)) {
+    const baseWhere = buildAssignedSchoolsBaseWhere({ sppgId, query });
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await prisma.sppgSchoolAssignment.findMany({
+      where: {
+        ...baseWhere,
+        school: {
+          ...baseWhere.school,
+          ...buildLooseTokenSearchWhere(query.search, ASSIGNED_SCHOOL_SEARCH_FIELDS)
+        }
       },
+      include,
+      take: candidateLimit,
+      orderBy: [{ assignedAt: "desc" }, { id: "desc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: ASSIGNED_SCHOOL_RANK_FIELDS,
+      pagination
+    });
+
+    return {
+      data: ranked.items.map(serializeAssignment),
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: ranked.total
+        }),
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.sppgSchoolAssignment.findMany({
+      where,
+      include,
       skip: pagination.skip,
       take: pagination.limit,
-      orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
+      orderBy: [{ assignedAt: "desc" }, { id: "desc" }]
     }),
-    prisma.school.count({ where })
+    prisma.sppgSchoolAssignment.count({ where })
   ]);
 
   return {
-    data: items.map(serializeAssignedSchool),
+    data: items.map(serializeAssignment),
     meta: buildPaginationMeta({
       page: pagination.page,
       limit: pagination.limit,
       total
     })
+  };
+};
+
+const listMySchools = async ({ query = {}, user }) => {
+  const sppgId = requireSppgScope(user);
+  return listAssignedSchoolsForSppg({ sppgId, query });
+};
+
+const buildDapodikSchoolWhere = (query = {}) => ({
+  ...(query.province ? { province: { contains: query.province, mode: "insensitive" } } : {}),
+  ...(query.city ? { city: { contains: query.city, mode: "insensitive" } } : {}),
+  ...(query.district ? { district: { contains: query.district, mode: "insensitive" } } : {}),
+  ...(query.educationLevel || query.education_level
+    ? { educationLevel: { contains: query.educationLevel || query.education_level, mode: "insensitive" } }
+    : {}),
+  ...buildTokenSearchWhere(query.search, ["name", "npsn", "province", "city", "district"])
+});
+
+const DAPODIK_ASSIGNMENT_SEARCH_FIELDS = ["name", "npsn", "province", "city", "district", "educationLevel", "schoolStatus"];
+const DAPODIK_ASSIGNMENT_RANK_FIELDS = [
+  { field: "name", weight: 7 },
+  { field: "npsn", weight: 4 },
+  { field: "city", weight: 3 },
+  { field: "district", weight: 3 },
+  { field: "province", weight: 2 },
+  { field: "educationLevel", weight: 1.5 },
+  { field: "schoolStatus", weight: 1 },
+  { field: "dapodikSchoolId", weight: 0.15 }
+];
+
+const serializeDapodikSchoolForAssignment = (item, currentSppgId) => {
+  const activeAssignment = item.schoolLink?.school?.sppgAssignments?.[0] || null;
+
+  return {
+    id: item.id,
+    npsn: item.npsn,
+    name: item.name,
+    province: item.province,
+    city: item.city,
+    district: item.district,
+    educationLevel: item.educationLevel,
+    statusSekolah: item.schoolStatus,
+    alreadyAssigned: Boolean(activeAssignment),
+    assignedToCurrentSppg: Number(activeAssignment?.sppgId) === Number(currentSppgId),
+    assignedSppgName: activeAssignment?.sppg?.name || null
+  };
+};
+
+const listMyDapodikSchools = async ({ query = {}, user }) => {
+  const sppgId = requireSppgScope(user);
+  const pagination = parsePagination(query);
+  const where = buildDapodikSchoolWhere(query);
+  const select = {
+    id: true,
+    dapodikSchoolId: true,
+    npsn: true,
+    name: true,
+    province: true,
+    city: true,
+    district: true,
+    educationLevel: true,
+    schoolStatus: true,
+    schoolLink: {
+      select: {
+        school: {
+          select: {
+            sppgAssignments: {
+              where: {
+                status: "active"
+              },
+              select: {
+                id: true,
+                sppgId: true,
+                sppg: {
+                  select: {
+                    name: true
+                  }
+                }
+              },
+              take: 1
+            }
+          }
+        }
+      }
+    }
+  };
+
+  if (query.search) {
+    const baseWhere = buildDapodikSchoolWhere({
+      ...query,
+      search: undefined
+    });
+    const candidateWhere = {
+      ...baseWhere,
+      AND: [
+        ...(Array.isArray(baseWhere.AND) ? baseWhere.AND : []),
+        buildLooseTokenSearchWhere(query.search, DAPODIK_ASSIGNMENT_SEARCH_FIELDS)
+      ].filter((condition) => Object.keys(condition).length > 0)
+    };
+    const candidateLimit = Math.max(500, Math.min(5000, pagination.page * pagination.limit * 30));
+    let candidates = await prisma.dapodikSchool.findMany({
+      where: candidateWhere,
+      select,
+      take: candidateLimit,
+      orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
+    });
+
+    const rankedItems = rankBySearch(candidates, query.search, DAPODIK_ASSIGNMENT_RANK_FIELDS);
+    const pageItems = rankedItems.slice(pagination.skip, pagination.skip + pagination.limit);
+
+    return {
+      data: pageItems.map((item) => serializeDapodikSchoolForAssignment(item, sppgId)),
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: rankedItems.length
+        }),
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.dapodikSchool.findMany({
+      where,
+      select,
+      skip: pagination.skip,
+      take: pagination.limit,
+      orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
+    }),
+    prisma.dapodikSchool.count({ where })
+  ]);
+
+  return {
+    data: items.map((item) => serializeDapodikSchoolForAssignment(item, sppgId)),
+    meta: buildPaginationMeta({
+      page: pagination.page,
+      limit: pagination.limit,
+      total
+    })
+  };
+};
+
+const getDapodikSchoolById = async (id, tx = prisma) => {
+  const school = await tx.dapodikSchool.findUnique({
+    where: {
+      id: Number(id)
+    }
+  });
+
+  if (!school) {
+    throw new AppError("Dapodik school not found.", 404, "DAPODIK_SCHOOL_NOT_FOUND");
+  }
+
+  if (!school.province || !school.city) {
+    throw new AppError("Dapodik school is missing province or city.", 400, "DAPODIK_SCHOOL_REGION_INCOMPLETE");
+  }
+
+  return school;
+};
+
+const findOperationalSchoolForDapodik = async ({ tx, stagedSchool }) => {
+  const linked = await tx.schoolDapodikLink.findUnique({
+    where: {
+      dapodikSchoolRecordId: stagedSchool.id
+    },
+    include: {
+      school: true
+    }
+  });
+
+  if (linked?.school) return linked.school;
+
+  if (stagedSchool.npsn) {
+    const byNpsn = await tx.school.findUnique({
+      where: {
+        npsn: stagedSchool.npsn
+      }
+    });
+    if (byNpsn) return byNpsn;
+  }
+
+  if (stagedSchool.dapodikSchoolId) {
+    const byDapodikId = await tx.school.findUnique({
+      where: {
+        dapodikSchoolId: stagedSchool.dapodikSchoolId
+      }
+    });
+    if (byDapodikId) return byDapodikId;
+  }
+
+  return null;
+};
+
+const ensureOperationalSchoolFromDapodik = async ({ tx, stagedSchool, sppgId, actorUserId }) => {
+  const existing = await findOperationalSchoolForDapodik({ tx, stagedSchool });
+
+  if (existing) {
+    const updated = await tx.school.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        name: stagedSchool.name.trim(),
+        province: stagedSchool.province.trim(),
+        city: stagedSchool.city.trim(),
+        district: stagedSchool.district,
+        sppgId: Number(sppgId),
+        totalStudents: stagedSchool.studentCount ?? existing.totalStudents ?? 0,
+        npsn: stagedSchool.npsn,
+        dapodikSchoolId: stagedSchool.dapodikSchoolId,
+        educationLevel: stagedSchool.educationLevel,
+        schoolStatus: stagedSchool.schoolStatus,
+        dapodikSyncedAt: stagedSchool.lastSyncAt,
+        deletedAt: null
+      }
+    });
+
+    await tx.schoolDapodikLink.upsert({
+      where: {
+        schoolId: updated.id
+      },
+      create: {
+        schoolId: updated.id,
+        dapodikSchoolRecordId: stagedSchool.id,
+        linkedBy: actorUserId
+      },
+      update: {
+        dapodikSchoolRecordId: stagedSchool.id,
+        linkedBy: actorUserId
+      }
+    });
+
+    return updated;
+  }
+
+  const created = await tx.school.create({
+    data: {
+      name: stagedSchool.name.trim(),
+      province: stagedSchool.province.trim(),
+      city: stagedSchool.city.trim(),
+      district: stagedSchool.district,
+      address: null,
+      sppgId: Number(sppgId),
+      totalStudents: stagedSchool.studentCount ?? 0,
+      npsn: stagedSchool.npsn,
+      dapodikSchoolId: stagedSchool.dapodikSchoolId,
+      educationLevel: stagedSchool.educationLevel,
+      schoolStatus: stagedSchool.schoolStatus,
+      dapodikSyncedAt: stagedSchool.lastSyncAt,
+      dapodikLink: {
+        create: {
+          dapodikSchoolRecordId: stagedSchool.id,
+          linkedBy: actorUserId
+        }
+      }
+    }
+  });
+
+  return created;
+};
+
+const normalizeDapodikIds = (payload) => {
+  const ids = payload.dapodikSchoolIds?.length ? payload.dapodikSchoolIds : [payload.dapodikSchoolId];
+  return [...new Set(ids.map(Number).filter(Boolean))].slice(0, 50);
+};
+
+const assignSchoolsToSppg = async ({ sppgId, payload, user, ipAddress }) => {
+  const targetSppgId = user.role === "sppg" ? requireSppgScope(user) : Number(sppgId);
+  await getActiveSppgById(targetSppgId);
+
+  const dapodikSchoolIds = normalizeDapodikIds(payload);
+  const notes = payload.notes || null;
+
+  const results = await prisma.$transaction(async (tx) => {
+    const output = [];
+
+    for (const dapodikSchoolId of dapodikSchoolIds) {
+      const stagedSchool = await getDapodikSchoolById(dapodikSchoolId, tx);
+      const existingSchool = await findOperationalSchoolForDapodik({ tx, stagedSchool });
+      const activeAssignment = existingSchool
+        ? await tx.sppgSchoolAssignment.findFirst({
+            where: {
+              schoolId: existingSchool.id,
+              status: "active"
+            },
+            include: {
+              sppg: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
+          })
+        : null;
+
+      if (activeAssignment && Number(activeAssignment.sppgId) === Number(targetSppgId)) {
+        output.push({
+          dapodikSchoolId,
+          schoolId: existingSchool.id,
+          assignmentId: activeAssignment.id,
+          status: "skipped_already_assigned",
+          reason: "School is already assigned to this SPPG."
+        });
+        continue;
+      }
+
+      if (activeAssignment) {
+        output.push({
+          dapodikSchoolId,
+          schoolId: existingSchool.id,
+          status: "skipped_already_assigned",
+          reason: `School is already assigned to ${activeAssignment.sppg.name}.`
+        });
+        continue;
+      }
+
+      const school = await ensureOperationalSchoolFromDapodik({
+        tx,
+        stagedSchool,
+        sppgId: targetSppgId,
+        actorUserId: user.userId
+      });
+
+      const assignment = await tx.sppgSchoolAssignment.create({
+        data: {
+          sppgId: Number(targetSppgId),
+          schoolId: school.id,
+          assignedBy: user.userId,
+          status: "active",
+          notes
+        },
+        include: {
+          school: {
+            include: {
+              dapodikLink: true
+            }
+          }
+        }
+      });
+
+      await createAuditLog({
+        prisma: tx,
+        userId: user.userId,
+        action: "INSERT",
+        tableName: "sppg_school_assignments",
+        recordId: assignment.id,
+        newData: assignment,
+        ipAddress
+      });
+
+      output.push({
+        dapodikSchoolId,
+        schoolId: school.id,
+        assignmentId: assignment.id,
+        status: "assigned",
+        assignment: serializeAssignment(assignment)
+      });
+    }
+
+    return output;
+  });
+
+  return {
+    data: results,
+    meta: {
+      assigned: results.filter((item) => item.status === "assigned").length,
+      skipped: results.filter((item) => item.status !== "assigned").length
+    }
+  };
+};
+
+const unassignSchoolFromSppg = async ({ sppgId, assignmentId, payload = {}, user, ipAddress }) => {
+  const targetSppgId = user.role === "sppg" ? requireSppgScope(user) : Number(sppgId);
+  const assignment = await prisma.sppgSchoolAssignment.findFirst({
+    where: {
+      id: Number(assignmentId),
+      sppgId: Number(targetSppgId),
+      status: "active"
+    },
+    include: {
+      school: true
+    }
+  });
+
+  if (!assignment) {
+    throw new AppError("Active school assignment not found.", 404, "SCHOOL_ASSIGNMENT_NOT_FOUND");
+  }
+
+  const activeDistributionCount = await prisma.distribution.count({
+    where: {
+      sppgId: Number(targetSppgId),
+      schoolId: assignment.schoolId,
+      status: "in_progress"
+    }
+  });
+
+  if (activeDistributionCount > 0) {
+    throw new AppError(
+      "School still has active distributions and cannot be unassigned.",
+      409,
+      "SCHOOL_ASSIGNMENT_HAS_ACTIVE_DISTRIBUTIONS"
+    );
+  }
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const next = await tx.sppgSchoolAssignment.update({
+      where: {
+        id: assignment.id
+      },
+      data: {
+        status: "inactive",
+        unassignedAt: new Date(),
+        notes: payload.reason || assignment.notes || null
+      },
+      include: {
+        school: {
+          include: {
+            dapodikLink: true
+          }
+        }
+      }
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: user.userId,
+      action: "UPDATE",
+      tableName: "sppg_school_assignments",
+      recordId: next.id,
+      oldData: assignment,
+      newData: next,
+      ipAddress
+    });
+
+    return next;
+  });
+
+  return {
+    data: serializeAssignment(updated)
   };
 };
 
@@ -382,15 +966,22 @@ const getSppgDetail = async ({ id }) => {
     throw new AppError("SPPG not found.", 404, "SPPG_NOT_FOUND");
   }
 
-  const [studentAggregate, distributionStats, activeSchoolCount, activeIssueCount, totalDistributionCount] =
+  const [activeAssignments, distributionStats, activeIssueCount, totalDistributionCount] =
     await Promise.all([
-    prisma.school.aggregate({
+    prisma.sppgSchoolAssignment.findMany({
       where: {
         sppgId: sppg.id,
-        deletedAt: null
+        status: "active",
+        school: {
+          deletedAt: null
+        }
       },
-      _sum: {
-        totalStudents: true
+      select: {
+        school: {
+          select: {
+            totalStudents: true
+          }
+        }
       }
     }),
     prisma.distribution.groupBy({
@@ -400,12 +991,6 @@ const getSppgDetail = async ({ id }) => {
       },
       _count: {
         _all: true
-      }
-    }),
-    prisma.school.count({
-      where: {
-        sppgId: sppg.id,
-        deletedAt: null
       }
     }),
     prisma.issue.count({
@@ -438,8 +1023,8 @@ const getSppgDetail = async ({ id }) => {
       ...sppg,
       latestMenu: sppg.menus[0] || null,
       stats: {
-        totalSchools: activeSchoolCount,
-        totalStudents: studentAggregate._sum.totalStudents || 0,
+        totalSchools: activeAssignments.length,
+        totalStudents: activeAssignments.reduce((total, item) => total + toNumber(item.school?.totalStudents), 0),
         totalDistributions: totalDistributionCount,
         totalIssues: activeIssueCount,
         distributionsByStatus: stats
@@ -963,14 +1548,18 @@ const restoreSppg = async ({ id, actorUserId, ipAddress }) => {
 };
 
 module.exports = {
+  assignSchoolsToSppg,
   createSppg,
   deleteSppg,
   getSppgOperationalDetail,
   getSppgDetail,
+  listAssignedSchoolsForSppg,
+  listMyDapodikSchools,
   listMapMarkers,
   listMySchools,
   listDeletedSppg,
   listSppg,
   restoreSppg,
+  unassignSchoolFromSppg,
   updateSppg
 };

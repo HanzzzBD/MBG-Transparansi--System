@@ -8,6 +8,7 @@
 - Backend URL terverifikasi dari config: `http://localhost:4000/api` (`Backend/.env` `PORT=4000`, `Frontend/.env` `VITE_API_URL`).
 - Sumber kebenaran: dokumen lama ini, codebase saat ini, test frontend/backend, endpoint lokal, dan browser smoke via Playwright.
 - Ringkasan terbaru: mayoritas gap lama sudah selesai. Security session sudah memory-only, public statistik/budget sudah ada, fallback dummy Landing/Distribusi/Konfirmasi sudah dihapus, route SDD SPPG/sekolah sudah tersedia, search/notifikasi sudah real backend, dan master CRUD admin sudah ada. Sisa utama adalah coverage audit yang belum lengkap untuk semua entity/action, public report submit dengan CAPTCHA asli masih blocked, dan warning Recharts pada browser dashboard.
+- Update relasi SPPG-Sekolah: flow baru memakai `sppg_school_assignments`; SPPG mencari sekolah dari `dapodik_schools` di `/sekolah-saluran`, melakukan assign/unassign tanpa dropdown ribuan data, dan distribusi SPPG hanya bisa dibuat ke sekolah saluran aktif.
 - Total status item re-audit: DONE/PASS 40, PARTIAL 5, FAIL 0, BLOCKED 2.
 - Catatan dokumen: section lama di bawah tetap dipertahankan sebagai baseline 2026-05-25. Tabel re-audit ini menjadi status terkini untuk setiap temuan/gap utama lama.
 
@@ -39,6 +40,8 @@
 | React Router future warnings | PR 3 Dashboard | LOW | PASS | `Frontend/src/App.jsx` `BrowserRouter future={{ v7_relativeSplatPath, v7_startTransition }}`; frontend test PASS | Playwright `/statistik` 0 warnings. Dashboard masih punya warning Recharts, bukan React Router. |
 | Distribusi fallback dummy dihapus | PR 4 SPPG | FAIL | DONE | `Frontend/src/pages/Distribusi.jsx`; `Frontend/test/sppg-operational-flow.test.js` PASS anti fallback | Empty/error state menggantikan fallback rows. |
 | Endpoint sekolah tujuan role SPPG tersedia dan scoped | PR 4 SPPG | MISSING | PASS | `Backend/src/modules/sppg/router.js` `/me/schools`; `Backend/test/sppg-operational-flow.test.js` PASS own school/search leak tests | Non-SPPG 403. |
+| SPPG memilih sekolah saluran dari Dapodik | PR 4 SPPG | MISSING | PASS | `Backend/src/modules/sppg/router.js` `/me/dapodik-schools`, `/me/schools/assign`; `Frontend/src/pages/SppgSchools.jsx`; backend test PASS | Search async paginated, bukan dropdown ribuan sekolah. |
+| Distribusi dibatasi ke sekolah saluran aktif | PR 4 SPPG | PARTIAL | PASS | `Backend/src/modules/distributions/service.js` `ensureActiveSchoolAssignment`; backend test PASS `SCHOOL_NOT_ASSIGNED_TO_SPPG` | Admin route tetap tidak membuka akses SPPG lain lewat self-service. |
 | SPPG read-only threshold wilayahnya | PR 4 SPPG | MISSING | PASS | `Backend/src/modules/priceThresholds/router.js` `/my-region` authorize `sppg`; backend test PASS | Mutasi threshold SPPG 403. |
 | Route SDD SPPG `/input-menu`, `/laporan-kendala`, `/riwayat`, `/profil` | PR 4 SPPG | FAIL | PASS | `Frontend/src/App.jsx`; `Frontend/test/sppg-operational-flow.test.js` PASS | Legacy dashboard routes redirect eksplisit. |
 | Input menu harian | PR 4 SPPG | PARTIAL | PASS | `Frontend/src/pages/SppgMenu.jsx`; API helpers `createMenu`, `getMenus`; backend `/menus` existed | Frontend route `/input-menu` sekarang ada. |

@@ -12,6 +12,21 @@ export class ApiError extends Error {
   }
 }
 
+export function isAbortError(error) {
+  if (!error) return false
+
+  const name = String(error.name || '')
+  const code = String(error.code || '')
+  const message = String(error.message || '')
+
+  return (
+    name === 'AbortError' ||
+    code === 'ABORT_ERR' ||
+    code === 'ERR_CANCELED' ||
+    /abort|aborted|cancelled|canceled/i.test(message)
+  )
+}
+
 function getAccessToken() {
   return useAuthStore.getState().token || null
 }
@@ -321,6 +336,22 @@ export const getSppgMapMarkers = (params, options = {}) => apiRequest('/sppg/map
 export const getSppgOperationalDetail = (id, options = {}) => apiRequest(`/sppg/${id}/detail`, options)
 
 export const getAssignedSppgSchools = (params, options = {}) => apiRequest('/sppg/me/schools', { ...options, params })
+
+export const getMyDapodikSchools = (params, options = {}) => apiRequest('/sppg/me/dapodik-schools', { ...options, params })
+
+export const assignMySppgSchools = (payload, options = {}) =>
+  apiRequest('/sppg/me/schools/assign', {
+    ...options,
+    method: 'POST',
+    body: payload,
+  })
+
+export const unassignMySppgSchool = (assignmentId, payload = {}, options = {}) =>
+  apiRequest(`/sppg/me/schools/${assignmentId}/unassign`, {
+    ...options,
+    method: 'PATCH',
+    body: payload,
+  })
 
 export const getPublicSppgDetail = (id) => apiRequest(`/public/sppg/${id}`)
 

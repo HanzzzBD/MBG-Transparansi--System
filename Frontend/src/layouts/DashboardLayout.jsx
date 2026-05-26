@@ -37,6 +37,7 @@ import {
 import {
   getGlobalSearch,
   getNotifications,
+  isAbortError,
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from '../services/api.js'
@@ -64,6 +65,7 @@ const dashboardMenu = {
 
 const sppgMenus = [
   { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/input-menu' },
+  { label: 'Sekolah Saluran', icon: School, path: '/sekolah-saluran' },
   { label: 'Input Porsi & Distribusi', icon: Package, path: '/distribusi' },
   { label: 'Status Distribusi', icon: Truck, path: '/distribusi' },
   { label: 'Lapor Kendala', icon: AlertTriangle, path: '/laporan-kendala' },
@@ -115,6 +117,14 @@ const NOTIFICATION_TYPE_LABELS = {
   anomaly: 'Anomali',
   system: 'Sistem',
 }
+
+const NOTIFICATION_CACHE_TTL_MS = 60_000
+const notificationCache = {
+  cacheKey: '',
+  timestamp: 0,
+  state: null,
+}
+let notificationRequest = null
 
 function emptySearchResults() {
   return {
@@ -266,6 +276,7 @@ function SidebarContent({
 function DashboardLayout({
   userRole = 'sppg',
   userName = 'Pengguna MBG',
+  userId = '',
   currentPath,
   children,
   onLogout,
@@ -298,12 +309,24 @@ function DashboardLayout({
   const normalizedRole = ROLE_LABELS[userRole] ? userRole : 'sppg'
   const pathname = currentPath || location.pathname
   const trimmedSearchQuery = searchQuery.trim()
+  const notificationCacheKey = `${normalizedRole}:${userId || userName || 'anonymous'}`
 
   const menus = useMemo(() => getRoleMenus(normalizedRole), [normalizedRole])
   const activeMenu = useMemo(() => getActiveMenu(menus, pathname), [menus, pathname])
   const displayNotifCount = notificationState.unreadCount
 
-  const loadNotifications = useCallback(async (signal) => {
+  const loadNotifications = useCallback(async (signal, { force = false } = {}) => {
+    const now = Date.now()
+    const hasFreshCache =
+      notificationCache.cacheKey === notificationCacheKey &&
+      notificationCache.state &&
+      now - notificationCache.timestamp < NOTIFICATION_CACHE_TTL_MS
+
+    if (!force && hasFreshCache) {
+      setNotificationState(notificationCache.state)
+      return
+    }
+
     setNotificationState((current) => ({
       ...current,
       loading: true,
@@ -311,17 +334,31 @@ function DashboardLayout({
     }))
 
     try {
-      const payload = await getNotifications({ limit: 6 }, { signal })
+      if (!notificationRequest || notificationRequest.cacheKey !== notificationCacheKey) {
+        notificationRequest = {
+          cacheKey: notificationCacheKey,
+          promise: getNotifications({ limit: 6 }).finally(() => {
+            notificationRequest = null
+          }),
+        }
+      }
+
+      const payload = await notificationRequest.promise
+      if (signal?.aborted) return
       const items = Array.isArray(payload?.data) ? payload.data.map(normalizeNotification) : []
-      setNotificationState({
+      const nextState = {
         items,
         unreadCount: Number(payload?.meta?.unreadCount || 0),
         loading: false,
         error: '',
         loaded: true,
-      })
+      }
+      notificationCache.cacheKey = notificationCacheKey
+      notificationCache.timestamp = Date.now()
+      notificationCache.state = nextState
+      setNotificationState(nextState)
     } catch (error) {
-      if (error.name !== 'AbortError') {
+      if (!isAbortError(error)) {
         setNotificationState((current) => ({
           ...current,
           loading: false,
@@ -330,7 +367,7 @@ function DashboardLayout({
         }))
       }
     }
-  }, [])
+  }, [notificationCacheKey])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -369,7 +406,7 @@ function DashboardLayout({
         })
         setSearchOpen(true)
       } catch (error) {
-        if (error.name !== 'AbortError') {
+        if (!isAbortError(error)) {
           setSearchState({
             results: emptySearchResults(),
             loading: false,
@@ -455,7 +492,7 @@ function DashboardLayout({
       try {
         await markNotificationAsRead(notification.id)
       } catch {
-        Promise.resolve().then(() => loadNotifications())
+        Promise.resolve().then(() => loadNotifications(undefined, { force: true }))
       }
     }
 
@@ -472,11 +509,15 @@ function DashboardLayout({
     try {
       await markAllNotificationsAsRead()
     } catch {
-      Promise.resolve().then(() => loadNotifications())
+      Promise.resolve().then(() => loadNotifications(undefined, { force: true }))
     }
   }
 
   const handleLogout = () => {
+    notificationCache.cacheKey = ''
+    notificationCache.timestamp = 0
+    notificationCache.state = null
+    notificationRequest = null
     setUserMenuOpen(false)
     setNotifOpen(false)
     setSearchOpen(false)
@@ -643,7 +684,7 @@ function DashboardLayout({
                     setNotifOpen((current) => {
                       const nextOpen = !current
                       if (nextOpen) {
-                        Promise.resolve().then(() => loadNotifications())
+                        Promise.resolve().then(() => loadNotifications(undefined, { force: true }))
                       }
                       return nextOpen
                     })
@@ -675,7 +716,7 @@ function DashboardLayout({
                     {!notificationState.loading && notificationState.error ? (
                       <div className="dashboard-dropdown-state dashboard-dropdown-state-error">
                         <span>{notificationState.error}</span>
-                        <button type="button" onClick={() => loadNotifications()}>Coba lagi</button>
+                        <button type="button" onClick={() => loadNotifications(undefined, { force: true })}>Coba lagi</button>
                       </div>
                     ) : null}
 

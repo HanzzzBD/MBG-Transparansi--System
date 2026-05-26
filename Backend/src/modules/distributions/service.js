@@ -12,6 +12,14 @@ const {
 } = require("../../utils/ownership");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 const {
+  buildTokenSearchOr,
+  getRankedSearchCandidateLimit,
+  hasSearchQuery,
+  mergeWhereWithAnd,
+  paginateRankedSearch,
+  textContains
+} = require("../../utils/search");
+const {
   createNotificationsForUsers,
   findUserIdsBySchoolId,
   findUserIdsBySppgId
@@ -28,6 +36,8 @@ const parseBooleanFilter = (value) => {
   if (typeof value === "string") return value.toLowerCase() === "true";
   return value;
 };
+
+const maybeWhere = (condition) => (condition && Object.keys(condition).length ? [condition] : []);
 
 const buildDistributionWhere = ({ query = {}, user }) => {
   const isLockedFilter = parseBooleanFilter(query.isLocked);
@@ -79,34 +89,46 @@ const buildDistributionWhere = ({ query = {}, user }) => {
 
   if (query.search) {
     const search = query.search.trim();
-    const searchOr = [
-      {
+    const searchWhere = buildTokenSearchOr(search, [
+      (token) => ({
         sppg: {
           deletedAt: null,
           name: {
-            contains: search,
+            contains: token,
             mode: "insensitive"
           }
         }
-      },
-      {
+      }),
+      (token) => ({
         school: {
           deletedAt: null,
           name: {
-            contains: search,
+            contains: token,
             mode: "insensitive"
           }
         }
-      },
-      {
+      }),
+      (token) => ({
         school: {
           deletedAt: null,
           city: {
-            contains: search,
+            contains: token,
             mode: "insensitive"
           }
         }
-      },
+      }),
+      (token) => ({
+        school: {
+          deletedAt: null,
+          province: {
+            contains: token,
+            mode: "insensitive"
+          }
+        }
+      })
+    ]);
+    const searchOr = [
+      ...maybeWhere(searchWhere),
       ...(Number.isInteger(Number(search)) ? [{ id: Number(search) }] : [])
     ];
 
@@ -115,13 +137,11 @@ const buildDistributionWhere = ({ query = {}, user }) => {
         {
           OR: where.OR
         },
-        {
-          OR: searchOr
-        }
+        searchOr.length === 1 ? searchOr[0] : { OR: searchOr }
       ];
       delete where.OR;
     } else {
-      where.OR = searchOr;
+      Object.assign(where, searchOr.length === 1 ? searchOr[0] : { OR: searchOr });
     }
   }
 
@@ -145,6 +165,39 @@ const buildDistributionWhere = ({ query = {}, user }) => {
 
   return where;
 };
+
+const buildDistributionBaseWhere = ({ query = {}, user }) =>
+  buildDistributionWhere({
+    query: {
+      ...query,
+      search: undefined
+    },
+    user
+  });
+
+const buildLooseDistributionSearchWhere = (search) => {
+  const tokenWhere = buildTokenSearchOr(search, [
+    (token) => ({ sppg: { deletedAt: null, name: textContains(token) } }),
+    (token) => ({ school: { deletedAt: null, name: textContains(token) } }),
+    (token) => ({ school: { deletedAt: null, city: textContains(token) } }),
+    (token) => ({ school: { deletedAt: null, province: textContains(token) } })
+  ]);
+  const numericFilter = Number.isInteger(Number(search)) ? [{ id: Number(search) }] : [];
+
+  if (!Object.keys(tokenWhere).length && !numericFilter.length) return {};
+
+  if (!numericFilter.length) return tokenWhere;
+  return { OR: [...numericFilter, tokenWhere] };
+};
+
+const DISTRIBUTION_SEARCH_RANK_FIELDS = [
+  { value: (item) => item.sppg?.name, weight: 5 },
+  { value: (item) => item.school?.name, weight: 7 },
+  { value: (item) => item.school?.city, weight: 3 },
+  { value: (item) => item.school?.province, weight: 2 },
+  { field: "status", weight: 2 },
+  { field: "id", weight: 0.25 }
+];
 
 const getActiveSppg = async (id) => {
   const sppg = await prisma.sppg.findFirst({
@@ -177,6 +230,26 @@ const getActiveSchool = async (id) => {
   }
 
   return school;
+};
+
+const ensureActiveSchoolAssignment = async ({ sppgId, schoolId }) => {
+  const assignment = await prisma.sppgSchoolAssignment.findFirst({
+    where: {
+      sppgId: Number(sppgId),
+      schoolId: Number(schoolId),
+      status: "active"
+    }
+  });
+
+  if (!assignment) {
+    throw new AppError(
+      "Sekolah belum terdaftar sebagai sekolah saluran SPPG ini.",
+      403,
+      "SCHOOL_NOT_ASSIGNED_TO_SPPG"
+    );
+  }
+
+  return assignment;
 };
 
 const getDistributionById = async (id) => {
@@ -373,16 +446,47 @@ const relockExpiredDistributionWindow = async ({ distribution, ipAddress }) =>
 const listDistributions = async ({ query, user }) => {
   const pagination = parsePagination(query);
   const where = buildDistributionWhere({ query, user });
+  const include = {
+    sppg: true,
+    school: true,
+    productionBatch: true,
+    validation: true
+  };
+
+  if (hasSearchQuery(query.search)) {
+    const baseWhere = buildDistributionBaseWhere({ query, user });
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await prisma.distribution.findMany({
+      where: mergeWhereWithAnd(baseWhere, buildLooseDistributionSearchWhere(query.search)),
+      include,
+      take: candidateLimit,
+      orderBy: [{ distributionDate: "desc" }, { createdAt: "desc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: DISTRIBUTION_SEARCH_RANK_FIELDS,
+      pagination
+    });
+
+    return {
+      data: ranked.items,
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: ranked.total
+        }),
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
 
   const [items, total] = await Promise.all([
     prisma.distribution.findMany({
       where,
-      include: {
-        sppg: true,
-        school: true,
-        productionBatch: true,
-        validation: true
-      },
+      include,
       skip: pagination.skip,
       take: pagination.limit,
       orderBy: [{ distributionDate: "desc" }, { createdAt: "desc" }]
@@ -456,9 +560,7 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
 
   const [sppg, school] = await Promise.all([getActiveSppg(targetSppgId), getActiveSchool(payload.schoolId)]);
 
-  if (school.sppgId !== sppg.id) {
-    throw new AppError("School is not linked to the specified SPPG.", 400, "SCHOOL_SPPG_MISMATCH");
-  }
+  await ensureActiveSchoolAssignment({ sppgId: sppg.id, schoolId: school.id });
 
   const nextStatus = payload.status || "in_progress";
   const shouldLock = nextStatus === "delivered";
@@ -623,9 +725,7 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
 
   const [sppg, school] = await Promise.all([getActiveSppg(targetSppgId), getActiveSchool(targetSchoolId)]);
 
-  if (school.sppgId !== sppg.id) {
-    throw new AppError("School is not linked to the specified SPPG.", 400, "SCHOOL_SPPG_MISMATCH");
-  }
+  await ensureActiveSchoolAssignment({ sppgId: sppg.id, schoolId: school.id });
 
   const nextStatus = payload.status ?? existing.status;
   const becameDelivered = existing.status !== "delivered" && nextStatus === "delivered";

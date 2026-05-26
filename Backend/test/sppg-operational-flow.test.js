@@ -17,6 +17,8 @@ const state = {
   baseUrl: "",
   sppg: {},
   schools: {},
+  dapodikSchools: {},
+  assignments: {},
   users: {},
   thresholds: {},
   tokens: {}
@@ -97,6 +99,78 @@ async function setupData() {
     }
   });
 
+  state.assignments.a = await prisma.sppgSchoolAssignment.create({
+    data: {
+      sppgId: state.sppg.a.id,
+      schoolId: state.schools.a.id,
+      status: "active"
+    }
+  });
+  state.assignments.b = await prisma.sppgSchoolAssignment.create({
+    data: {
+      sppgId: state.sppg.b.id,
+      schoolId: state.schools.b.id,
+      status: "active"
+    }
+  });
+
+  state.dapodikSchools.unassigned = await prisma.dapodikSchool.create({
+    data: {
+      semesterId: `${prefix}_semester`,
+      dapodikSchoolId: `${prefix}_dapodik_unassigned`,
+      npsn: `${prefix}_dapodik_unassigned_npsn`,
+      name: `${prefix} Dapodik School Unassigned`,
+      province: state.sppg.a.province,
+      city: state.sppg.a.city,
+      district: `${prefix} District A`,
+      educationLevel: "SMA",
+      schoolStatus: "Negeri",
+      studentCount: 300,
+      rawData: {},
+      fetchedAt: new Date()
+    }
+  });
+  state.dapodikSchools.assignedB = await prisma.dapodikSchool.create({
+    data: {
+      semesterId: `${prefix}_semester`,
+      dapodikSchoolId: `${prefix}_dapodik_assigned_b`,
+      npsn: `${prefix}_dapodik_assigned_b_npsn`,
+      name: `${prefix} Dapodik School Assigned B`,
+      province: state.sppg.b.province,
+      city: state.sppg.b.city,
+      district: `${prefix} District B`,
+      educationLevel: "SMP",
+      schoolStatus: "Negeri",
+      studentCount: 280,
+      rawData: {},
+      fetchedAt: new Date()
+    }
+  });
+  state.schools.fromDapodikB = await prisma.school.create({
+    data: {
+      name: state.dapodikSchools.assignedB.name,
+      province: state.sppg.b.province,
+      city: state.sppg.b.city,
+      district: state.dapodikSchools.assignedB.district,
+      sppgId: state.sppg.b.id,
+      totalStudents: 280,
+      npsn: state.dapodikSchools.assignedB.npsn,
+      dapodikSchoolId: state.dapodikSchools.assignedB.dapodikSchoolId,
+      dapodikLink: {
+        create: {
+          dapodikSchoolRecordId: state.dapodikSchools.assignedB.id
+        }
+      }
+    }
+  });
+  state.assignments.fromDapodikB = await prisma.sppgSchoolAssignment.create({
+    data: {
+      sppgId: state.sppg.b.id,
+      schoolId: state.schools.fromDapodikB.id,
+      status: "active"
+    }
+  });
+
   const users = await Promise.all([
     prisma.user.create({
       data: {
@@ -132,10 +206,18 @@ async function setupData() {
         password: "hashed",
         role: "admin"
       }
+    }),
+    prisma.user.create({
+      data: {
+        name: `${prefix} Pemerintah`,
+        email: `${prefix}.gov@example.test`,
+        password: "hashed",
+        role: "pemerintah"
+      }
     })
   ]);
 
-  [state.users.sppgA, state.users.sppgB, state.users.schoolA, state.users.admin] = users;
+  [state.users.sppgA, state.users.sppgB, state.users.schoolA, state.users.admin, state.users.gov] = users;
 
   state.thresholds.a = await prisma.priceThreshold.create({
     data: {
@@ -162,13 +244,15 @@ async function setupData() {
     sppgA: tokenFor(state.users.sppgA),
     sppgB: tokenFor(state.users.sppgB),
     schoolA: tokenFor(state.users.schoolA),
-    admin: tokenFor(state.users.admin)
+    admin: tokenFor(state.users.admin),
+    gov: tokenFor(state.users.gov)
   };
 }
 
 async function cleanupData() {
   const userIds = Object.values(state.users).map((user) => user?.id).filter(Boolean);
   const schoolIds = Object.values(state.schools).map((school) => school?.id).filter(Boolean);
+  const dapodikSchoolIds = Object.values(state.dapodikSchools).map((school) => school?.id).filter(Boolean);
   const sppgIds = Object.values(state.sppg).map((sppg) => sppg?.id).filter(Boolean);
   const thresholdIds = Object.values(state.thresholds).map((threshold) => threshold?.id).filter(Boolean);
 
@@ -186,6 +270,25 @@ async function cleanupData() {
       }
     }
   });
+  await prisma.auditLog.deleteMany({
+    where: {
+      tableName: {
+        in: ["sppg_school_assignments", "distributions"]
+      },
+      OR: [
+        {
+          userId: {
+            in: userIds.length ? userIds : [-1]
+          }
+        },
+        {
+          recordId: {
+            in: Object.values(state.assignments).map((assignment) => assignment?.id).filter(Boolean)
+          }
+        }
+      ]
+    }
+  });
   await prisma.user.deleteMany({
     where: {
       id: {
@@ -193,10 +296,72 @@ async function cleanupData() {
       }
     }
   });
+  await prisma.validation.deleteMany({
+    where: {
+      schoolId: {
+        in: schoolIds.length ? schoolIds : [-1]
+      }
+    }
+  });
+  await prisma.distribution.deleteMany({
+    where: {
+      OR: [
+        {
+          schoolId: {
+            in: schoolIds.length ? schoolIds : [-1]
+          }
+        },
+        {
+          sppgId: {
+            in: sppgIds.length ? sppgIds : [-1]
+          }
+        }
+      ]
+    }
+  });
+  await prisma.sppgSchoolAssignment.deleteMany({
+    where: {
+      OR: [
+        {
+          schoolId: {
+            in: schoolIds.length ? schoolIds : [-1]
+          }
+        },
+        {
+          sppgId: {
+            in: sppgIds.length ? sppgIds : [-1]
+          }
+        }
+      ]
+    }
+  });
+  await prisma.schoolDapodikLink.deleteMany({
+    where: {
+      OR: [
+        {
+          schoolId: {
+            in: schoolIds.length ? schoolIds : [-1]
+          }
+        },
+        {
+          dapodikSchoolRecordId: {
+            in: dapodikSchoolIds.length ? dapodikSchoolIds : [-1]
+          }
+        }
+      ]
+    }
+  });
   await prisma.school.deleteMany({
     where: {
       id: {
         in: schoolIds.length ? schoolIds : [-1]
+      }
+    }
+  });
+  await prisma.dapodikSchool.deleteMany({
+    where: {
+      id: {
+        in: dapodikSchoolIds.length ? dapodikSchoolIds : [-1]
       }
     }
   });
@@ -239,9 +404,16 @@ describe("PR 4 SPPG operational flow", () => {
 
   it("returns 401 for SPPG operational endpoints without token", async () => {
     const schoolsResponse = await request("/api/sppg/me/schools");
+    const assignResponse = await request("/api/sppg/me/schools/assign", {
+      method: "POST",
+      body: {
+        dapodikSchoolId: state.dapodikSchools.unassigned.id
+      }
+    });
     const thresholdResponse = await request("/api/price-thresholds/my-region");
 
     assert.equal(schoolsResponse.status, 401);
+    assert.equal(assignResponse.status, 401);
     assert.equal(thresholdResponse.status, 401);
   });
 
@@ -276,6 +448,287 @@ describe("PR 4 SPPG operational flow", () => {
 
     assert.equal(schoolResponse.status, 403);
     assert.equal(adminResponse.status, 403);
+  });
+
+  it("rejects non-SPPG roles from self-service assignment endpoint", async () => {
+    const schoolResponse = await request("/api/sppg/me/schools/assign", {
+      method: "POST",
+      token: state.tokens.schoolA,
+      body: {
+        dapodikSchoolId: state.dapodikSchools.unassigned.id
+      }
+    });
+    const govResponse = await request("/api/sppg/me/schools/assign", {
+      method: "POST",
+      token: state.tokens.gov,
+      body: {
+        dapodikSchoolId: state.dapodikSchools.unassigned.id
+      }
+    });
+
+    assert.equal(schoolResponse.status, 403);
+    assert.equal(govResponse.status, 403);
+  });
+
+  it("lets SPPG search paginated Dapodik schools without raw payloads", async () => {
+    const response = await request(`/api/sppg/me/dapodik-schools?search=${encodeURIComponent("Dapodik School")}&limit=10`, {
+      token: state.tokens.sppgA
+    });
+
+    assert.equal(response.status, 200);
+    assert.ok(Array.isArray(response.body?.data));
+    assert.ok(response.body.data.some((school) => school.id === state.dapodikSchools.unassigned.id));
+    assert.ok(response.body.data.some((school) => school.assignedSppgName === state.sppg.b.name));
+    assert.equal(response.body.data.some((school) => Object.hasOwn(school, "rawData")), false);
+  });
+
+  it("ranks Dapodik search by relevance for partial and fuzzy terms", async () => {
+    const [lessRelevant, mostRelevant] = await Promise.all([
+      prisma.dapodikSchool.create({
+        data: {
+          semesterId: "20252",
+          dapodikSchoolId: `${state.prefix}_rank_smkn2`,
+          npsn: `${state.prefix}_rank_2`,
+          name: `${state.prefix} SMKN 2 BALEENDAH`,
+          province: "Jawa Barat",
+          city: "Bandung",
+          district: "Baleendah",
+          educationLevel: "SMK",
+          schoolStatus: "Negeri",
+          studentCount: 0,
+          sourceHash: "contains-4-but-low-priority",
+          rawData: {},
+          fetchedAt: new Date()
+        }
+      }),
+      prisma.dapodikSchool.create({
+        data: {
+          semesterId: "20252",
+          dapodikSchoolId: `${state.prefix}_rank_smkn4`,
+          npsn: `${state.prefix}_rank_4`,
+          name: `${state.prefix} SMKN 4 BANDUNG`,
+          province: "Jawa Barat",
+          city: "Bandung",
+          district: "Baleendah",
+          educationLevel: "SMK",
+          schoolStatus: "Negeri",
+          studentCount: 0,
+          rawData: {},
+          fetchedAt: new Date()
+        }
+      })
+    ]);
+    state.dapodikSchools.ranking2 = lessRelevant;
+    state.dapodikSchools.ranking4 = mostRelevant;
+
+    const response = await request(
+      `/api/dapodik/staged-schools?semester_id=20252&search=${encodeURIComponent(`${state.prefix} SMKN 4 Bandung`)}&limit=5`,
+      {
+        token: state.tokens.admin
+      }
+    );
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body?.data?.[0]?.id, mostRelevant.id);
+    assert.equal(response.body?.meta?.searchMode, "partial_fuzzy_ranked");
+  });
+
+  it("requires every search token and supports school aliases", async () => {
+    const marker = "ketatsearchalpha";
+    const [smkn7, smkNegeri4] = await Promise.all([
+      prisma.dapodikSchool.create({
+        data: {
+          semesterId: "20252",
+          dapodikSchoolId: `${marker}_strict_smkn_tujuh`,
+          npsn: `${marker}_strict_tujuh`,
+          name: `${marker} SMKN 7 BALEENDAH`,
+          province: "Jawa Barat",
+          city: "Kabupaten Bandung",
+          district: "Baleendah",
+          educationLevel: "SMK",
+          schoolStatus: "Negeri",
+          studentCount: 0,
+          rawData: {},
+          fetchedAt: new Date()
+        }
+      }),
+      prisma.dapodikSchool.create({
+        data: {
+          semesterId: "20252",
+          dapodikSchoolId: `${marker}_strict_smkn_empat`,
+          npsn: `${marker}_strict_empat`,
+          name: `${marker} SMK NEGERI 4 BANDUNG`,
+          province: "Jawa Barat",
+          city: "Kota Bandung",
+          district: "Cijagra",
+          educationLevel: "SMK",
+          schoolStatus: "Negeri",
+          studentCount: 0,
+          rawData: {},
+          fetchedAt: new Date()
+        }
+      })
+    ]);
+    state.dapodikSchools.strict7 = smkn7;
+    state.dapodikSchools.strict4 = smkNegeri4;
+
+    const exact = await request(
+      `/api/dapodik/staged-schools?semester_id=20252&search=${encodeURIComponent(`${marker} SMKN 4 Bandung`)}&limit=10`,
+      {
+        token: state.tokens.admin
+      }
+    );
+    const impossible = await request(
+      `/api/dapodik/staged-schools?semester_id=20252&search=${encodeURIComponent(`${marker} Cijagra xxx`)}&limit=10`,
+      {
+        token: state.tokens.admin
+      }
+    );
+
+    assert.equal(exact.status, 200);
+    assert.equal(exact.body?.data?.[0]?.id, smkNegeri4.id);
+    assert.equal(exact.body?.data?.some((item) => item.id === smkn7.id), false);
+    assert.equal(impossible.status, 200);
+    assert.deepEqual(impossible.body?.data, []);
+  });
+
+  it("assigns Dapodik school to the authenticated SPPG and avoids duplicates", async () => {
+    const first = await request("/api/sppg/me/schools/assign", {
+      method: "POST",
+      token: state.tokens.sppgA,
+      body: {
+        dapodikSchoolId: state.dapodikSchools.unassigned.id,
+        notes: "Sekolah saluran test"
+      }
+    });
+    const second = await request("/api/sppg/me/schools/assign", {
+      method: "POST",
+      token: state.tokens.sppgA,
+      body: {
+        dapodikSchoolId: state.dapodikSchools.unassigned.id
+      }
+    });
+
+    assert.equal(first.status, 200);
+    assert.equal(first.body?.data?.[0]?.status, "assigned");
+    assert.equal(second.status, 200);
+    assert.equal(second.body?.data?.[0]?.status, "skipped_already_assigned");
+
+    const assignmentCount = await prisma.sppgSchoolAssignment.count({
+      where: {
+        schoolId: first.body.data[0].schoolId,
+        status: "active"
+      }
+    });
+    const auditCount = await prisma.auditLog.count({
+      where: {
+        tableName: "sppg_school_assignments",
+        recordId: first.body.data[0].assignmentId,
+        action: "INSERT"
+      }
+    });
+
+    assert.equal(assignmentCount, 1);
+    assert.equal(auditCount, 1);
+    state.schools.fromDapodikA = { id: first.body.data[0].schoolId };
+    state.assignments.fromDapodikA = { id: first.body.data[0].assignmentId };
+  });
+
+  it("does not let SPPG take a school already assigned to another SPPG", async () => {
+    const response = await request("/api/sppg/me/schools/assign", {
+      method: "POST",
+      token: state.tokens.sppgA,
+      body: {
+        dapodikSchoolId: state.dapodikSchools.assignedB.id
+      }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body?.data?.[0]?.status, "skipped_already_assigned");
+
+    const school = await prisma.school.findUnique({
+      where: {
+        id: state.schools.fromDapodikB.id
+      }
+    });
+    assert.equal(school.sppgId, state.sppg.b.id);
+  });
+
+  it("requires an active school assignment before creating SPPG distribution", async () => {
+    const rejected = await request("/api/distributions", {
+      method: "POST",
+      token: state.tokens.sppgA,
+      body: {
+        schoolId: state.schools.b.id,
+        portions: 40,
+        pricePerPortion: 12000,
+        distributionDate: "2026-05-26"
+      }
+    });
+    const accepted = await request("/api/distributions", {
+      method: "POST",
+      token: state.tokens.sppgA,
+      body: {
+        schoolId: state.schools.a.id,
+        portions: 40,
+        pricePerPortion: 12000,
+        distributionDate: "2026-05-26"
+      }
+    });
+
+    assert.equal(rejected.status, 403);
+    assert.equal(rejected.body?.code, "SCHOOL_NOT_ASSIGNED_TO_SPPG");
+    assert.equal(accepted.status, 201);
+  });
+
+  it("unassigns an active school assignment and writes audit log", async () => {
+    const dapodik = await prisma.dapodikSchool.create({
+      data: {
+        semesterId: `${state.prefix}_semester`,
+        dapodikSchoolId: `${state.prefix}_dapodik_unassign`,
+        npsn: `${state.prefix}_dapodik_unassign_npsn`,
+        name: `${state.prefix} Dapodik School Unassign`,
+        province: state.sppg.a.province,
+        city: state.sppg.a.city,
+        district: `${state.prefix} District A`,
+        educationLevel: "SD",
+        schoolStatus: "Negeri",
+        studentCount: 120,
+        rawData: {},
+        fetchedAt: new Date()
+      }
+    });
+    state.dapodikSchools.unassign = dapodik;
+
+    const assigned = await request("/api/sppg/me/schools/assign", {
+      method: "POST",
+      token: state.tokens.sppgA,
+      body: {
+        dapodikSchoolId: dapodik.id
+      }
+    });
+    const assignmentId = assigned.body?.data?.[0]?.assignmentId;
+    state.assignments.unassign = { id: assignmentId };
+    state.schools.unassign = { id: assigned.body?.data?.[0]?.schoolId };
+
+    const response = await request(`/api/sppg/me/schools/${assignmentId}/unassign`, {
+      method: "PATCH",
+      token: state.tokens.sppgA,
+      body: {
+        reason: "Tidak lagi masuk area distribusi"
+      }
+    });
+    const auditCount = await prisma.auditLog.count({
+      where: {
+        tableName: "sppg_school_assignments",
+        recordId: assignmentId,
+        action: "UPDATE"
+      }
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body?.data?.assignmentStatus, "inactive");
+    assert.equal(auditCount, 1);
   });
 
   it("allows SPPG to read the price threshold for its own province only", async () => {

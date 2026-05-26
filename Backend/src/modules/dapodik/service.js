@@ -4,6 +4,15 @@ const AppError = require("../../utils/appError");
 const { createAuditLog } = require("../../utils/auditLog");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 const {
+  buildLooseTokenSearchWhere,
+  buildRankedSearchCandidateWhere,
+  buildTokenSearchWhere,
+  getRankedSearchCandidateLimit,
+  hasSearchQuery,
+  paginateRankedSearch,
+  rankBySearch
+} = require("../../utils/search");
+const {
   MANUAL_IMPORT_ENDPOINT,
   importDapodikSchoolRows
 } = require("./importer");
@@ -37,6 +46,19 @@ const parseSchoolFilters = (query = {}) => ({
   linkStatus: query.link_status
 });
 
+const DAPODIK_SEARCH_FIELDS = ["name", "npsn", "city", "district", "province", "educationLevel", "schoolStatus"];
+const DAPODIK_SEARCH_RANK_FIELDS = [
+  { field: "name", weight: 7 },
+  { field: "npsn", weight: 4 },
+  { field: "city", weight: 3 },
+  { field: "district", weight: 3 },
+  { field: "province", weight: 2 },
+  { field: "educationLevel", weight: 1.5 },
+  { field: "schoolStatus", weight: 1 },
+  { field: "dapodikSchoolId", weight: 0.15 },
+  { field: "sourceHash", weight: 0.05 }
+];
+
 const buildLocalSchoolWhere = (query = {}) => {
   const filters = parseSchoolFilters(query);
   const andConditions = [];
@@ -67,40 +89,7 @@ const buildLocalSchoolWhere = (query = {}) => {
   }
 
   if (filters.search) {
-    andConditions.push({
-      OR: [
-        {
-          name: {
-            contains: filters.search,
-            mode: "insensitive"
-          }
-        },
-        {
-          npsn: {
-            contains: filters.search,
-            mode: "insensitive"
-          }
-        },
-        {
-          dapodikSchoolId: {
-            contains: filters.search,
-            mode: "insensitive"
-          }
-        },
-        {
-          city: {
-            contains: filters.search,
-            mode: "insensitive"
-          }
-        },
-        {
-          district: {
-            contains: filters.search,
-            mode: "insensitive"
-          }
-        }
-      ]
-    });
+    andConditions.push(buildTokenSearchWhere(filters.search, ["name", "npsn", "dapodikSchoolId", "city", "district", "province"]));
   }
 
   return {
@@ -124,29 +113,41 @@ const buildLocalSchoolWhere = (query = {}) => {
   };
 };
 
+const buildLocalSchoolBaseWhere = (query = {}) =>
+  buildLocalSchoolWhere({
+    ...query,
+    search: undefined
+  });
+
 const buildRegionWhere = (query = {}) => {
   const search = normalizeOptionalText(query.search);
   const level = Number(query.id_level_wilayah);
 
   if (level === 0) {
     return {
-      ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+      ...buildTokenSearchWhere(search, ["name"]),
       ...(query.kode_wilayah && query.kode_wilayah !== "000000" ? { kodeWilayah: query.kode_wilayah } : {})
     };
   }
 
   if (level === 1) {
     return {
-      ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+      ...buildTokenSearchWhere(search, ["name"]),
       ...(query.kode_wilayah && query.kode_wilayah !== "000000" ? { provinceKodeWilayah: query.kode_wilayah } : {})
     };
   }
 
   return {
-    ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+    ...buildTokenSearchWhere(search, ["name"]),
     ...(query.kode_wilayah && query.kode_wilayah !== "000000" ? { cityKodeWilayah: query.kode_wilayah } : {})
   };
 };
+
+const buildRegionBaseWhere = (query = {}) =>
+  buildRegionWhere({
+    ...query,
+    search: undefined
+  });
 
 const getRegionModel = (level) => {
   const normalizedLevel = Number(level);
@@ -452,6 +453,38 @@ const getRegionRecap = async ({ query }) => {
   const model = getRegionModel(query.id_level_wilayah);
   const where = buildRegionWhere(query);
 
+  if (hasSearchQuery(query.search)) {
+    const baseWhere = buildRegionBaseWhere(query);
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await model.findMany({
+      where: buildRankedSearchCandidateWhere(baseWhere, query.search, ["name"]),
+      take: candidateLimit,
+      orderBy: [{ name: "asc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: [{ field: "name", weight: 7 }],
+      pagination
+    });
+
+    return {
+      data: ranked.items.map(mapRegionRecord),
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: ranked.total
+        }),
+        source: "dapodik_local_db",
+        level: query.id_level_wilayah,
+        parentKodeWilayah: query.kode_wilayah || null,
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
+
   const [items, total] = await Promise.all([
     model.findMany({
       where,
@@ -482,6 +515,47 @@ const getSchoolProgress = async ({ query }) => {
   const where = buildLocalSchoolWhere(query);
   const filters = parseSchoolFilters(query);
   const take = filters.autocomplete ? Math.min(pagination.limit, 20) : pagination.limit;
+
+  if (filters.search) {
+    const baseWhere = buildLocalSchoolBaseWhere(query);
+    const candidateWhere = {
+      ...baseWhere,
+      AND: [
+        ...(Array.isArray(baseWhere.AND) ? baseWhere.AND : []),
+        buildLooseTokenSearchWhere(filters.search, DAPODIK_SEARCH_FIELDS)
+      ].filter((condition) => Object.keys(condition).length > 0)
+    };
+    const candidateLimit = Math.max(500, Math.min(5000, pagination.page * take * 30));
+    let candidates = await prisma.dapodikSchool.findMany({
+      where: candidateWhere,
+      take: candidateLimit,
+      orderBy: [{ province: "asc" }, { city: "asc" }, { district: "asc" }, { name: "asc" }],
+      include: {
+        schoolLink: {
+          include: {
+            school: true
+          }
+        }
+      }
+    });
+
+    const rankedItems = rankBySearch(candidates, filters.search, DAPODIK_SEARCH_RANK_FIELDS);
+    const pageItems = rankedItems.slice(pagination.skip, pagination.skip + take);
+
+    return {
+      data: filters.autocomplete ? pageItems.map(mapStagedSchoolAutocomplete) : pageItems.map(mapStagedSchool),
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: take,
+          total: rankedItems.length
+        }),
+        source: "dapodik_local_db",
+        autocomplete: filters.autocomplete,
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
 
   const [items, total] = await Promise.all([
     prisma.dapodikSchool.findMany({

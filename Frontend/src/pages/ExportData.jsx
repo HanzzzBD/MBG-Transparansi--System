@@ -18,6 +18,7 @@ import {
   downloadExport,
   getExportDetail,
   getExports,
+  isAbortError,
   retryExport,
   apiRequest as requestJson,
 } from '../services/api'
@@ -212,7 +213,9 @@ function ExportData({ userRole, userName, onLogout }) {
       const result = await requestJson('/system-configs/export_max_rows', { signal })
       setMaxRows(getConfiguredValue(result))
     } catch (configError) {
-      setError(configError.message || 'Konfigurasi export_max_rows gagal dimuat dari API.')
+      if (!isAbortError(configError)) {
+        setError(configError.message || 'Konfigurasi export_max_rows gagal dimuat dari API.')
+      }
     }
   }, [])
 
@@ -227,8 +230,10 @@ function ExportData({ userRole, userName, onLogout }) {
 
       setHistory([])
     } catch (historyError) {
-      setHistory([])
-      setError(historyError.message || 'Riwayat export gagal dimuat dari API.')
+      if (!isAbortError(historyError)) {
+        setHistory([])
+        setError(historyError.message || 'Riwayat export gagal dimuat dari API.')
+      }
     }
   }, [])
 
@@ -298,10 +303,12 @@ function ExportData({ userRole, userName, onLogout }) {
       try {
         await Promise.all([fetchMaxRows(controller.signal), fetchHistory(controller.signal)])
       } catch (fetchError) {
-        setError(fetchError.message || 'Data export gagal dimuat dari API.')
-        setHistory([])
+        if (!isAbortError(fetchError)) {
+          setError(fetchError.message || 'Data export gagal dimuat dari API.')
+          setHistory([])
+        }
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
 

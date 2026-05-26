@@ -6,6 +6,7 @@ import { resolve } from 'node:path'
 const layoutPath = resolve(import.meta.dirname, '..', 'src/layouts/DashboardLayout.jsx')
 const apiPath = resolve(import.meta.dirname, '..', 'src/services/api.js')
 const appPath = resolve(import.meta.dirname, '..', 'src/App.jsx')
+const frontendSearchPath = resolve(import.meta.dirname, '..', 'src/utils/search.js')
 
 describe('PR 3 dashboard real data polish', () => {
   it('wires topbar global search to backend with debounce and result dropdown', async () => {
@@ -38,5 +39,19 @@ describe('PR 3 dashboard real data polish', () => {
 
     assert.match(appSource, /future=\{\{[^}]*v7_relativeSplatPath:\s*true/)
     assert.match(appSource, /future=\{\{[^}]*v7_startTransition:\s*true/)
+  })
+
+  it('uses smart token search for client-side filters', async () => {
+    const searchSource = await readFile(frontendSearchPath, 'utf8')
+    const distribusiSource = await readFile(resolve(import.meta.dirname, '..', 'src/pages/Distribusi.jsx'), 'utf8')
+    const petaSource = await readFile(resolve(import.meta.dirname, '..', 'src/pages/PetaSPPG.jsx'), 'utf8')
+    const publicPetaSource = await readFile(resolve(import.meta.dirname, '..', 'src/pages/PublicPetaSPPG.jsx'), 'utf8')
+
+    assert.match(searchSource, /tokenizeSearch/)
+    assert.match(searchSource, /matchesSearchTokens/)
+    assert.match(searchSource, /tokens\.every/)
+    assert.match(distribusiSource, /rankBySearch/)
+    assert.match(petaSource, /matchesSearchTokens/)
+    assert.match(publicPetaSource, /matchesSearchTokens/)
   })
 })

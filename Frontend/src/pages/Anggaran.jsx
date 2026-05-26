@@ -28,7 +28,7 @@ import {
   YAxis,
 } from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestJson } from '../services/api'
+import { apiRequest as requestJson, isAbortError } from '../services/api'
 import './Anggaran.css'
 
 const EMPTY_BUDGET_SUMMARY = {
@@ -232,11 +232,14 @@ function Anggaran({ userRole, userName, onLogout }) {
         setSpendingData(normalizeSpending(provinceRows))
         setAnomalyRows(anomalies)
 
-        if ([summaryResult, provinceResult, anomalyResult].some((result) => result.status === 'rejected')) {
+        const hasNonAbortPartialFailure = [summaryResult, provinceResult, anomalyResult].some((result) => (
+          result.status === 'rejected' && !isAbortError(result.reason)
+        ))
+        if (hasNonAbortPartialFailure) {
           setError('Sebagian data anggaran gagal dimuat dari API.')
         }
       } catch (fetchError) {
-        if (fetchError.name !== 'AbortError') {
+        if (!isAbortError(fetchError)) {
           setBudgetSummary(EMPTY_BUDGET_SUMMARY)
           setProvincePrices([])
           setSpendingData([])
@@ -454,7 +457,7 @@ function Anggaran({ userRole, userName, onLogout }) {
             <h2 className="anggaran-section-title">Distribusi Total Pengeluaran per Provinsi</h2>
           </div>
           <article className="anggaran-chart-card">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height={320}>
               <BarChart data={spendingData} layout="vertical" margin={{ left: 24, right: 24 }}>
                 <CartesianGrid stroke="#f4f8fb" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 12, fill: '#6b7280' }} tickFormatter={(value) => `${Number(value) / 1000000000}M`} />

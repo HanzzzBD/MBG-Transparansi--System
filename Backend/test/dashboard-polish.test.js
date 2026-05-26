@@ -371,6 +371,17 @@ describe("PR 3 dashboard polish endpoints", () => {
     assert.ok(govResponse.body?.data?.reports?.some((item) => item.entity === "public_report"));
   });
 
+  it("matches search terms across different fields like a smart table search", async () => {
+    const response = await request(`/api/search?q=${encodeURIComponent(`${state.prefix}, Bandung`)}&limit=5`, {
+      token: state.tokens.admin
+    });
+
+    assert.equal(response.status, 200);
+    assert.ok(response.body?.data?.sppg?.some((item) => item.id === String(state.sppg.alpha.id)));
+    assert.ok(response.body?.data?.schools?.some((item) => item.id === String(state.schools.alpha.id)));
+    assert.equal(response.body?.data?.sppg?.some((item) => item.id === String(state.sppg.beta.id)), false);
+  });
+
   it("does not leak other SPPG data through global search", async () => {
     const alphaResponse = await request(`/api/search?q=${encodeURIComponent(`${state.prefix} Alpha`)}&limit=5`, {
       token: state.tokens.sppgAlpha

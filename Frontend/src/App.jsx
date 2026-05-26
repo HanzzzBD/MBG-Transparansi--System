@@ -22,10 +22,13 @@ import SppgHistory from './pages/SppgHistory.jsx'
 import SppgIssues from './pages/SppgIssues.jsx'
 import SppgMenu from './pages/SppgMenu.jsx'
 import SppgProfile from './pages/SppgProfile.jsx'
+import SppgSchools from './pages/SppgSchools.jsx'
 import UserManagement from './pages/UserManagement.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
 import { checkSessionRequest, logoutRequest } from './services/api.js'
 import useAuthStore from './store/authStore.js'
+
+let sessionCheckPromise = null
 
 const Analytics = lazy(() => import('./pages/Analytics.jsx'))
 const AnomalyDetection = lazy(() => import('./pages/AnomalyDetection.jsx'))
@@ -38,6 +41,7 @@ const routeAccess = {
   '/dashboard': ['admin', 'pemerintah', 'sppg', 'sekolah'],
   '/peta': ['admin', 'pemerintah', 'sppg', 'sekolah'],
   '/distribusi': ['sppg', 'admin'],
+  '/sekolah-saluran': ['sppg'],
   '/production-batches': ['sppg', 'admin'],
   '/input-menu': ['sppg'],
   '/laporan-kendala': ['sppg'],
@@ -65,6 +69,7 @@ const legacyRouteRedirects = [
   ['/dashboard/peta-sppg', '/peta'],
   ['/dashboard/distribusi/input', '/distribusi'],
   ['/dashboard/distribusi/status', '/distribusi'],
+  ['/dashboard/sekolah-saluran', '/sekolah-saluran'],
   ['/dashboard/menu-harian', '/input-menu'],
   ['/dashboard/kendala', '/laporan-kendala'],
   ['/dashboard/riwayat-distribusi', '/riwayat'],
@@ -148,6 +153,7 @@ function ProtectedRoute({ allowedRoles, children }) {
   const routeProps = {
     userRole: role,
     userName: getUserName(user),
+    userId: user?.id || user?.userId || user?.email || '',
     currentPath: location.pathname,
     notifCount: user?.notifCount || user?.notificationCount || 0,
     token,
@@ -161,6 +167,7 @@ function ProtectedRoute({ allowedRoles, children }) {
     <DashboardLayout
       userRole={routeProps.userRole}
       userName={routeProps.userName}
+      userId={routeProps.userId}
       currentPath={routeProps.currentPath}
       notifCount={routeProps.notifCount}
       onLogout={routeProps.onLogout}
@@ -218,10 +225,18 @@ function AppRoutes() {
     let isMounted = true
 
     const restoreSession = async () => {
+      if (useAuthStore.getState().isSessionChecked) return
+
       startSessionCheck()
 
       try {
-        const payload = await checkSessionRequest()
+        if (!sessionCheckPromise) {
+          sessionCheckPromise = checkSessionRequest().finally(() => {
+            sessionCheckPromise = null
+          })
+        }
+
+        const payload = await sessionCheckPromise
         const data = payload?.data || payload || {}
 
         if (!isMounted) return
@@ -278,6 +293,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={routeAccess['/distribusi']}>
             {(props) => <Distribusi {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sekolah-saluran"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/sekolah-saluran']}>
+            {(props) => <SppgSchools {...props} />}
           </ProtectedRoute>
         }
       />

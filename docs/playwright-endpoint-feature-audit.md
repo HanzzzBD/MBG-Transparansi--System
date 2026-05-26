@@ -272,3 +272,48 @@ Lihat section `Playwright Endpoint Audit Update` di `docs/remaining-gap-after-re
 - File/endpoint terkait: Playwright tests untuk `/validasi`, `/distribusi`, `/export`.
 - Expected: browser E2E isolated untuk upload proof, validation verified/conflict, dan export create/download.
 - Actual: fitur read/list sudah diaudit; mutation berisiko/fixture-dependent masih BLOCKED.
+
+## Fix Verification Update
+
+- Tanggal fix verification: 2026-05-26, Asia/Jakarta.
+- Branch/commit saat fix: `main` / `e43df7e` plus working-tree changes PR fix.
+- Test command:
+  - `npm.cmd --prefix Frontend test`: PASS, 24 tests.
+  - `npm.cmd --prefix Frontend run lint`: PASS.
+  - `npm.cmd --prefix Frontend run build`: PASS, masih ada warning chunk-size Vite lama.
+  - `npm.cmd --prefix Backend test`: PASS, 33 tests.
+- Manual browser MCP: BLOCKED oleh lock profil Playwright lokal (`Browser is already in use...`). Server lokal port 5173 dan 4000 terdeteksi aktif.
+
+### Issue yang Diperbaiki
+
+- UI abort leakage: `Distribusi.jsx`, `SppgHistory.jsx`, `SchoolHistory.jsx`, `AuditLog.jsx`, dan `ExportData.jsx` sekarang memakai helper `isAbortError` agar abort/cancel normal tidak menjadi error user-facing.
+- Recharts warning: chart `/dashboard` dan `/anggaran` memakai tinggi numerik stabil `height={320}` dan wrapper CSS diberi `min-width`/`min-height`.
+- Session over-fetch: restore session memakai singleton `sessionCheckPromise` sehingga React StrictMode/boot tidak membuat request concurrent berulang.
+- Notification over-fetch: `DashboardLayout` memakai cache TTL 60 detik per user+role dan request in-flight reuse; refresh tetap dilakukan saat dropdown dibuka atau retry eksplisit.
+- Login button testability: test guard memastikan form login tetap `onSubmit` dan tombol `Masuk` tetap `type="submit"`.
+- Logout redirect: guard tetap `navigate('/login', { replace: true })` setelah local auth clear.
+- Fixture upload proof: ditambahkan `Frontend/test/fixtures/proof-valid.png` dan `proof-invalid.txt`.
+- CAPTCHA valid-submit: ditambahkan strategi test Turnstile resmi di `docs/captcha-test-strategy.md`, `Frontend/.env.example`, dan `Backend/.env.example` tanpa bypass production.
+
+### Endpoint/Fitur Status Setelah Fix
+
+| Endpoint/Fitur | Before | After | Evidence |
+|---|---|---|---|
+| `/api/distributions` di `/distribusi` | WARNING, abort text bocor UI | OK by source/test guard | `isAbortError` + frontend test `Playwright audit cleanup guardrails` |
+| `/api/menus`, `/api/issues` di SPPG `/riwayat` | WARNING, abort text bocor UI | OK by source/test guard | abort rejected result difilter |
+| `/api/distributions`, `/api/validations` di Sekolah `/riwayat` | WARNING, abort text bocor UI | OK by source/test guard | abort rejected result difilter |
+| `/dashboard` charts | WARNING Recharts width/height -1 | OK by source/test guard | `ResponsiveContainer height={320}` |
+| `/anggaran` chart | WARNING Recharts width/height -1 | OK by source/test guard | `ResponsiveContainer height={320}` |
+| `/api/auth/session` | WARNING over-fetch | Improved | singleton boot session check |
+| `/api/notifications?limit=6` | WARNING route-change spam | Improved | user+role cache TTL + in-flight reuse |
+| `/api/audit-logs/*` route leave | WARNING aborted duplicate noisy | Improved | abort is silent in UI |
+| `/api/system-configs/export_max_rows`, `/api/exports` route leave | WARNING aborted duplicate noisy | Improved | abort is silent in UI |
+| Public report valid submit | BLOCKED | Documented test strategy | official Turnstile test keys documented |
+| `/api/files/upload` | BLOCKED no fixture | Ready for E2E fixture | safe fixtures added |
+| `/api/exports`, `/api/exports/:id/download` | BLOCKED in browser audit | Backend OK, browser still not rerun | backend test already covers create/download PDF/XLSX role enforcement |
+
+### Issue yang Masih Tersisa
+
+- Manual browser re-smoke belum dijalankan karena profil MCP Playwright sedang locked.
+- Vite chunk-size warning masih ada dan tidak ditangani di PR ini karena bukan issue endpoint/UX warning utama.
+- Public report valid submit belum dijalankan end-to-end karena butuh env test Turnstile aktif pada frontend dan backend.

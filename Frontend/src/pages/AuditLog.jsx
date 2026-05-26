@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { createExport, getAuditLogDetail, getAuditLogs, getAuditLogsSummary } from '../services/api'
+import { createExport, getAuditLogDetail, getAuditLogs, getAuditLogsSummary, isAbortError } from '../services/api'
 import './AuditLog.css'
 
 const PAGE_SIZE = 10
@@ -197,7 +197,7 @@ function AuditLog({ userRole, userName, onLogout }) {
         setTotal(result.meta?.total || normalized.length)
       }
     } catch (fetchError) {
-      if (fetchError.name !== 'AbortError') {
+      if (!isAbortError(fetchError)) {
         setRows([])
         setTotal(0)
         setError(fetchError.message || 'Audit log gagal dimuat dari API.')
@@ -217,8 +217,10 @@ function AuditLog({ userRole, userName, onLogout }) {
         severityCount: result.data.severityCount ?? result.data.severity_count ?? {},
         categoryCount: result.data.categoryCount ?? result.data.category_count ?? {},
       })
-    } catch {
-      setSummary({ totalToday: 0, highSeverity: 0, activeUsers: 0, severityCount: {}, categoryCount: {} })
+    } catch (summaryError) {
+      if (!isAbortError(summaryError)) {
+        setSummary({ totalToday: 0, highSeverity: 0, activeUsers: 0, severityCount: {}, categoryCount: {} })
+      }
     }
   }, [])
 

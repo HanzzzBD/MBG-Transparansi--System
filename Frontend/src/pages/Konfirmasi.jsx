@@ -31,6 +31,7 @@ const STATUS_LABELS = {
   pending: 'PENDING',
   verified: 'VERIFIED',
   conflict: 'CONFLICT',
+  issue_reported: 'ISSUE REPORTED',
 }
 
 const initialFormData = {
@@ -89,7 +90,7 @@ function toHistoryRow(item) {
     sppgName: item.sppgName,
     portions: item.receivedPortions || item.claimedPortions,
     status: item.status,
-    notes: item.notes || (item.status === 'verified' ? 'Sesuai standar.' : 'Perlu tindak lanjut.'),
+    notes: item.notes || (item.status === 'verified' ? 'Sesuai standar.' : item.status === 'issue_reported' ? 'Masalah distribusi dilaporkan.' : 'Perlu tindak lanjut.'),
   }
 }
 
@@ -337,12 +338,7 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
     event.preventDefault()
     if (!selectedDistribusi || !validateReport()) return
 
-    const message = [
-      reportData.message.trim(),
-      `Distribusi: ${selectedDistribusi.distributionId}`,
-      `SPPG: ${selectedDistribusi.sppgName}`,
-      `Porsi diklaim: ${selectedDistribusi.claimedPortions}`,
-    ].join('\n')
+    const message = reportData.message.trim()
 
     setSubmitLoading('report')
 
@@ -351,13 +347,27 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
         method: 'POST',
         body: {
           ...(schoolId ? { schoolId: Number(schoolId) } : {}),
+          distributionId: Number(selectedDistribusi.distributionId),
+          validationId: Number(selectedDistribusi.validationId),
           category: reportData.category,
           message,
         },
       })
+      const reportedValidation = {
+        ...selectedDistribusi,
+        status: 'issue_reported',
+        notes: message,
+        validatedAt: new Date().toISOString(),
+        receivedPortions: selectedDistribusi.receivedPortions || 0,
+      }
       showToast('success', 'Laporan masalah berhasil dikirim.')
+      setPendingList((current) => current.filter((item) => item.validationId !== selectedDistribusi.validationId))
+      setHistoryList((current) => [toHistoryRow(reportedValidation), ...current])
+      setSubmittedIds((current) => [...current, selectedDistribusi.validationId])
       setReportData(initialReportData)
       setShowReportForm(false)
+      setSelectedDistribusi(null)
+      fetchValidations(new AbortController().signal)
     } catch (reportError) {
       showToast('danger', reportError.message || 'Laporan masalah gagal dikirim.')
     } finally {

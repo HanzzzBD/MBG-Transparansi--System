@@ -3,6 +3,15 @@ const AppError = require("../../utils/appError");
 const { endOfDayUtc, startOfDayUtc } = require("../../utils/date");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 const {
+  buildTokenSearchOr,
+  getRankedSearchCandidateLimit,
+  hasSearchQuery,
+  mergeWhereWithAnd,
+  paginateRankedSearch,
+  textContains,
+  tokenizeSearch
+} = require("../../utils/search");
+const {
   getAuditAction,
   getAuditCategory,
   getAuditSeverity,
@@ -21,6 +30,8 @@ const includeUser = {
     }
   }
 };
+
+const maybeWhere = (condition) => (condition && Object.keys(condition).length ? [condition] : []);
 
 const buildCreatedAtRange = (query = {}) => {
   const startDate = query.start_date || query.dateFrom || query.date_from;
@@ -53,42 +64,77 @@ const buildBaseWhere = (query = {}) => {
   }
 
   if (search) {
-    where.OR = [
-      {
+    const searchWhere = buildTokenSearchOr(search, [
+      (token) => ({
         tableName: {
-          contains: search,
+          contains: token,
           mode: "insensitive"
         }
-      },
-      {
+      }),
+      (token) => ({
         ipAddress: {
-          contains: search,
+          contains: token,
           mode: "insensitive"
         }
-      },
-      {
+      }),
+      (token) => ({
         user: {
           OR: [
             {
               name: {
-                contains: search,
+                contains: token,
                 mode: "insensitive"
               }
             },
             {
               email: {
-                contains: search,
+                contains: token,
                 mode: "insensitive"
               }
             }
           ]
         }
-      },
+      })
+    ]);
+    const searchOr = [
+      ...maybeWhere(searchWhere),
       ...(Number.isInteger(Number(search)) ? [{ recordId: Number(search) }] : [])
     ];
+    Object.assign(where, searchOr.length === 1 ? searchOr[0] : { OR: searchOr });
   }
 
   return where;
+};
+
+const buildBaseWhereWithoutSearch = (query = {}) =>
+  buildBaseWhere({
+    ...query,
+    search: undefined
+  });
+
+const buildLooseAuditSearchWhere = (search) => {
+  const tokens = tokenizeSearch(search);
+  const numericFilter = Number.isInteger(Number(search)) ? [{ recordId: Number(search) }] : [];
+
+  if (!tokens.length && !numericFilter.length) return {};
+
+  return {
+    OR: [
+      ...numericFilter,
+      ...tokens.flatMap((token) => [
+        { tableName: textContains(token) },
+        { ipAddress: textContains(token) },
+        {
+          user: {
+            OR: [
+              { name: textContains(token) },
+              { email: textContains(token) }
+            ]
+          }
+        }
+      ])
+    ]
+  };
 };
 
 const matchesDerivedFilters = (log, query = {}) => {
@@ -104,6 +150,37 @@ const matchesDerivedFilters = (log, query = {}) => {
 };
 
 const getFilteredAuditLogs = async (query = {}) => {
+  if (hasSearchQuery(query.search)) {
+    const pagination = parsePagination(query);
+    const baseWhere = buildBaseWhereWithoutSearch(query);
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await prisma.auditLog.findMany({
+      where: mergeWhereWithAnd(baseWhere, buildLooseAuditSearchWhere(query.search)),
+      include: includeUser,
+      take: candidateLimit,
+      orderBy: [{ createdAt: "desc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: [
+        { field: "tableName", weight: 5 },
+        { field: "ipAddress", weight: 2 },
+        { value: (item) => item.user?.name, weight: 6 },
+        { value: (item) => item.user?.email, weight: 4 },
+        { field: "recordId", weight: 0.25 }
+      ],
+      pagination: {
+        page: 1,
+        limit: candidateLimit,
+        skip: 0
+      }
+    });
+
+    return ranked.items.filter((item) => matchesDerivedFilters(item, query));
+  }
+
   const items = await prisma.auditLog.findMany({
     where: buildBaseWhere(query),
     include: includeUser,

@@ -588,6 +588,11 @@
   color: var(--color-danger);
 }
 
+.konfirmasi-status-issue_reported {
+  background: rgba(120, 53, 15, 0.12);
+  color: #92400e;
+}
+
 @keyframes konfirmasi-spin {
   to {
     transform: rotate(360deg);
