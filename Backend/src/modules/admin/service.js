@@ -511,6 +511,55 @@ const deleteUser = async ({ id, actorUserId, ipAddress }) => {
   };
 };
 
+const restoreUser = async ({ id, actorUserId, ipAddress }) => {
+  const existing = await getUserById(id);
+
+  if (!existing.deletedAt) {
+    return {
+      data: existing
+    };
+  }
+
+  await validateScopeAssignment({
+    role: existing.role,
+    sppgId: existing.sppgId,
+    schoolId: existing.schoolId
+  });
+
+  const user = await prisma.$transaction(async (tx) => {
+    const restored = await tx.user.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        deletedAt: null,
+        isActive: true
+      },
+      select: userSelect
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: actorUserId,
+      action: "UPDATE",
+      tableName: "users",
+      recordId: restored.id,
+      oldData: existing,
+      newData: {
+        ...restored,
+        auditAction: "RESTORE"
+      },
+      ipAddress
+    });
+
+    return restored;
+  });
+
+  return {
+    data: user
+  };
+};
+
 const listAuditLogs = async ({ query }) => {
   const pagination = parsePagination(query);
   const where = {
@@ -1235,6 +1284,7 @@ module.exports = {
   listUsers,
   lockDistribution,
   overrideDistribution,
+  restoreUser,
   resolveAnomalyLog,
   unlockDistribution,
   updatePriceThreshold,

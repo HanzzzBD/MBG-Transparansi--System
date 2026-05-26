@@ -40,22 +40,6 @@ const EMPTY_BUDGET_SUMMARY = {
   savingVsTarget: 0,
 }
 
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
-}
-
 function formatRupiah(value) {
   const number = Number(value) || 0
   if (Math.abs(number) >= 1000000000) {
@@ -178,11 +162,10 @@ function SortIcon({ active, direction }) {
 }
 
 function Anggaran({ userRole, userName, onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
   const location = useLocation()
   const navigate = useNavigate()
-  const resolvedRole = userRole || storedUser?.role || 'pemerintah'
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Pengguna MBG'
+  const resolvedRole = userRole || 'pemerintah'
+  const displayName = userName || 'Pengguna MBG'
   const [budgetSummary, setBudgetSummary] = useState(EMPTY_BUDGET_SUMMARY)
   const [provincePrices, setProvincePrices] = useState([])
   const [spendingData, setSpendingData] = useState([])
@@ -342,10 +325,6 @@ function Anggaran({ userRole, userName, onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

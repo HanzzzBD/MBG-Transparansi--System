@@ -220,15 +220,15 @@ const updateValidation = async ({ id, payload, user, ipAddress }) => {
       }
     });
 
-    if (
-      nextStatus === "verified" &&
-      Number(updated.receivedPortions) !== Number(updated.distribution.portions)
-    ) {
+    const hasPortionConflict = Number(updated.receivedPortions) !== Number(updated.distribution.portions);
+    const hasQualityConflict = updated.qualityOk === false;
+
+    if (nextStatus !== "pending" && (nextStatus === "conflict" || hasPortionConflict || hasQualityConflict)) {
       await createAnomalyIfNeeded({
         prisma: tx,
         distributionId: updated.distributionId,
         anomalyType: "VALIDATION_CONFLICT",
-        description: `Validated portions ${updated.receivedPortions} differ from distribution portions ${updated.distribution.portions}.`,
+        description: `School validation conflict for distribution #${updated.distributionId}: received ${updated.receivedPortions} of ${updated.distribution.portions} portions, qualityOk=${updated.qualityOk}.`,
         actorUserId: user.userId,
         ipAddress
       });

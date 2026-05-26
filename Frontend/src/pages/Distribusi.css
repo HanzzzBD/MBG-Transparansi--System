@@ -354,6 +354,25 @@
   font-weight: 850;
 }
 
+.distribusi-helper {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.distribusi-empty-state {
+  border: 1px dashed var(--color-sky);
+  border-radius: 12px;
+  background: var(--color-light-gray);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.5;
+  padding: 16px;
+  text-align: center;
+}
+
 .distribusi-warning {
   display: flex;
   align-items: flex-start;

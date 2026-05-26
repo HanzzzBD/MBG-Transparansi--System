@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -51,21 +51,6 @@ const STATUS_LABELS = {
   completed: 'Selesai',
   failed: 'Gagal',
   expired: 'Kedaluwarsa',
-}
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
 }
 
 function normalizeRole(role) {
@@ -176,9 +161,8 @@ function ExportData({ userRole, userName, onLogout }) {
   const navigate = useNavigate()
   const location = useLocation()
   const pollIntervalsRef = useRef({})
-  const storedUser = useMemo(() => getStoredUser(), [])
-  const resolvedRole = normalizeRole(userRole || storedUser?.role)
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Pengguna MBG'
+  const resolvedRole = normalizeRole(userRole)
+  const displayName = userName || 'Pengguna MBG'
   const canAccess = ACCESS_ROLES.includes(resolvedRole)
   const isAdmin = resolvedRole === 'admin'
 
@@ -470,10 +454,6 @@ function ExportData({ userRole, userName, onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

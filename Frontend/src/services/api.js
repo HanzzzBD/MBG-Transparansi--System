@@ -1,6 +1,6 @@
-import useAuthStore from '../store/authStore'
+import useAuthStore from '../store/authStore.js'
 
-export const API_BASE_URL = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '')
+export const API_BASE_URL = (import.meta.env?.VITE_API_URL || '/api').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   constructor(message, { status = 0, code = 'API_ERROR', data = null } = {}) {
@@ -14,6 +14,14 @@ export class ApiError extends Error {
 
 function getAccessToken() {
   return useAuthStore.getState().token || null
+}
+
+function clearAuthState() {
+  useAuthStore.getState().logout()
+}
+
+function setAuthSession(user, token) {
+  useAuthStore.getState().login(user, token)
 }
 
 function normalizePath(path) {
@@ -93,7 +101,7 @@ async function refreshAccessToken() {
     })
   }
 
-  useAuthStore.getState().login(data.user, data.accessToken)
+  setAuthSession(data.user, data.accessToken)
   return data.accessToken
 }
 
@@ -144,7 +152,7 @@ export async function apiRequest(path, options = {}) {
           skipRefresh: true,
         })
       } catch {
-        useAuthStore.getState().logout()
+        clearAuthState()
       }
     }
 
@@ -158,7 +166,7 @@ export async function apiRequest(path, options = {}) {
   return payload
 }
 
-export async function apiBlobRequest(path, options = {}) {
+async function sendBlobRequest(path, options = {}) {
   const { params, headers = {}, token, credentials = 'include', skipAuth = false, ...fetchOptions } = options
   const requestHeaders = new Headers(headers)
   const accessToken = skipAuth ? null : token ?? getAccessToken()
@@ -183,7 +191,54 @@ export async function apiBlobRequest(path, options = {}) {
     })
   }
 
-  return response.blob()
+  const blob = await response.blob()
+  const contentDisposition = response.headers.get('content-disposition') || ''
+  const contentType = response.headers.get('content-type') || blob.type || ''
+
+  if (contentDisposition) {
+    Object.defineProperty(blob, 'contentDisposition', {
+      value: contentDisposition,
+      enumerable: false,
+    })
+  }
+
+  if (contentType) {
+    Object.defineProperty(blob, 'responseContentType', {
+      value: contentType,
+      enumerable: false,
+    })
+  }
+
+  return blob
+}
+
+export async function apiBlobRequest(path, options = {}) {
+  const { skipRefresh = false, ...requestOptions } = options
+
+  try {
+    return await sendBlobRequest(path, requestOptions)
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401 && !skipRefresh && normalizePath(path) !== '/auth/refresh') {
+      try {
+        const refreshedToken = await refreshAccessToken()
+        return await sendBlobRequest(path, {
+          ...requestOptions,
+          token: refreshedToken,
+        })
+      } catch (refreshError) {
+        clearAuthState()
+        throw refreshError instanceof ApiError
+          ? refreshError
+          : new ApiError('Session berakhir. Silakan login ulang sebelum mengunduh file.', {
+              status: 401,
+              code: 'SESSION_REFRESH_FAILED',
+              data: refreshError,
+            })
+      }
+    }
+
+    throw error
+  }
 }
 
 export const loginRequest = (payload) =>
@@ -201,6 +256,13 @@ export const refreshSessionRequest = () =>
     skipRefresh: true,
   })
 
+export const checkSessionRequest = () =>
+  apiRequest('/auth/session', {
+    method: 'POST',
+    skipAuth: true,
+    skipRefresh: true,
+  })
+
 export const getCurrentUser = () => apiRequest('/auth/me')
 
 export const logoutRequest = () =>
@@ -211,6 +273,8 @@ export const logoutRequest = () =>
   })
 
 export const getDashboardSummary = (params) => apiRequest('/analytics/summary', { params })
+
+export const getGlobalSearch = (params, options = {}) => apiRequest('/search', { ...options, params })
 
 const DASHBOARD_SUMMARY_ENDPOINTS = {
   admin: '/dashboard/admin-summary',
@@ -226,15 +290,67 @@ export const getDashboardRoleSummary = (role, params, options = {}) => {
 
 export const getSppg = (params, options = {}) => apiRequest('/sppg', { ...options, params })
 
-export const getSppgDetail = (id) => apiRequest(`/sppg/${id}`)
+export const getSppgDetail = (id, options = {}) => apiRequest(`/sppg/${id}`, options)
+
+export const getDeletedSppg = (params, options = {}) => apiRequest('/sppg/deleted', { ...options, params })
+
+export const createSppg = (payload) =>
+  apiRequest('/sppg', {
+    method: 'POST',
+    body: payload,
+  })
+
+export const updateSppg = (id, payload) =>
+  apiRequest(`/sppg/${id}`, {
+    method: 'PUT',
+    body: payload,
+  })
+
+export const deleteSppg = (id) =>
+  apiRequest(`/sppg/${id}`, {
+    method: 'DELETE',
+  })
+
+export const restoreSppg = (id) =>
+  apiRequest(`/sppg/${id}/restore`, {
+    method: 'PATCH',
+  })
 
 export const getSppgMapMarkers = (params, options = {}) => apiRequest('/sppg/map-markers', { ...options, params })
 
 export const getSppgOperationalDetail = (id, options = {}) => apiRequest(`/sppg/${id}/detail`, options)
 
+export const getAssignedSppgSchools = (params, options = {}) => apiRequest('/sppg/me/schools', { ...options, params })
+
 export const getPublicSppgDetail = (id) => apiRequest(`/public/sppg/${id}`)
 
 export const getSchools = (params, options = {}) => apiRequest('/schools', { ...options, params })
+
+export const getSchoolDetail = (id, options = {}) => apiRequest(`/schools/${id}`, options)
+
+export const getDeletedSchools = (params, options = {}) => apiRequest('/schools/deleted', { ...options, params })
+
+export const createSchool = (payload) =>
+  apiRequest('/schools', {
+    method: 'POST',
+    body: payload,
+  })
+
+export const updateSchool = (id, payload) =>
+  apiRequest(`/schools/${id}`, {
+    method: 'PUT',
+    body: payload,
+  })
+
+export const deleteSchool = (id) =>
+  apiRequest(`/schools/${id}`, {
+    method: 'DELETE',
+  })
+
+export const restoreSchool = (id) =>
+  apiRequest(`/schools/${id}/restore`, {
+    method: 'PATCH',
+  })
 
 export const getDapodikStagedSchools = (params) => apiRequest('/dapodik/staged-schools', { params })
 
@@ -298,7 +414,7 @@ export const getProductionBatchCostSummary = (batchId, options = {}) =>
 export const getProductionBatchAnomalies = (batchId) =>
   apiRequest(`/production-batches/${batchId}/anomalies`)
 
-export const getValidations = (params) => apiRequest('/validations', { params })
+export const getValidations = (params, options = {}) => apiRequest('/validations', { ...options, params })
 
 export const updateValidation = (id, payload) =>
   apiRequest(`/validations/${id}`, {
@@ -325,6 +441,14 @@ export const getAnalyticsPublicReportsTopRegions = (params, options = {}) =>
 export const updatePublicReportStatus = (id, payload) =>
   apiRequest(`/public-reports/${id}/status`, {
     method: 'PATCH',
+    body: payload,
+  })
+
+export const getSchoolReports = (params, options = {}) => apiRequest('/school-reports', { ...options, params })
+
+export const createSchoolReport = (payload) =>
+  apiRequest('/school-reports', {
+    method: 'POST',
     body: payload,
   })
 
@@ -387,7 +511,28 @@ export const deleteUser = (id) =>
     method: 'DELETE',
   })
 
+export const restoreUser = (id) =>
+  apiRequest(`/users/${id}/restore`, {
+    method: 'PATCH',
+  })
+
 export const getPriceThresholds = (params) => apiRequest('/price-thresholds', { params })
+
+export const getMyRegionPriceThreshold = (options = {}) => apiRequest('/price-thresholds/my-region', options)
+
+export const createMenu = (payload) =>
+  apiRequest('/menus', {
+    method: 'POST',
+    body: payload,
+  })
+
+export const getIssues = (params, options = {}) => apiRequest('/issues', { ...options, params })
+
+export const createIssue = (payload) =>
+  apiRequest('/issues', {
+    method: 'POST',
+    body: payload,
+  })
 
 export const getMonitoringSummary = (options = {}) => apiRequest('/monitoring/summary', options)
 
@@ -407,9 +552,21 @@ export const syncMonitoringSource = (id) =>
     method: 'POST',
   })
 
+export const getNotifications = (params, options = {}) => apiRequest('/notifications', { ...options, params })
+
+export const markNotificationAsRead = (id) =>
+  apiRequest(`/notifications/${id}/read`, {
+    method: 'PUT',
+  })
+
+export const markAllNotificationsAsRead = () =>
+  apiRequest('/notifications/read-all', {
+    method: 'PUT',
+  })
+
 export const getFoodPricesLatest = (params) => apiRequest('/food-prices/latest', { params })
 
-export const getMenus = (params) => apiRequest('/menus', { params })
+export const getMenus = (params, options = {}) => apiRequest('/menus', { ...options, params })
 
 export const uploadFile = (file) => {
   const formData = new FormData()

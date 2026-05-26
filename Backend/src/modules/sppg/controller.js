@@ -32,6 +32,39 @@ const listMapMarkers = async (req, res, next) => {
   }
 };
 
+const listDeletedSppg = async (req, res, next) => {
+  try {
+    const result = await sppgService.listDeletedSppg({
+      query: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listMySchools = async (req, res, next) => {
+  try {
+    const result = await sppgService.listMySchools({
+      query: req.query,
+      user: req.user
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getSppgDetail = async (req, res, next) => {
   try {
     const result = await sppgService.getSppgDetail({
@@ -114,12 +147,32 @@ const deleteSppg = async (req, res, next) => {
   }
 };
 
+const restoreSppg = async (req, res, next) => {
+  try {
+    const result = await sppgService.restoreSppg({
+      id: req.params.id,
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createSppg,
   deleteSppg,
   getSppgOperationalDetail,
   getSppgDetail,
+  listDeletedSppg,
   listMapMarkers,
+  listMySchools,
   listSppg,
+  restoreSppg,
   updateSppg
 };

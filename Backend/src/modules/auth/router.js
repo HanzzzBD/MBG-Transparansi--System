@@ -11,6 +11,7 @@ const router = express.Router();
 
 router.post("/register", authenticate, authorize("admin"), validateRequest(registerSchema), authController.register);
 router.post("/login", ...loginLimiter, validateRequest(loginSchema), authController.login);
+router.post("/session", authController.session);
 router.post("/refresh", authController.refresh);
 router.post("/logout", authController.logout);
 router.get("/me", authenticate, authController.me);

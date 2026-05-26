@@ -69,9 +69,27 @@ const deleteUser = async (req, res, next) => {
   }
 };
 
+const restoreUser = async (req, res, next) => {
+  try {
+    const result = await adminService.restoreUser({
+      id: req.params.id,
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createUser,
   deleteUser,
   listUsers,
+  restoreUser,
   updateUser
 };

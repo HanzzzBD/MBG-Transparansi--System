@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import {
@@ -52,21 +52,6 @@ const emptyForm = {
   isActive: true,
   sppgId: '',
   schoolId: '',
-}
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
 }
 
 function formatDateTime(value) {
@@ -176,13 +161,12 @@ function getBackendErrorMessage(error) {
   return messages[0] || details?.formErrors?.[0] || error?.message || 'Validasi backend gagal.'
 }
 
-function UserManagement({ userRole, userName, onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
+function UserManagement({ userRole, userName, onLogout, user }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const resolvedRole = userRole || storedUser?.role || 'umum'
-  const currentUserId = storedUser?.id || storedUser?.userId || storedUser?.user_id
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Admin MBG'
+  const resolvedRole = userRole || 'umum'
+  const currentUserId = user?.id || user?.userId || user?.user_id
+  const displayName = userName || user?.name || user?.email || 'Admin MBG'
   const isAdmin = resolvedRole === 'admin'
 
   const [users, setUsers] = useState([])
@@ -538,10 +522,6 @@ function UserManagement({ userRole, userName, onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

@@ -178,22 +178,6 @@ function formatTime(value) {
   }).format(date)
 }
 
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
-}
-
 function normalizeRole(role) {
   return ROLE_LABELS[role] ? role : 'pemerintah'
 }
@@ -702,11 +686,10 @@ function renderNationalTable(data) {
 }
 
 function Dashboard({ userRole, userName, onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
   const location = useLocation()
   const navigate = useNavigate()
-  const normalizedRole = normalizeRole(userRole || storedUser?.role)
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Pengguna MBG'
+  const normalizedRole = normalizeRole(userRole)
+  const displayName = userName || 'Pengguna MBG'
   const defaultRange = useMemo(() => getDefaultDateRange(), [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -799,10 +782,6 @@ function Dashboard({ userRole, userName, onLogout }) {
       return
     }
 
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

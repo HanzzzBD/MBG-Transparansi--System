@@ -3,6 +3,7 @@ const { Prisma } = require("@prisma/client");
 const { getPrismaClient } = require("../../config/prisma");
 const AppError = require("../../utils/appError");
 const { createAuditLog } = require("../../utils/auditLog");
+const { requireSppgScope } = require("../../utils/ownership");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 
 const prisma = getPrismaClient();
@@ -63,6 +64,16 @@ const buildSppgWhere = (query = {}) => ({
   ...(query.status ? { status: query.status } : {})
 });
 
+const buildDeletedSppgWhere = (query = {}) => {
+  const { deletedAt, ...activeWhere } = buildSppgWhere(query);
+  return {
+    ...activeWhere,
+    deletedAt: {
+      not: null
+    }
+  };
+};
+
 const buildSppgSelect = (fields) => {
   if (!fields) {
     return undefined;
@@ -98,6 +109,23 @@ const getActiveSppgById = async (id) => {
 
   if (!sppg) {
     throw new AppError("SPPG not found.", 404, "SPPG_NOT_FOUND");
+  }
+
+  return sppg;
+};
+
+const getDeletedSppgById = async (id) => {
+  const sppg = await prisma.sppg.findFirst({
+    where: {
+      id: Number(id),
+      deletedAt: {
+        not: null
+      }
+    }
+  });
+
+  if (!sppg) {
+    throw new AppError("Deleted SPPG not found.", 404, "SPPG_NOT_FOUND");
   }
 
   return sppg;
@@ -161,6 +189,30 @@ const listSppg = async ({ query }) => {
   };
 };
 
+const listDeletedSppg = async ({ query }) => {
+  const pagination = parsePagination(query);
+  const where = buildDeletedSppgWhere(query);
+
+  const [items, total] = await Promise.all([
+    prisma.sppg.findMany({
+      where,
+      skip: pagination.skip,
+      take: pagination.limit,
+      orderBy: [{ deletedAt: "desc" }, { province: "asc" }, { city: "asc" }, { name: "asc" }]
+    }),
+    prisma.sppg.count({ where })
+  ]);
+
+  return {
+    data: items,
+    meta: buildPaginationMeta({
+      page: pagination.page,
+      limit: pagination.limit,
+      total
+    })
+  };
+};
+
 const listMapMarkers = async ({ query = {} }) => {
   const today = toDateOnly();
   const whereSql = buildMapMarkerSqlWhere(query);
@@ -207,6 +259,105 @@ const listMapMarkers = async ({ query = {} }) => {
       successRate: toNumber(row.success_rate),
       porsiHariIni: toNumber(row.porsi_hari_ini)
     }))
+  };
+};
+
+const serializeAssignedSchool = (school) => ({
+  id: school.id,
+  name: school.name,
+  province: school.province,
+  city: school.city,
+  district: school.district,
+  address: school.address,
+  npsn: school.npsn,
+  totalStudents: school.totalStudents,
+  total_students: school.totalStudents
+});
+
+const listMySchools = async ({ query = {}, user }) => {
+  const sppgId = requireSppgScope(user);
+  const pagination = parsePagination(query);
+  const where = {
+    sppgId,
+    deletedAt: null,
+    sppg: {
+      deletedAt: null
+    },
+    ...(query.province
+      ? {
+          province: {
+            contains: query.province,
+            mode: "insensitive"
+          }
+        }
+      : {}),
+    ...(query.city
+      ? {
+          city: {
+            contains: query.city,
+            mode: "insensitive"
+          }
+        }
+      : {}),
+    ...(query.search
+      ? {
+          OR: [
+            {
+              name: {
+                contains: query.search,
+                mode: "insensitive"
+              }
+            },
+            {
+              city: {
+                contains: query.search,
+                mode: "insensitive"
+              }
+            },
+            {
+              province: {
+                contains: query.search,
+                mode: "insensitive"
+              }
+            },
+            {
+              npsn: {
+                contains: query.search,
+                mode: "insensitive"
+              }
+            }
+          ]
+        }
+      : {})
+  };
+
+  const [items, total] = await Promise.all([
+    prisma.school.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        province: true,
+        city: true,
+        district: true,
+        address: true,
+        npsn: true,
+        totalStudents: true
+      },
+      skip: pagination.skip,
+      take: pagination.limit,
+      orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
+    }),
+    prisma.school.count({ where })
+  ]);
+
+  return {
+    data: items.map(serializeAssignedSchool),
+    meta: buildPaginationMeta({
+      page: pagination.page,
+      limit: pagination.limit,
+      total
+    })
   };
 };
 
@@ -776,12 +927,50 @@ const deleteSppg = async ({ id, actorUserId, ipAddress }) => {
   };
 };
 
+const restoreSppg = async ({ id, actorUserId, ipAddress }) => {
+  const existing = await getDeletedSppgById(id);
+
+  const sppg = await prisma.$transaction(async (tx) => {
+    const restored = await tx.sppg.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        deletedAt: null
+      }
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: actorUserId,
+      action: "UPDATE",
+      tableName: "sppg",
+      recordId: restored.id,
+      oldData: existing,
+      newData: {
+        ...restored,
+        auditAction: "RESTORE"
+      },
+      ipAddress
+    });
+
+    return restored;
+  });
+
+  return {
+    data: sppg
+  };
+};
+
 module.exports = {
   createSppg,
   deleteSppg,
   getSppgOperationalDetail,
   getSppgDetail,
   listMapMarkers,
+  listMySchools,
+  listDeletedSppg,
   listSppg,
+  restoreSppg,
   updateSppg
 };

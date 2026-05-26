@@ -65,6 +65,7 @@ const useAuthStore = create((set) => ({
   },
 
   startSessionCheck: () => {
+    clearLegacySession()
     set({
       isRefreshingSession: true,
     })

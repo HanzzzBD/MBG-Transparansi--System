@@ -39,6 +39,17 @@ const buildSchoolWhere = (query = {}) => ({
   ...(query.sppgId ? { sppgId: Number(query.sppgId) } : {})
 });
 
+const buildDeletedSchoolWhere = (query = {}) => {
+  const { deletedAt, sppg, ...activeWhere } = buildSchoolWhere(query);
+  return {
+    ...activeWhere,
+    deletedAt: {
+      not: null
+    },
+    ...(query.sppgId ? { sppgId: Number(query.sppgId) } : {})
+  };
+};
+
 const getActiveSppg = async (id) => {
   const sppg = await prisma.sppg.findFirst({
     where: {
@@ -83,6 +94,31 @@ const getActiveSchoolById = async (id) => {
   return school;
 };
 
+const getDeletedSchoolById = async (id) => {
+  const school = await prisma.school.findFirst({
+    where: {
+      id: Number(id),
+      deletedAt: {
+        not: null
+      }
+    },
+    include: {
+      sppg: true,
+      dapodikLink: {
+        include: {
+          dapodikSchool: true
+        }
+      }
+    }
+  });
+
+  if (!school) {
+    throw new AppError("Deleted school not found.", 404, "SCHOOL_NOT_FOUND");
+  }
+
+  return school;
+};
+
 const listSchools = async ({ query }) => {
   const pagination = parsePagination(query);
   const where = buildSchoolWhere(query);
@@ -101,6 +137,38 @@ const listSchools = async ({ query }) => {
       skip: pagination.skip,
       take: pagination.limit,
       orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
+    }),
+    prisma.school.count({ where })
+  ]);
+
+  return {
+    data: items,
+    meta: buildPaginationMeta({
+      page: pagination.page,
+      limit: pagination.limit,
+      total
+    })
+  };
+};
+
+const listDeletedSchools = async ({ query }) => {
+  const pagination = parsePagination(query);
+  const where = buildDeletedSchoolWhere(query);
+
+  const [items, total] = await Promise.all([
+    prisma.school.findMany({
+      where,
+      include: {
+        sppg: true,
+        dapodikLink: {
+          include: {
+            dapodikSchool: true
+          }
+        }
+      },
+      skip: pagination.skip,
+      take: pagination.limit,
+      orderBy: [{ deletedAt: "desc" }, { province: "asc" }, { city: "asc" }, { name: "asc" }]
     }),
     prisma.school.count({ where })
   ]);
@@ -271,10 +339,57 @@ const deleteSchool = async ({ id, actorUserId, ipAddress }) => {
   };
 };
 
+const restoreSchool = async ({ id, actorUserId, ipAddress }) => {
+  const existing = await getDeletedSchoolById(id);
+
+  await getActiveSppg(existing.sppgId);
+
+  const school = await prisma.$transaction(async (tx) => {
+    const restored = await tx.school.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        deletedAt: null
+      },
+      include: {
+        sppg: true,
+        dapodikLink: {
+          include: {
+            dapodikSchool: true
+          }
+        }
+      }
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: actorUserId,
+      action: "UPDATE",
+      tableName: "schools",
+      recordId: restored.id,
+      oldData: existing,
+      newData: {
+        ...restored,
+        auditAction: "RESTORE"
+      },
+      ipAddress
+    });
+
+    return restored;
+  });
+
+  return {
+    data: school
+  };
+};
+
 module.exports = {
   createSchool,
   deleteSchool,
   getSchoolDetail,
+  listDeletedSchools,
   listSchools,
+  restoreSchool,
   updateSchool
 };

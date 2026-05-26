@@ -164,7 +164,10 @@ const anomalyLogIdParamsSchema = z.object({
 });
 
 const distributionLockParamsSchema = z.object({
-  body: z.object({}).optional().default({}),
+  body: z.object({
+    reason: z.string().trim().min(1).max(500).optional(),
+    autoRelockAfterOneHour: z.boolean().optional()
+  }).optional().default({}),
   params: z.object({
     id: z.coerce.number().int().positive()
   }),

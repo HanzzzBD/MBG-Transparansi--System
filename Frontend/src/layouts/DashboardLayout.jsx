@@ -1,5 +1,5 @@
-import { createContext, useContext, useMemo, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
   AlertTriangle,
@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Lock,
   LogOut,
+  Loader2,
   Map,
   Menu,
   MessageSquare,
@@ -30,8 +31,15 @@ import {
   Users,
   UtensilsCrossed,
   Wallet,
+  X,
   Zap,
 } from 'lucide-react'
+import {
+  getGlobalSearch,
+  getNotifications,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from '../services/api.js'
 import './DashboardLayout.css'
 
 const ROLE_LABELS = {
@@ -55,20 +63,20 @@ const dashboardMenu = {
 }
 
 const sppgMenus = [
-  { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/dashboard/menu-harian' },
+  { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/input-menu' },
   { label: 'Input Porsi & Distribusi', icon: Package, path: '/distribusi' },
   { label: 'Status Distribusi', icon: Truck, path: '/distribusi' },
-  { label: 'Lapor Kendala', icon: AlertTriangle, path: '/dashboard/kendala' },
-  { label: 'Riwayat Distribusi', icon: History, path: '/dashboard/riwayat-distribusi' },
-  { label: 'Profil SPPG', icon: Building2, path: '/dashboard/profil-sppg' },
+  { label: 'Lapor Kendala', icon: AlertTriangle, path: '/laporan-kendala' },
+  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat' },
+  { label: 'Profil SPPG', icon: Building2, path: '/profil' },
 ]
 
 const sekolahMenus = [
-  { label: 'Konfirmasi Distribusi', icon: CheckSquare, path: '/konfirmasi', badgeKey: 'notif' },
-  { label: 'Validasi Porsi & Kualitas', icon: ClipboardCheck, path: '/konfirmasi' },
-  { label: 'Laporan Sekolah', icon: FileText, path: '/dashboard/laporan-sekolah' },
-  { label: 'Riwayat Distribusi', icon: History, path: '/dashboard/riwayat-distribusi' },
-  { label: 'Profil Sekolah', icon: School, path: '/dashboard/profil-sekolah' },
+  { label: 'Konfirmasi Distribusi', icon: CheckSquare, path: '/validasi', badgeKey: 'notif' },
+  { label: 'Validasi Porsi & Kualitas', icon: ClipboardCheck, path: '/validasi' },
+  { label: 'Laporan Sekolah', icon: FileText, path: '/laporan-sekolah' },
+  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat' },
+  { label: 'Profil Sekolah', icon: School, path: '/profil' },
 ]
 
 const pemerintahMenus = [
@@ -82,7 +90,8 @@ const pemerintahMenus = [
 ]
 
 const adminExtraMenus = [
-  { label: 'Data SPPG & Sekolah', icon: Database, path: '/dashboard/master-data' },
+  { label: 'Master SPPG', icon: Building2, path: '/admin/sppg' },
+  { label: 'Master Sekolah', icon: School, path: '/admin/schools' },
   { label: 'Import Dapodik', icon: Database, path: '/dapodik' },
   { label: 'User & Role', icon: Users, path: '/users' },
   { label: 'Lock / Unlock Data', icon: Lock, path: '/lock-unlock' },
@@ -91,13 +100,66 @@ const adminExtraMenus = [
   { label: 'Settings', icon: Settings, path: '/dashboard/settings' },
 ]
 
-const notifications = [
-  'Distribusi baru perlu divalidasi',
-  'Ada laporan masyarakat baru',
-  'Sistem mendeteksi anomali data',
+const DashboardLayoutContext = createContext(false)
+
+const SEARCH_GROUPS = [
+  { key: 'sppg', label: 'SPPG', icon: Building2 },
+  { key: 'schools', label: 'Sekolah', icon: School },
+  { key: 'distributions', label: 'Distribusi', icon: Truck },
+  { key: 'reports', label: 'Laporan', icon: MessageSquare },
 ]
 
-const DashboardLayoutContext = createContext(false)
+const NOTIFICATION_TYPE_LABELS = {
+  distribution: 'Distribusi',
+  validation: 'Validasi',
+  anomaly: 'Anomali',
+  system: 'Sistem',
+}
+
+function emptySearchResults() {
+  return {
+    sppg: [],
+    schools: [],
+    distributions: [],
+    reports: [],
+  }
+}
+
+function hasSearchResults(results) {
+  return SEARCH_GROUPS.some((group) => Array.isArray(results[group.key]) && results[group.key].length > 0)
+}
+
+function formatDateTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function getNotificationUrl(notification) {
+  const payload = notification?.payload || {}
+
+  if (payload.distributionId) return `/distribusi?distributionId=${payload.distributionId}`
+  if (payload.validationId) return `/validasi?validationId=${payload.validationId}`
+  if (payload.publicReportId || payload.reportId) return `/laporan-masyarakat?reportId=${payload.publicReportId || payload.reportId}`
+  if (payload.schoolReportId) return `/laporan-sekolah?reportId=${payload.schoolReportId}`
+  if (payload.issueId) return `/dashboard/kendala?issueId=${payload.issueId}`
+  if (payload.anomalyId) return `/anomaly?anomalyId=${payload.anomalyId}`
+
+  return '/dashboard'
+}
+
+function normalizeNotification(notification) {
+  return {
+    ...notification,
+    isRead: Boolean(notification?.isRead ?? notification?.is_read),
+    createdAt: notification?.createdAt || notification?.created_at || null,
+  }
+}
 
 function getRoleMenus(userRole) {
   if (userRole === 'admin') return [dashboardMenu, ...pemerintahMenus, ...adminExtraMenus]
@@ -207,23 +269,217 @@ function DashboardLayout({
   currentPath,
   children,
   onLogout,
-  notifCount = 0,
 }) {
   const location = useLocation()
+  const navigate = useNavigate()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchState, setSearchState] = useState({
+    results: emptySearchResults(),
+    loading: false,
+    error: '',
+    hasSearched: false,
+  })
+  const [notificationState, setNotificationState] = useState({
+    items: [],
+    unreadCount: 0,
+    loading: false,
+    error: '',
+    loaded: false,
+  })
+  const searchWrapRef = useRef(null)
+  const notifWrapRef = useRef(null)
+  const userMenuRef = useRef(null)
   const isNestedLayout = useContext(DashboardLayoutContext)
   const normalizedRole = ROLE_LABELS[userRole] ? userRole : 'sppg'
   const pathname = currentPath || location.pathname
+  const trimmedSearchQuery = searchQuery.trim()
 
   const menus = useMemo(() => getRoleMenus(normalizedRole), [normalizedRole])
   const activeMenu = useMemo(() => getActiveMenu(menus, pathname), [menus, pathname])
+  const displayNotifCount = notificationState.unreadCount
+
+  const loadNotifications = useCallback(async (signal) => {
+    setNotificationState((current) => ({
+      ...current,
+      loading: true,
+      error: '',
+    }))
+
+    try {
+      const payload = await getNotifications({ limit: 6 }, { signal })
+      const items = Array.isArray(payload?.data) ? payload.data.map(normalizeNotification) : []
+      setNotificationState({
+        items,
+        unreadCount: Number(payload?.meta?.unreadCount || 0),
+        loading: false,
+        error: '',
+        loaded: true,
+      })
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        setNotificationState((current) => ({
+          ...current,
+          loading: false,
+          error: error.message || 'Notifikasi gagal dimuat.',
+          loaded: true,
+        }))
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    Promise.resolve().then(() => loadNotifications(controller.signal))
+    return () => controller.abort()
+  }, [loadNotifications])
+
+  useEffect(() => {
+    if (trimmedSearchQuery.length < 2) return undefined
+
+    const controller = new AbortController()
+    const timerId = window.setTimeout(async () => {
+      setSearchState((current) => ({
+        ...current,
+        loading: true,
+        error: '',
+        hasSearched: true,
+      }))
+
+      try {
+        const payload = await getGlobalSearch(
+          {
+            q: trimmedSearchQuery,
+            limit: 5,
+          },
+          { signal: controller.signal },
+        )
+        setSearchState({
+          results: {
+            ...emptySearchResults(),
+            ...(payload?.data || {}),
+          },
+          loading: false,
+          error: '',
+          hasSearched: true,
+        })
+        setSearchOpen(true)
+      } catch (error) {
+        if (error.name !== 'AbortError') {
+          setSearchState({
+            results: emptySearchResults(),
+            loading: false,
+            error: error.message || 'Pencarian gagal dimuat.',
+            hasSearched: true,
+          })
+          setSearchOpen(true)
+        }
+      }
+    }, 350)
+
+    return () => {
+      window.clearTimeout(timerId)
+      controller.abort()
+    }
+  }, [trimmedSearchQuery])
+
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(event.target)) {
+        setSearchOpen(false)
+      }
+      if (notifWrapRef.current && !notifWrapRef.current.contains(event.target)) {
+        setNotifOpen(false)
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [])
+
+  const handleSearchChange = (event) => {
+    const nextValue = event.target.value
+    setSearchQuery(nextValue)
+
+    if (nextValue.trim().length < 2) {
+      setSearchState({
+        results: emptySearchResults(),
+        loading: false,
+        error: '',
+        hasSearched: false,
+      })
+      setSearchOpen(false)
+      return
+    }
+
+    setSearchOpen(true)
+  }
+
+  const clearSearch = () => {
+    setSearchQuery('')
+    setSearchOpen(false)
+    setSearchState({
+      results: emptySearchResults(),
+      loading: false,
+      error: '',
+      hasSearched: false,
+    })
+  }
+
+  const handleSearchResultClick = (result) => {
+    clearSearch()
+    if (result.url) {
+      navigate(result.url)
+    }
+  }
+
+  const handleNotificationClick = async (notification) => {
+    const destination = getNotificationUrl(notification)
+    setNotifOpen(false)
+
+    if (!notification.isRead) {
+      setNotificationState((current) => ({
+        ...current,
+        unreadCount: Math.max(current.unreadCount - 1, 0),
+        items: current.items.map((item) =>
+          item.id === notification.id ? { ...item, isRead: true, is_read: true } : item,
+        ),
+      }))
+      try {
+        await markNotificationAsRead(notification.id)
+      } catch {
+        Promise.resolve().then(() => loadNotifications())
+      }
+    }
+
+    navigate(destination)
+  }
+
+  const handleMarkAllNotificationsRead = async () => {
+    setNotificationState((current) => ({
+      ...current,
+      unreadCount: 0,
+      items: current.items.map((item) => ({ ...item, isRead: true, is_read: true })),
+    }))
+
+    try {
+      await markAllNotificationsAsRead()
+    } catch {
+      Promise.resolve().then(() => loadNotifications())
+    }
+  }
 
   const handleLogout = () => {
     setUserMenuOpen(false)
     setNotifOpen(false)
+    setSearchOpen(false)
     setMobileMenuOpen(false)
     onLogout?.()
   }
@@ -246,7 +502,7 @@ function DashboardLayout({
             sidebarCollapsed={sidebarCollapsed}
             userName={userName}
             userRole={normalizedRole}
-            notifCount={notifCount}
+            notifCount={displayNotifCount}
             onLogout={handleLogout}
           />
         </aside>
@@ -267,7 +523,7 @@ function DashboardLayout({
             sidebarCollapsed={false}
             userName={userName}
             userRole={normalizedRole}
-            notifCount={notifCount}
+            notifCount={displayNotifCount}
             onLogout={handleLogout}
             onMenuClick={handleMobileMenuClick}
           />
@@ -299,52 +555,166 @@ function DashboardLayout({
               </div>
             </div>
 
-            <div className="dashboard-search-wrap">
-              <Search aria-hidden="true" />
+            <div className="dashboard-search-wrap" ref={searchWrapRef}>
+              <Search className="dashboard-search-icon" aria-hidden="true" />
               <input
                 className="dashboard-search-input"
                 type="search"
+                value={searchQuery}
                 placeholder="Cari SPPG, sekolah, distribusi..."
+                aria-label="Cari data dashboard"
+                aria-expanded={searchOpen}
+                onChange={handleSearchChange}
+                onFocus={() => {
+                  if (trimmedSearchQuery.length >= 2) {
+                    setSearchOpen(true)
+                  }
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    setSearchOpen(false)
+                  }
+                }}
               />
+              {searchQuery ? (
+                <button className="dashboard-search-clear" type="button" aria-label="Bersihkan pencarian" onClick={clearSearch}>
+                  <X aria-hidden="true" />
+                </button>
+              ) : null}
+              {searchOpen ? (
+                <div className="dashboard-dropdown dashboard-search-dropdown" role="listbox" aria-label="Hasil pencarian global">
+                  {searchState.loading ? (
+                    <div className="dashboard-dropdown-state">
+                      <Loader2 className="dashboard-spin" aria-hidden="true" />
+                      <span>Mencari data...</span>
+                    </div>
+                  ) : null}
+
+                  {!searchState.loading && searchState.error ? (
+                    <div className="dashboard-dropdown-state dashboard-dropdown-state-error">
+                      <span>{searchState.error}</span>
+                    </div>
+                  ) : null}
+
+                  {!searchState.loading && !searchState.error && searchState.hasSearched && !hasSearchResults(searchState.results) ? (
+                    <div className="dashboard-dropdown-state">Tidak ada hasil untuk "{trimmedSearchQuery}".</div>
+                  ) : null}
+
+                  {!searchState.loading && !searchState.error
+                    ? SEARCH_GROUPS.map((group) => {
+                        const items = searchState.results[group.key] || []
+                        const Icon = group.icon
+
+                        if (items.length === 0) return null
+
+                        return (
+                          <section className="dashboard-search-group" key={group.key}>
+                            <div className="dashboard-search-group-title">
+                              <Icon aria-hidden="true" />
+                              <span>{group.label}</span>
+                            </div>
+                            {items.map((item) => (
+                              <button
+                                className="dashboard-search-result"
+                                key={`${group.key}-${item.id}`}
+                                type="button"
+                                role="option"
+                                onClick={() => handleSearchResultClick(item)}
+                              >
+                                <span className="dashboard-search-result-title">{item.title}</span>
+                                {item.subtitle ? <span className="dashboard-search-result-subtitle">{item.subtitle}</span> : null}
+                              </button>
+                            ))}
+                          </section>
+                        )
+                      })
+                    : null}
+                </div>
+              ) : null}
             </div>
 
             <div className="dashboard-topbar-right">
-              <div className="dashboard-notif-wrap">
+              <div className="dashboard-notif-wrap" ref={notifWrapRef}>
                 <button
                   className="dashboard-notif-btn"
                   type="button"
                   aria-label="Buka notifikasi"
                   onClick={() => {
-                    setNotifOpen((current) => !current)
+                    setNotifOpen((current) => {
+                      const nextOpen = !current
+                      if (nextOpen) {
+                        Promise.resolve().then(() => loadNotifications())
+                      }
+                      return nextOpen
+                    })
                     setUserMenuOpen(false)
+                    setSearchOpen(false)
                   }}
                 >
                   <Bell aria-hidden="true" />
-                  {notifCount > 0 ? <span className="dashboard-notif-badge">{notifCount}</span> : null}
+                  {displayNotifCount > 0 ? <span className="dashboard-notif-badge">{displayNotifCount}</span> : null}
                 </button>
                 {notifOpen ? (
                   <div className="dashboard-dropdown dashboard-notif-dropdown">
-                    {notifications.map((message) => (
-                      <button
-                        key={message}
-                        className="dashboard-dropdown-item"
-                        type="button"
-                        onClick={() => setNotifOpen(false)}
-                      >
-                        {message}
-                      </button>
-                    ))}
+                    <div className="dashboard-dropdown-header">
+                      <strong>Notifikasi</strong>
+                      {displayNotifCount > 0 ? (
+                        <button type="button" onClick={handleMarkAllNotificationsRead}>
+                          Tandai dibaca
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {notificationState.loading ? (
+                      <div className="dashboard-dropdown-state">
+                        <Loader2 className="dashboard-spin" aria-hidden="true" />
+                        <span>Memuat notifikasi...</span>
+                      </div>
+                    ) : null}
+
+                    {!notificationState.loading && notificationState.error ? (
+                      <div className="dashboard-dropdown-state dashboard-dropdown-state-error">
+                        <span>{notificationState.error}</span>
+                        <button type="button" onClick={() => loadNotifications()}>Coba lagi</button>
+                      </div>
+                    ) : null}
+
+                    {!notificationState.loading && !notificationState.error && notificationState.items.length === 0 ? (
+                      <div className="dashboard-dropdown-state">Belum ada notifikasi.</div>
+                    ) : null}
+
+                    {!notificationState.loading && !notificationState.error
+                      ? notificationState.items.map((notification) => (
+                          <button
+                            key={notification.id}
+                            className={`dashboard-dropdown-item dashboard-notif-item ${notification.isRead ? '' : 'dashboard-notif-item-unread'}`}
+                            type="button"
+                            onClick={() => handleNotificationClick(notification)}
+                          >
+                            <span className="dashboard-notif-dot" aria-hidden="true" />
+                            <span className="dashboard-notif-text">
+                              <span className="dashboard-notif-title">{notification.title}</span>
+                              <span className="dashboard-notif-message">{notification.message}</span>
+                              <span className="dashboard-notif-meta">
+                                {NOTIFICATION_TYPE_LABELS[notification.type] || notification.type}
+                                {notification.createdAt ? ` - ${formatDateTime(notification.createdAt)}` : ''}
+                              </span>
+                            </span>
+                          </button>
+                        ))
+                      : null}
                   </div>
                 ) : null}
               </div>
 
-              <div className="dashboard-user-menu-wrap">
+              <div className="dashboard-user-menu-wrap" ref={userMenuRef}>
                 <button
                   className="dashboard-user-btn"
                   type="button"
                   onClick={() => {
                     setUserMenuOpen((current) => !current)
                     setNotifOpen(false)
+                    setSearchOpen(false)
                   }}
                 >
                   <span className="dashboard-avatar">{getInitial(userName)}</span>

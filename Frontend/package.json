@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test",
+    "test:auth": "node --test test/auth-session.test.js"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.100.10",

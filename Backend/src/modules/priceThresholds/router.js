@@ -3,7 +3,8 @@ const express = require("express");
 const controller = require("./controller");
 const {
   generatePriceThresholdsSchema,
-  listPriceThresholdsSchema
+  listPriceThresholdsSchema,
+  myRegionPriceThresholdSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
 const { authorize } = require("../../middlewares/rbac");
@@ -13,6 +14,12 @@ const router = express.Router();
 
 router.use(authenticate);
 
+router.get(
+  "/my-region",
+  authorize("sppg"),
+  validateRequest(myRegionPriceThresholdSchema),
+  controller.getMyRegionThreshold
+);
 router.get(
   "/",
   authorize("pemerintah", "admin"),

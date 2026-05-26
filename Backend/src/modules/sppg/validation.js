@@ -39,6 +39,31 @@ const mapMarkersSchema = z.object({
   })
 });
 
+const listMySchoolsSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({}).optional().default({}),
+  query: z.object({
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().max(100).optional(),
+    search: z.string().trim().optional(),
+    province: z.string().trim().optional(),
+    city: z.string().trim().optional()
+  })
+});
+
+const listDeletedSppgSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({}).optional().default({}),
+  query: z.object({
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().optional(),
+    province: z.string().trim().optional(),
+    city: z.string().trim().optional(),
+    search: z.string().trim().optional(),
+    status: sppgStatusEnum.optional()
+  })
+});
+
 const sppgIdParamsSchema = z.object({
   body: z.object({}).optional().default({}),
   params: z.object({
@@ -75,6 +100,8 @@ const updateSppgSchema = z.object({
 
 module.exports = {
   createSppgSchema,
+  listDeletedSppgSchema,
+  listMySchoolsSchema,
   listSppgSchema,
   mapMarkersSchema,
   sppgIdParamsSchema,

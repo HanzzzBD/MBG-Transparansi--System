@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -33,63 +33,6 @@ const STATUS_LABELS = {
   conflict: 'CONFLICT',
 }
 
-const FALLBACK_PENDING = [
-  {
-    id: 'pending-1',
-    validationId: 'pending-1',
-    distributionId: 'distribution-1',
-    schoolId: 1,
-    sppgName: 'SPPG Kecamatan Cempaka',
-    sppgCity: 'Bogor',
-    claimedPortions: 450,
-    distributionDate: new Date().toISOString(),
-    distributionTime: '08:15',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 13 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'pending-2',
-    validationId: 'pending-2',
-    distributionId: 'distribution-2',
-    schoolId: 1,
-    sppgName: 'SPPG Bogor Timur',
-    sppgCity: 'Bogor',
-    claimedPortions: 380,
-    distributionDate: new Date().toISOString(),
-    distributionTime: '09:05',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'pending-3',
-    validationId: 'pending-3',
-    distributionId: 'distribution-3',
-    schoolId: 1,
-    sppgName: 'SPPG Dramaga',
-    sppgCity: 'Bogor',
-    claimedPortions: 520,
-    distributionDate: new Date().toISOString(),
-    distributionTime: '10:25',
-    status: 'pending',
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-]
-
-const FALLBACK_HISTORY = Array.from({ length: 25 }).map((_, index) => {
-  const date = new Date()
-  date.setDate(date.getDate() - index - 1)
-  const isConflict = index % 5 === 0
-
-  return {
-    id: `history-${index + 1}`,
-    date: date.toISOString(),
-    sppgName: index % 2 === 0 ? 'SPPG Kecamatan Cempaka' : 'SPPG Bogor Timur',
-    portions: 420 + (index % 4) * 25,
-    status: isConflict ? 'conflict' : 'verified',
-    notes: isConflict ? 'Ada selisih porsi saat diterima.' : 'Sesuai standar.',
-  }
-})
-
 const initialFormData = {
   receivedPortions: '',
   qualityOk: '',
@@ -100,22 +43,6 @@ const initialFormData = {
 const initialReportData = {
   category: 'keterlambatan',
   message: '',
-}
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
 }
 
 async function uploadFile(file, signal) {
@@ -206,8 +133,7 @@ function StatusBadge({ status }) {
   return <span className={`konfirmasi-status konfirmasi-status-${status}`}>{STATUS_LABELS[status] || status}</span>
 }
 
-function Konfirmasi({ onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
+function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [pendingList, setPendingList] = useState([])
@@ -226,8 +152,8 @@ function Konfirmasi({ onLogout }) {
   const [reportErrors, setReportErrors] = useState({})
   const [filePreview, setFilePreview] = useState('')
 
-  const userName = storedUser?.name || storedUser?.email || 'Petugas Sekolah'
-  const schoolId = storedUser?.schoolId || storedUser?.school_id || selectedDistribusi?.schoolId || ''
+  const userName = authenticatedUserName || user?.name || user?.email || 'Petugas Sekolah'
+  const schoolId = user?.schoolId || user?.school_id || selectedDistribusi?.schoolId || ''
 
   const showToast = useCallback((type, message) => {
     setToast({ type, message })
@@ -247,14 +173,13 @@ function Konfirmasi({ onLogout }) {
       const pending = rows.filter((item) => item.status === 'pending')
       const history = rows.filter((item) => item.status !== 'pending').map(toHistoryRow)
 
-      setPendingList(pending.length ? pending : FALLBACK_PENDING)
-      setHistoryList(history.length ? history : FALLBACK_HISTORY)
-      if (!rows.length) setError('Data validasi API kosong. Fallback preview ditampilkan sementara.')
+      setPendingList(pending)
+      setHistoryList(history)
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
-        setPendingList(FALLBACK_PENDING)
-        setHistoryList(FALLBACK_HISTORY)
-        setError('Data validasi gagal dimuat dari API. Fallback preview ditampilkan.')
+        setPendingList([])
+        setHistoryList([])
+        setError(fetchError.message || 'Data validasi gagal dimuat dari API.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
@@ -375,22 +300,15 @@ function Konfirmasi({ onLogout }) {
     setSubmitLoading('validation')
 
     try {
-      if (!String(selectedDistribusi.validationId).startsWith('pending-')) {
-        await requestJson(`/validations/${selectedDistribusi.validationId}`, {
-          method: 'PUT',
-          signal: controller.signal,
-          body: payload,
-        })
-        await uploadOptionalProof(selectedDistribusi, controller.signal)
-      }
-
-      const historyRow = toHistoryRow({
-        ...selectedDistribusi,
-        status,
-        receivedPortions,
-        notes: payload.notes || (status === 'verified' ? 'Sesuai standar.' : 'Terdapat ketidaksesuaian.'),
-        validatedAt: new Date().toISOString(),
+      const response = await requestJson(`/validations/${selectedDistribusi.validationId}`, {
+        method: 'PUT',
+        signal: controller.signal,
+        body: payload,
       })
+      await uploadOptionalProof(selectedDistribusi, controller.signal)
+
+      const updatedValidation = normalizeValidation(response.data)
+      const historyRow = toHistoryRow(updatedValidation)
 
       setPendingList((current) => current.filter((item) => item.validationId !== selectedDistribusi.validationId))
       setHistoryList((current) => [historyRow, ...current])
@@ -401,25 +319,7 @@ function Konfirmasi({ onLogout }) {
       setFilePreview('')
       showToast(status === 'verified' ? 'success' : 'warning', status === 'verified' ? 'Distribusi berhasil diverifikasi.' : 'Validasi tersimpan sebagai conflict.')
     } catch (submitError) {
-      if (import.meta.env.DEV) {
-        const historyRow = toHistoryRow({
-          ...selectedDistribusi,
-          status,
-          receivedPortions,
-          notes: payload.notes || 'Fallback development.',
-          validatedAt: new Date().toISOString(),
-        })
-        setPendingList((current) => current.filter((item) => item.validationId !== selectedDistribusi.validationId))
-        setHistoryList((current) => [historyRow, ...current])
-        setSubmittedIds((current) => [...current, selectedDistribusi.validationId])
-        setSelectedDistribusi(null)
-        setShowReportForm(false)
-        setFormData(initialFormData)
-        setFilePreview('')
-        showToast('warning', 'API validasi gagal, fallback development menyimpan validasi sementara.')
-      } else {
-        showToast('danger', submitError.message || 'Validasi gagal disimpan.')
-      }
+      showToast('danger', submitError.message || 'Validasi gagal disimpan.')
     } finally {
       setSubmitLoading('')
     }
@@ -459,13 +359,7 @@ function Konfirmasi({ onLogout }) {
       setReportData(initialReportData)
       setShowReportForm(false)
     } catch (reportError) {
-      if (import.meta.env.DEV) {
-        showToast('warning', 'API laporan gagal, fallback development menganggap laporan terkirim.')
-        setReportData(initialReportData)
-        setShowReportForm(false)
-      } else {
-        showToast('danger', reportError.message || 'Laporan masalah gagal dikirim.')
-      }
+      showToast('danger', reportError.message || 'Laporan masalah gagal dikirim.')
     } finally {
       setSubmitLoading('')
     }
@@ -476,10 +370,6 @@ function Konfirmasi({ onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 
@@ -525,6 +415,9 @@ function Konfirmasi({ onLogout }) {
             <section className="konfirmasi-card">
               <h2 className="konfirmasi-section-title">Menunggu Konfirmasi ({pendingList.length})</h2>
               <div className="konfirmasi-pending-list">
+                {!loading && pendingList.length === 0 ? (
+                  <div className="konfirmasi-empty-state">Belum ada distribusi yang perlu dikonfirmasi.</div>
+                ) : null}
                 {pendingList.map((item) => {
                   const isLate = getHoursSince(item.createdAt) > 12
 
@@ -572,6 +465,13 @@ function Konfirmasi({ onLogout }) {
                     </tr>
                   </thead>
                   <tbody>
+                    {!loading && pagedHistory.length === 0 ? (
+                      <tr>
+                        <td colSpan={5}>
+                          <div className="konfirmasi-empty-state">Belum ada riwayat validasi dari backend.</div>
+                        </td>
+                      </tr>
+                    ) : null}
                     {pagedHistory.map((item) => (
                       <tr key={item.id}>
                         <td>{formatDate(item.date)}</td>

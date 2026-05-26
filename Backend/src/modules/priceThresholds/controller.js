@@ -31,7 +31,24 @@ const generateFromFoodPrices = async (req, res, next) => {
   }
 };
 
+const getMyRegionThreshold = async (req, res, next) => {
+  try {
+    const result = await priceThresholdService.getMyRegionThreshold({
+      user: req.user
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   generateFromFoodPrices,
+  getMyRegionThreshold,
   listPriceThresholds
 };

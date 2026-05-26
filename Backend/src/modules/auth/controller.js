@@ -70,6 +70,53 @@ const refresh = async (req, res, next) => {
   }
 };
 
+const session = async (req, res, next) => {
+  const refreshToken = req.cookies[REFRESH_TOKEN_COOKIE_NAME];
+
+  if (!refreshToken) {
+    res.status(200).json({
+      status: "success",
+      data: {
+        authenticated: false,
+        accessToken: null,
+        token: null,
+        user: null
+      }
+    });
+    return;
+  }
+
+  try {
+    const result = await authService.refresh({ refreshToken });
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        authenticated: true,
+        accessToken: result.accessToken,
+        token: result.accessToken,
+        user: result.user
+      }
+    });
+  } catch (error) {
+    if (error.statusCode === 401) {
+      clearRefreshCookie(res);
+      res.status(200).json({
+        status: "success",
+        data: {
+          authenticated: false,
+          accessToken: null,
+          token: null,
+          user: null
+        }
+      });
+      return;
+    }
+
+    next(error);
+  }
+};
+
 const logout = async (req, res, next) => {
   try {
     await authService.logout({
@@ -110,5 +157,6 @@ module.exports = {
   logout,
   me,
   refresh,
-  register
+  register,
+  session
 };
