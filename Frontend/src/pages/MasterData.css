@@ -12,7 +12,7 @@
 
 .master-kicker {
   margin: 0 0 4px;
-  color: #64748b;
+  color: var(--text-on-light-muted);
   font-size: 0.85rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -20,7 +20,7 @@
 
 .master-title {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-on-light);
   font-size: 1.7rem;
   line-height: 1.2;
 }
@@ -44,9 +44,9 @@
   gap: 8px;
   min-height: 38px;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fff;
-  color: #0f172a;
+  color: var(--text-on-light);
   font-weight: 700;
   cursor: pointer;
 }
@@ -84,7 +84,7 @@
 
 .master-panel {
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fff;
 }
 
@@ -113,9 +113,9 @@
   width: 100%;
   min-height: 38px;
   border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fff;
-  color: #0f172a;
+  color: var(--text-on-light);
   padding: 8px 10px;
 }
 
@@ -143,7 +143,7 @@
 }
 
 .master-table th {
-  background: #f8fafc;
+  background: var(--color-navy-50);
   color: #475569;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -151,11 +151,11 @@
 
 .master-table strong {
   display: block;
-  color: #0f172a;
+  color: var(--text-on-light);
 }
 
 .master-muted {
-  color: #64748b;
+  color: var(--text-on-light-muted);
   font-size: 0.86rem;
 }
 
@@ -225,7 +225,7 @@
 }
 
 .master-toast {
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   background: #ecfdf5;
   color: #065f46;
@@ -251,7 +251,7 @@
   width: min(860px, 100%);
   max-height: min(90vh, 760px);
   overflow: auto;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fff;
 }
 
@@ -290,7 +290,7 @@
 
 .master-detail-item {
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   padding: 12px;
 }
 
@@ -305,7 +305,7 @@
   justify-content: space-between;
   gap: 12px;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fff;
   padding: 9px 10px;
   text-align: left;
@@ -325,3 +325,4 @@
     grid-template-columns: 1fr;
   }
 }
+

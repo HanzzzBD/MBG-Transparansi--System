@@ -67,7 +67,7 @@
   max-width: 1440px;
   margin: 0 auto 14px;
   border: 1px solid var(--color-sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: rgba(255, 255, 255, 0.96);
   padding: 14px;
   box-shadow: 0 18px 42px rgba(15, 76, 129, 0.1);
@@ -518,7 +518,7 @@
   border-collapse: collapse;
   overflow: hidden;
   border: 1px solid var(--color-sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-white);
   font-size: 12px;
 }
@@ -560,7 +560,7 @@
   display: grid;
   gap: 18px;
   border: 1px solid var(--color-sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--color-white);
   padding: 16px;
   box-shadow: 0 16px 34px rgba(15, 76, 129, 0.08);
@@ -571,7 +571,7 @@
   display: grid;
   gap: 6px;
   border: 1px solid rgba(181, 224, 234, 0.7);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-light-gray);
   color: var(--color-text-muted);
   font-size: 12px;
@@ -844,7 +844,7 @@
   .peta-map-wrap {
     height: calc(100vh - 300px);
     min-height: 460px;
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
   }
 
   .peta-legend {
@@ -905,3 +905,4 @@
     white-space: nowrap;
   }
 }
+

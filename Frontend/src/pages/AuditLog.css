@@ -113,7 +113,7 @@
 .audit-filter-card,
 .audit-table-card {
   border: 1px solid var(--color-sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--color-white);
   box-shadow: 0 18px 42px rgba(15, 76, 129, 0.08);
   padding: 18px;
@@ -360,7 +360,7 @@
   max-height: 280px;
   overflow: auto;
   border: 1px solid rgba(181, 224, 234, 0.55);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: #0b1220;
   color: #dbeafe;
   font-family: Consolas, Monaco, 'Courier New', monospace;
@@ -482,7 +482,7 @@
   display: grid;
   gap: 5px;
   border: 1px solid var(--color-sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-light-gray);
   padding: 12px;
 }
@@ -629,3 +629,4 @@
     border-radius: 18px 18px 0 0;
   }
 }
+

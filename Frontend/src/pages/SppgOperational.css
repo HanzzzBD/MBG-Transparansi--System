@@ -17,7 +17,7 @@
 .sppg-op-header,
 .sppg-op-card {
   border: 1px solid var(--sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--white);
   box-shadow: 0 16px 35px rgba(15, 76, 129, 0.08);
 }
@@ -174,7 +174,7 @@
   display: grid;
   gap: 6px;
   border: 1px solid #d9eef3;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--white);
   padding: 13px;
 }
@@ -198,7 +198,7 @@
 
 .sppg-op-kpi {
   border: 1px solid #d9eef3;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--light-gray);
   padding: 14px;
 }
@@ -222,7 +222,7 @@
   align-items: center;
   gap: 10px;
   border: 1px solid var(--sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--light-gray);
   color: var(--navy);
   font-size: 13px;
@@ -238,7 +238,7 @@
 
 .sppg-op-empty {
   border: 1px dashed var(--sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--light-gray);
   color: var(--text-muted);
   font-size: 13px;
@@ -315,7 +315,7 @@
 .sppg-op-table-wrap {
   overflow-x: auto;
   border: 1px solid #d9eef3;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 
 .sppg-op-table {
@@ -367,7 +367,7 @@
   height: 28px;
   place-items: center;
   border: 1px solid var(--sky);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--white);
   color: var(--success);
   cursor: pointer;
@@ -400,7 +400,7 @@
 
 .sppg-op-toast {
   border: 1px solid var(--sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--white);
   color: var(--navy);
   font-size: 13px;
@@ -463,3 +463,4 @@
     grid-column: span 1;
   }
 }
+

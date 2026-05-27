@@ -137,7 +137,7 @@
   align-items: flex-start;
   gap: 12px;
   border: 1px solid rgba(181, 224, 234, 0.28);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.08);
   padding: 14px 16px;
   color: #ecfbff;
@@ -315,7 +315,7 @@
   height: 34px;
   place-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -476,7 +476,7 @@
   align-items: flex-start;
   gap: 10px;
   border: 1px solid rgba(155, 28, 28, 0.28);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: rgba(155, 28, 28, 0.06);
   margin-top: 22px;
   padding: 12px 14px;
@@ -574,3 +574,4 @@
     height: 52px;
   }
 }
+

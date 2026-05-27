@@ -107,7 +107,7 @@
 .user-table-card,
 .user-summary-card {
   border: 1px solid var(--color-sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--color-white);
   box-shadow: 0 18px 42px rgba(15, 76, 129, 0.08);
 }
@@ -184,7 +184,7 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 7px;
   border: 1px solid var(--color-sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-light-gray);
   padding: 4px;
 }
@@ -572,7 +572,7 @@
   align-items: center;
   justify-content: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -616,7 +616,7 @@
   gap: 4px;
   width: 100%;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-dark);
   cursor: pointer;
@@ -878,3 +878,4 @@
     display: grid;
   }
 }
+

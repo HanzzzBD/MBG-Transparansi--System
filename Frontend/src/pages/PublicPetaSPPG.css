@@ -1,8 +1,8 @@
 .public-map-page {
   min-height: 100vh;
   background: #eef6f9;
-  color: #111928;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--text-on-light);
+  font-family: var(--font-primary), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   padding: 28px;
 }
 
@@ -57,9 +57,9 @@
 }
 
 .public-map-summary span {
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: #4b5563;
   display: grid;
   font-size: 0.78rem;
@@ -78,9 +78,9 @@
 
 .public-map-toolbar {
   align-items: end;
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: grid;
   gap: 12px;
   grid-template-columns: minmax(240px, 1.5fr) minmax(160px, 0.8fr) minmax(150px, 0.7fr) 44px minmax(134px, auto);
@@ -104,8 +104,8 @@
 .public-map-field select {
   background: #f8fbfc;
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
-  color: #111928;
+  border-radius: var(--radius-md);
+  color: var(--text-on-light);
   font-size: 0.92rem;
   font-weight: 700;
   height: 44px;
@@ -125,7 +125,7 @@
   align-items: center;
   background: #f8fbfc;
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: flex;
   gap: 8px;
   height: 44px;
@@ -155,7 +155,7 @@
 .public-map-refresh {
   align-items: center;
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   cursor: pointer;
   display: inline-flex;
   font-weight: 900;
@@ -171,8 +171,8 @@
 }
 
 .public-map-refresh {
-  background: #0f4c81;
-  color: #ffffff;
+  background: var(--color-navy-900);
+  color: var(--text-primary);
   gap: 8px;
   padding: 0 14px;
   white-space: nowrap;
@@ -190,7 +190,7 @@
   align-items: center;
   background: #fff7ed;
   border: 1px solid #fed7aa;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: #92400e;
   display: flex;
   font-size: 0.92rem;
@@ -212,7 +212,7 @@
 .public-map-canvas {
   background: #d6e9ef;
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   min-height: 620px;
   overflow: hidden;
   position: relative;
@@ -238,7 +238,7 @@
   align-items: center;
   background: rgba(255, 255, 255, 0.86);
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   box-shadow: 0 14px 30px rgba(15, 76, 129, 0.12);
   color: #0f4c81;
   display: inline-flex;
@@ -279,7 +279,7 @@
 }
 
 .public-map-popup {
-  color: #111928;
+  color: var(--text-on-light);
   display: grid;
   gap: 7px;
   min-width: 180px;
@@ -297,10 +297,10 @@
 }
 
 .public-map-popup button {
-  background: #0f4c81;
+  background: var(--color-navy-900);
   border: 0;
   border-radius: 7px;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 900;
@@ -308,9 +308,9 @@
 }
 
 .public-map-detail {
-  background: #ffffff;
+  background: var(--surface-card);
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   min-height: 620px;
   overflow: hidden;
 }
@@ -347,7 +347,7 @@
   align-items: center;
   background: #f8fbfc;
   border: 1px solid #c9e1e8;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   color: #0f4c81;
   cursor: pointer;
   display: inline-flex;
@@ -429,7 +429,7 @@
 .public-map-info-item {
   background: #f8fbfc;
   border: 1px solid #dbe9ee;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   display: grid;
   gap: 8px;
   min-height: 92px;
@@ -450,7 +450,7 @@
 }
 
 .public-map-info-item dd {
-  color: #111928;
+  color: var(--text-on-light);
   font-size: 1rem;
   font-weight: 950;
   line-height: 1.3;
@@ -476,7 +476,7 @@
 }
 
 .public-map-menu-name {
-  color: #111928;
+  color: var(--text-on-light);
   font-size: 1rem;
   font-weight: 900;
   line-height: 1.55;
@@ -528,7 +528,7 @@
 }
 
 .public-map-distributions strong {
-  color: #111928;
+  color: var(--text-on-light);
   font-size: 0.92rem;
   line-height: 1.35;
 }
@@ -625,3 +625,4 @@
     text-align: left;
   }
 }
+
