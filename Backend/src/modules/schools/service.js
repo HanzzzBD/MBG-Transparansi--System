@@ -3,6 +3,13 @@ const AppError = require("../../utils/appError");
 const { createAuditLog } = require("../../utils/auditLog");
 const { assertSchoolOwnership } = require("../../utils/ownership");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
+const {
+  buildRankedSearchCandidateWhere,
+  buildTokenSearchWhere,
+  getRankedSearchCandidateLimit,
+  hasSearchQuery,
+  paginateRankedSearch
+} = require("../../utils/search");
 
 const prisma = getPrismaClient();
 
@@ -23,21 +30,40 @@ const buildSchoolWhere = (query = {}) => ({
   ...(query.province ? { province: { contains: query.province, mode: "insensitive" } } : {}),
   ...(query.city ? { city: { contains: query.city, mode: "insensitive" } } : {}),
   ...(query.district ? { district: { contains: query.district, mode: "insensitive" } } : {}),
-  ...(query.search
-    ? {
-        OR: [
-          { name: { contains: query.search, mode: "insensitive" } },
-          { npsn: { contains: query.search, mode: "insensitive" } },
-          { city: { contains: query.search, mode: "insensitive" } },
-          { district: { contains: query.search, mode: "insensitive" } }
-        ]
-      }
-    : {}),
+  ...buildTokenSearchWhere(query.search, ["name", "npsn", "city", "district", "province"]),
   ...(query.npsn ? { npsn: query.npsn } : {}),
   ...(query.educationLevel ? { educationLevel: { equals: query.educationLevel, mode: "insensitive" } } : {}),
   ...(query.schoolStatus ? { schoolStatus: { equals: query.schoolStatus, mode: "insensitive" } } : {}),
   ...(query.sppgId ? { sppgId: Number(query.sppgId) } : {})
 });
+
+const buildSchoolBaseWhere = (query = {}) =>
+  buildSchoolWhere({
+    ...query,
+    search: undefined
+  });
+
+const SCHOOL_SEARCH_FIELDS = ["name", "npsn", "city", "district", "province", "educationLevel", "schoolStatus"];
+const SCHOOL_SEARCH_RANK_FIELDS = [
+  { field: "name", weight: 7 },
+  { field: "npsn", weight: 4 },
+  { field: "city", weight: 3 },
+  { field: "district", weight: 2 },
+  { field: "province", weight: 2 },
+  { field: "educationLevel", weight: 1 },
+  { field: "schoolStatus", weight: 1 }
+];
+
+const buildDeletedSchoolWhere = (query = {}) => {
+  const { deletedAt, sppg, ...activeWhere } = buildSchoolWhere(query);
+  return {
+    ...activeWhere,
+    deletedAt: {
+      not: null
+    },
+    ...(query.sppgId ? { sppgId: Number(query.sppgId) } : {})
+  };
+};
 
 const getActiveSppg = async (id) => {
   const sppg = await prisma.sppg.findFirst({
@@ -83,24 +109,146 @@ const getActiveSchoolById = async (id) => {
   return school;
 };
 
+const getDeletedSchoolById = async (id) => {
+  const school = await prisma.school.findFirst({
+    where: {
+      id: Number(id),
+      deletedAt: {
+        not: null
+      }
+    },
+    include: {
+      sppg: true,
+      dapodikLink: {
+        include: {
+          dapodikSchool: true
+        }
+      }
+    }
+  });
+
+  if (!school) {
+    throw new AppError("Deleted school not found.", 404, "SCHOOL_NOT_FOUND");
+  }
+
+  return school;
+};
+
 const listSchools = async ({ query }) => {
   const pagination = parsePagination(query);
   const where = buildSchoolWhere(query);
+  const include = {
+    sppg: true,
+    dapodikLink: {
+      include: {
+        dapodikSchool: true
+      }
+    }
+  };
+
+  if (hasSearchQuery(query.search)) {
+    const baseWhere = buildSchoolBaseWhere(query);
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await prisma.school.findMany({
+      where: buildRankedSearchCandidateWhere(baseWhere, query.search, SCHOOL_SEARCH_FIELDS),
+      include,
+      take: candidateLimit,
+      orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: SCHOOL_SEARCH_RANK_FIELDS,
+      pagination
+    });
+
+    return {
+      data: ranked.items,
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: ranked.total
+        }),
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
 
   const [items, total] = await Promise.all([
     prisma.school.findMany({
       where,
-      include: {
-        sppg: true,
-        dapodikLink: {
-          include: {
-            dapodikSchool: true
-          }
-        }
-      },
+      include,
       skip: pagination.skip,
       take: pagination.limit,
       orderBy: [{ province: "asc" }, { city: "asc" }, { name: "asc" }]
+    }),
+    prisma.school.count({ where })
+  ]);
+
+  return {
+    data: items,
+    meta: buildPaginationMeta({
+      page: pagination.page,
+      limit: pagination.limit,
+      total
+    })
+  };
+};
+
+const listDeletedSchools = async ({ query }) => {
+  const pagination = parsePagination(query);
+  const where = buildDeletedSchoolWhere(query);
+  const include = {
+    sppg: true,
+    dapodikLink: {
+      include: {
+        dapodikSchool: true
+      }
+    }
+  };
+
+  if (hasSearchQuery(query.search)) {
+    const baseWhere = buildDeletedSchoolWhere({
+      ...query,
+      search: undefined
+    });
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await prisma.school.findMany({
+      where: buildRankedSearchCandidateWhere(baseWhere, query.search, SCHOOL_SEARCH_FIELDS),
+      include,
+      take: candidateLimit,
+      orderBy: [{ deletedAt: "desc" }, { province: "asc" }, { city: "asc" }, { name: "asc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: SCHOOL_SEARCH_RANK_FIELDS,
+      pagination
+    });
+
+    return {
+      data: ranked.items,
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: ranked.total
+        }),
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.school.findMany({
+      where,
+      include,
+      skip: pagination.skip,
+      take: pagination.limit,
+      orderBy: [{ deletedAt: "desc" }, { province: "asc" }, { city: "asc" }, { name: "asc" }]
     }),
     prisma.school.count({ where })
   ]);
@@ -271,10 +419,57 @@ const deleteSchool = async ({ id, actorUserId, ipAddress }) => {
   };
 };
 
+const restoreSchool = async ({ id, actorUserId, ipAddress }) => {
+  const existing = await getDeletedSchoolById(id);
+
+  await getActiveSppg(existing.sppgId);
+
+  const school = await prisma.$transaction(async (tx) => {
+    const restored = await tx.school.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        deletedAt: null
+      },
+      include: {
+        sppg: true,
+        dapodikLink: {
+          include: {
+            dapodikSchool: true
+          }
+        }
+      }
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: actorUserId,
+      action: "UPDATE",
+      tableName: "schools",
+      recordId: restored.id,
+      oldData: existing,
+      newData: {
+        ...restored,
+        auditAction: "RESTORE"
+      },
+      ipAddress
+    });
+
+    return restored;
+  });
+
+  return {
+    data: school
+  };
+};
+
 module.exports = {
   createSchool,
   deleteSchool,
   getSchoolDetail,
+  listDeletedSchools,
   listSchools,
+  restoreSchool,
   updateSchool
 };

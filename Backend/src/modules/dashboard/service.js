@@ -255,7 +255,7 @@ const getDistributionTrend = async (filters) => {
       COUNT(v.id) FILTER (WHERE v.status = 'verified')::int AS verified,
       COUNT(v.id) FILTER (WHERE v.status = 'conflict')::int AS conflict,
       GREATEST(
-        COUNT(d.id)::int - COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict'))::int,
+        COUNT(d.id)::int - COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported'))::int,
         0
       ) AS pending
     FROM distributions d
@@ -283,7 +283,7 @@ const getSuccessRateTrend = async (filters) => {
       COALESCE(
         ROUND(
           100.0 * COUNT(v.id) FILTER (WHERE v.status = 'verified')
-          / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict')), 0),
+          / NULLIF(COUNT(v.id) FILTER (WHERE v.status IN ('verified', 'conflict', 'issue_reported')), 0),
           2
         ),
         0

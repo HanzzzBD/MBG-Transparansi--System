@@ -5,6 +5,22 @@ const { buildPaginationMeta, parsePagination } = require("../../utils/pagination
 
 const prisma = getPrismaClient();
 
+const serializeNotification = (notification) => ({
+  id: notification.id,
+  type: notification.type,
+  title: notification.title,
+  message: notification.message,
+  payload: notification.payload,
+  isRead: notification.isRead,
+  is_read: notification.isRead,
+  readAt: notification.readAt,
+  read_at: notification.readAt,
+  createdAt: notification.createdAt,
+  created_at: notification.createdAt,
+  updatedAt: notification.updatedAt,
+  updated_at: notification.updatedAt
+});
+
 const getOwnedNotification = async ({ id, userId }) => {
   const notification = await prisma.notification.findFirst({
     where: {
@@ -45,7 +61,7 @@ const listNotifications = async ({ query, user }) => {
   ]);
 
   return {
-    data: items,
+    data: items.map(serializeNotification),
     meta: {
       ...buildPaginationMeta({
         page: pagination.page,
@@ -95,7 +111,7 @@ const markNotificationAsRead = async ({ id, user, ipAddress }) => {
   });
 
   return {
-    data: notification
+    data: serializeNotification(notification)
   };
 };
 

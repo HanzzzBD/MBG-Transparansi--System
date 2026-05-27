@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { createExport, getAuditLogDetail, getAuditLogs, getAuditLogsSummary } from '../services/api'
+import { createExport, getAuditLogDetail, getAuditLogs, getAuditLogsSummary, isAbortError } from '../services/api'
 import './AuditLog.css'
 
 const PAGE_SIZE = 10
@@ -32,21 +32,6 @@ const ACTION_LABELS = {
   LOCK: 'Locked Data',
   UNLOCK: 'Unlocked Data',
   OVERRIDE: 'Override Data',
-}
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
 }
 
 function sanitizeAuditData(data) {
@@ -146,11 +131,10 @@ function prettyJson(data) {
 }
 
 function AuditLog({ userRole, userName, onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
   const location = useLocation()
   const navigate = useNavigate()
-  const resolvedRole = userRole || storedUser?.role || 'pemerintah'
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Pengguna MBG'
+  const resolvedRole = userRole || 'pemerintah'
+  const displayName = userName || 'Pengguna MBG'
   const isAdmin = resolvedRole === 'admin'
 
   const [rows, setRows] = useState([])
@@ -213,7 +197,7 @@ function AuditLog({ userRole, userName, onLogout }) {
         setTotal(result.meta?.total || normalized.length)
       }
     } catch (fetchError) {
-      if (fetchError.name !== 'AbortError') {
+      if (!isAbortError(fetchError)) {
         setRows([])
         setTotal(0)
         setError(fetchError.message || 'Audit log gagal dimuat dari API.')
@@ -233,8 +217,10 @@ function AuditLog({ userRole, userName, onLogout }) {
         severityCount: result.data.severityCount ?? result.data.severity_count ?? {},
         categoryCount: result.data.categoryCount ?? result.data.category_count ?? {},
       })
-    } catch {
-      setSummary({ totalToday: 0, highSeverity: 0, activeUsers: 0, severityCount: {}, categoryCount: {} })
+    } catch (summaryError) {
+      if (!isAbortError(summaryError)) {
+        setSummary({ totalToday: 0, highSeverity: 0, activeUsers: 0, severityCount: {}, categoryCount: {} })
+      }
     }
   }, [])
 
@@ -305,10 +291,6 @@ function AuditLog({ userRole, userName, onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

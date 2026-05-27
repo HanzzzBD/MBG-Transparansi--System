@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   Camera,
@@ -13,12 +13,16 @@ import {
   X,
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestJson } from '../services/api'
+import {
+  apiRequest as requestJson,
+  getAssignedSppgSchools,
+  getMyRegionPriceThreshold,
+  isAbortError,
+} from '../services/api'
+import { rankBySearch } from '../utils/search.js'
 import './Distribusi.css'
 
 const TODAY = new Date().toISOString().slice(0, 10)
-const FALLBACK_CAPACITY = 1500
-const FALLBACK_PRICE_THRESHOLD = 13000
 const MAX_FILE_SIZE = 5 * 1024 * 1024
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png']
 
@@ -41,62 +45,12 @@ const STATUS_LABELS = {
   failed: 'Gagal',
 }
 
-const FALLBACK_SCHOOLS = [
-  { id: 101, name: 'SDN Nusantara 01', province: 'Jawa Barat', city: 'Bogor', totalStudents: 420 },
-  { id: 102, name: 'SMP Negeri 4 Cibinong', province: 'Jawa Barat', city: 'Bogor', totalStudents: 680 },
-  { id: 103, name: 'SDN Merdeka 03', province: 'Jawa Barat', city: 'Depok', totalStudents: 310 },
-  { id: 104, name: 'MI Al Amanah', province: 'Jawa Barat', city: 'Bekasi', totalStudents: 250 },
-  { id: 105, name: 'SDN Harapan Jaya', province: 'Jawa Barat', city: 'Bekasi', totalStudents: 390 },
-  { id: 106, name: 'SMP Pertiwi', province: 'Jawa Barat', city: 'Bandung', totalStudents: 720 },
-  { id: 107, name: 'SDN Cendana', province: 'Jawa Barat', city: 'Bandung', totalStudents: 360 },
-  { id: 108, name: 'SDN Melati 02', province: 'Jawa Barat', city: 'Cimahi', totalStudents: 280 },
-  { id: 109, name: 'SMP Negeri 8', province: 'Jawa Barat', city: 'Cirebon', totalStudents: 640 },
-  { id: 110, name: 'SDN Kartini', province: 'Jawa Barat', city: 'Sukabumi', totalStudents: 330 },
-  { id: 111, name: 'SDN Diponegoro', province: 'Jawa Tengah', city: 'Semarang', totalStudents: 410 },
-  { id: 112, name: 'SMP Negeri 12 Semarang', province: 'Jawa Tengah', city: 'Semarang', totalStudents: 700 },
-  { id: 113, name: 'SDN Tunas Bangsa', province: 'Jawa Tengah', city: 'Solo', totalStudents: 290 },
-  { id: 114, name: 'MI Nurul Huda', province: 'Jawa Tengah', city: 'Kudus', totalStudents: 260 },
-  { id: 115, name: 'SDN Trunojoyo', province: 'Jawa Timur', city: 'Surabaya', totalStudents: 450 },
-  { id: 116, name: 'SMP Negeri 5 Surabaya', province: 'Jawa Timur', city: 'Surabaya', totalStudents: 780 },
-  { id: 117, name: 'SDN Kenanga', province: 'Jawa Timur', city: 'Malang', totalStudents: 340 },
-  { id: 118, name: 'SD Inpres Paotere', province: 'Sulawesi Selatan', city: 'Makassar', totalStudents: 380 },
-  { id: 119, name: 'SMP Negeri 3 Denpasar', province: 'Bali', city: 'Denpasar', totalStudents: 610 },
-  { id: 120, name: 'SDN Abepura 01', province: 'Papua', city: 'Jayapura', totalStudents: 300 },
-]
-
-const FALLBACK_DISTRIBUTIONS = [
-  { id: 'fallback-1', schoolId: 101, schoolName: 'SDN Nusantara 01', portions: 420, pricePerPortion: 12000, status: 'in_progress', distributionDate: TODAY, time: '08:10', failureReason: '', hasProof: false, proofUrl: '' },
-  { id: 'fallback-2', schoolId: 102, schoolName: 'SMP Negeri 4 Cibinong', portions: 680, pricePerPortion: 12000, status: 'delivered', distributionDate: TODAY, time: '08:35', failureReason: '', hasProof: true, proofUrl: '/storage/demo-proof-1.jpg' },
-  { id: 'fallback-3', schoolId: 103, schoolName: 'SDN Merdeka 03', portions: 310, pricePerPortion: 12500, status: 'in_progress', distributionDate: TODAY, time: '09:00', failureReason: '', hasProof: false, proofUrl: '' },
-  { id: 'fallback-4', schoolId: 104, schoolName: 'MI Al Amanah', portions: 250, pricePerPortion: 12000, status: 'failed', distributionDate: TODAY, time: '09:20', failureReason: 'Kendaraan distribusi mengalami gangguan.', hasProof: false, proofUrl: '' },
-  { id: 'fallback-5', schoolId: 105, schoolName: 'SDN Harapan Jaya', portions: 390, pricePerPortion: 13000, status: 'delivered', distributionDate: TODAY, time: '09:45', failureReason: '', hasProof: true, proofUrl: '/storage/demo-proof-2.jpg' },
-  { id: 'fallback-6', schoolId: 106, schoolName: 'SMP Pertiwi', portions: 720, pricePerPortion: 12500, status: 'in_progress', distributionDate: TODAY, time: '10:05', failureReason: '', hasProof: false, proofUrl: '' },
-  { id: 'fallback-7', schoolId: 107, schoolName: 'SDN Cendana', portions: 360, pricePerPortion: 12000, status: 'delivered', distributionDate: TODAY, time: '10:35', failureReason: '', hasProof: false, proofUrl: '' },
-  { id: 'fallback-8', schoolId: 108, schoolName: 'SDN Melati 02', portions: 280, pricePerPortion: 12000, status: 'in_progress', distributionDate: TODAY, time: '11:00', failureReason: '', hasProof: false, proofUrl: '' },
-]
-
 const initialFormData = {
   schoolId: '',
   productionBatchId: '',
   portions: '',
   pricePerPortion: '',
   distributionDate: TODAY,
-}
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
 }
 
 async function uploadFile(file, signal) {
@@ -140,7 +94,7 @@ function normalizeSchool(item) {
     name: item.name || '-',
     province: item.province || item.sppg?.province || '',
     city: item.city || '',
-    totalStudents: Number(item.totalStudents || 0),
+    totalStudents: Number(item.totalStudents ?? item.total_students ?? 0),
   }
 }
 
@@ -154,6 +108,11 @@ function normalizeProductionBatch(item) {
     totalCost: Number(item.totalCost ?? item.total_cost ?? 0),
     itemCount: Number(item._count?.items ?? item.items?.length ?? 0),
   }
+}
+
+function getThresholdMaxPrice(item) {
+  const maxPrice = Number(item?.maxPrice ?? item?.max_price ?? item?.maxPricePerPortion ?? item?.max_price_per_portion)
+  return Number.isFinite(maxPrice) && maxPrice > 0 ? maxPrice : null
 }
 
 function formatRupiah(value) {
@@ -183,16 +142,11 @@ function formatTime(value) {
   }).format(date)
 }
 
-function isFallbackId(id) {
-  return String(id).startsWith('fallback-')
-}
-
 function StatusBadge({ status }) {
   return <span className={`distribusi-status distribusi-status-${status}`}>{STATUS_LABELS[status] || status}</span>
 }
 
-function Distribusi({ onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
+function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(location.pathname.includes('/input') ? 'create' : 'today')
@@ -212,13 +166,15 @@ function Distribusi({ onLogout }) {
   const [uploadedStatus, setUploadedStatus] = useState({})
   const [submitLoading, setSubmitLoading] = useState('')
   const [schoolSearch, setSchoolSearch] = useState('')
-  const [priceThreshold, setPriceThreshold] = useState(FALLBACK_PRICE_THRESHOLD)
-  const [sppgCapacity, setSppgCapacity] = useState(FALLBACK_CAPACITY)
+  const [priceThreshold, setPriceThreshold] = useState(null)
+  const [thresholdStatus, setThresholdStatus] = useState('')
+  const [sppgCapacity, setSppgCapacity] = useState(null)
+  const [setupError, setSetupError] = useState('')
   const [uploadErrors, setUploadErrors] = useState({})
   const fileInputRefs = useRef({})
 
-  const sppgId = storedUser?.sppgId || storedUser?.sppg_id || ''
-  const userName = storedUser?.name || storedUser?.email || 'Petugas SPPG'
+  const sppgId = user?.sppgId || user?.sppg_id || ''
+  const userName = authenticatedUserName || user?.name || user?.email || 'Petugas SPPG'
 
   const showToast = useCallback((type, message) => {
     setToast({ type, message })
@@ -241,14 +197,11 @@ function Distribusi({ onLogout }) {
           },
         })
         const normalized = Array.isArray(data) ? data.map(normalizeDistribution) : []
-        setDistributions(normalized.length ? normalized : FALLBACK_DISTRIBUTIONS)
-        if (!normalized.length) {
-          setError('Data distribusi API kosong. Fallback preview ditampilkan sementara.')
-        }
+        setDistributions(normalized)
       } catch (fetchError) {
-        if (fetchError.name !== 'AbortError') {
-          setDistributions(FALLBACK_DISTRIBUTIONS)
-          setError('Data distribusi gagal dimuat dari API. Fallback preview ditampilkan.')
+        if (!isAbortError(fetchError)) {
+          setDistributions([])
+          setError(fetchError.message || 'Data distribusi gagal dimuat dari API.')
         }
       } finally {
         if (!signal.aborted) setLoading(false)
@@ -258,16 +211,16 @@ function Distribusi({ onLogout }) {
   )
 
   const fetchSchoolsAndThreshold = useCallback(async (signal) => {
-    const schoolResult = requestJson('/schools', {
+    setSetupError('')
+    setThresholdStatus('')
+
+    const schoolResult = getAssignedSppgSchools({
+      limit: 100,
+    }, {
       signal,
-      params: {
-        ...(sppgId ? { sppgId } : {}),
-        limit: 100,
-      },
     })
-    const thresholdResult = requestJson('/admin/price-thresholds', {
+    const thresholdResult = getMyRegionPriceThreshold({
       signal,
-      params: { limit: 1 },
     })
     const sppgResult = sppgId ? requestJson(`/sppg/${sppgId}`, { signal }) : Promise.resolve({ data: null })
 
@@ -277,23 +230,30 @@ function Distribusi({ onLogout }) {
       sppgResult,
     ])
 
-    if (schoolsSettled.status === 'fulfilled' && Array.isArray(schoolsSettled.value.data) && schoolsSettled.value.data.length) {
-      setSchools(schoolsSettled.value.data.map(normalizeSchool))
-    } else {
-      // TODO: Backend /schools saat ini dibatasi pemerintah/admin. Sediakan endpoint sekolah tujuan untuk role SPPG.
-      setSchools(FALLBACK_SCHOOLS)
+    if (signal?.aborted) return
+
+    if (schoolsSettled.status === 'fulfilled') {
+      const assignedSchools = Array.isArray(schoolsSettled.value.data) ? schoolsSettled.value.data : []
+      setSchools(assignedSchools.map(normalizeSchool))
+    } else if (!isAbortError(schoolsSettled.reason)) {
+      setSchools([])
+      setSetupError(schoolsSettled.reason?.message || 'Sekolah tujuan gagal dimuat dari API.')
     }
 
-    if (thresholdSettled.status === 'fulfilled' && Array.isArray(thresholdSettled.value.data) && thresholdSettled.value.data[0]) {
-      const maxPrice = Number(thresholdSettled.value.data[0].maxPrice || thresholdSettled.value.data[0].max_price)
-      setPriceThreshold(Number.isFinite(maxPrice) && maxPrice > 0 ? maxPrice : FALLBACK_PRICE_THRESHOLD)
-    } else {
-      // TODO: Sediakan endpoint threshold wilayah yang bisa dibaca role SPPG.
-      setPriceThreshold(FALLBACK_PRICE_THRESHOLD)
+    if (thresholdSettled.status === 'fulfilled') {
+      const maxPrice = getThresholdMaxPrice(thresholdSettled.value.data)
+      setPriceThreshold(maxPrice)
+      setThresholdStatus(maxPrice ? '' : 'Threshold harga wilayah belum tersedia dari backend.')
+    } else if (!isAbortError(thresholdSettled.reason)) {
+      setPriceThreshold(null)
+      setThresholdStatus(thresholdSettled.reason?.message || 'Threshold harga wilayah gagal dimuat.')
     }
 
     if (sppgSettled.status === 'fulfilled' && sppgSettled.value.data?.capacity) {
-      setSppgCapacity(Number(sppgSettled.value.data.capacity) || FALLBACK_CAPACITY)
+      const capacity = Number(sppgSettled.value.data.capacity)
+      setSppgCapacity(Number.isFinite(capacity) && capacity > 0 ? capacity : null)
+    } else {
+      setSppgCapacity(null)
     }
   }, [sppgId])
 
@@ -308,8 +268,8 @@ function Distribusi({ onLogout }) {
         },
       })
       setProductionBatches(Array.isArray(data) ? data.map(normalizeProductionBatch) : [])
-    } catch {
-      setProductionBatches([])
+    } catch (fetchError) {
+      if (!isAbortError(fetchError)) setProductionBatches([])
     }
   }, [formData.distributionDate, sppgId])
 
@@ -349,19 +309,21 @@ function Distribusi({ onLogout }) {
   }, [distributions, selectedDistribution])
 
   const filteredSchools = useMemo(() => {
-    const keyword = schoolSearch.trim().toLowerCase()
-    if (!keyword) return schools
+    if (!schoolSearch.trim()) return schools
 
-    return schools.filter((school) => {
-      return [school.name, school.city, school.province].some((value) => String(value || '').toLowerCase().includes(keyword))
-    })
+    return rankBySearch(schools, schoolSearch, [
+      { field: 'name', weight: 6 },
+      { field: 'npsn', weight: 4 },
+      { field: 'city', weight: 3 },
+      { field: 'province', weight: 2 },
+    ])
   }, [schoolSearch, schools])
 
   const totalPortions = filteredDistributions.reduce((total, item) => total + item.portions, 0)
   const totalCost = filteredDistributions.reduce((total, item) => total + item.totalCost, 0)
   const deliveredCount = filteredDistributions.filter((item) => item.status === 'delivered').length
   const previewTotal = (Number(formData.portions) || 0) * (Number(formData.pricePerPortion) || 0)
-  const priceWarning = Number(formData.pricePerPortion) > priceThreshold
+  const priceWarning = priceThreshold !== null && Number(formData.pricePerPortion) > priceThreshold
   const selectedBatch = productionBatches.find((batch) => String(batch.id) === String(formData.productionBatchId))
 
   const validateForm = () => {
@@ -372,7 +334,9 @@ function Distribusi({ onLogout }) {
     if (!formData.schoolId) nextErrors.schoolId = 'Sekolah tujuan wajib dipilih.'
     if (!formData.portions) nextErrors.portions = 'Jumlah porsi wajib diisi.'
     if (formData.portions && (!Number.isFinite(portions) || portions <= 0)) nextErrors.portions = 'Jumlah porsi harus lebih dari 0.'
-    if (portions > sppgCapacity) nextErrors.portions = `Jumlah porsi melebihi kapasitas SPPG (${sppgCapacity}).`
+    if (sppgCapacity !== null && portions > sppgCapacity) {
+      nextErrors.portions = `Jumlah porsi melebihi kapasitas SPPG (${sppgCapacity}).`
+    }
     if (!formData.pricePerPortion && !formData.productionBatchId) nextErrors.pricePerPortion = 'Harga per porsi wajib diisi jika belum memilih batch produksi.'
     if (formData.pricePerPortion && (!Number.isFinite(price) || price <= 0)) nextErrors.pricePerPortion = 'Harga harus lebih dari 0.'
     if (!formData.distributionDate) nextErrors.distributionDate = 'Tanggal distribusi wajib diisi.'
@@ -408,7 +372,6 @@ function Distribusi({ onLogout }) {
     event.preventDefault()
     if (!validateForm()) return
 
-    const selectedSchool = schools.find((school) => String(school.id) === String(formData.schoolId))
     const payload = {
       ...(sppgId ? { sppgId: Number(sppgId) } : {}),
       schoolId: Number(formData.schoolId),
@@ -431,28 +394,7 @@ function Distribusi({ onLogout }) {
       resetForm()
       setActiveTab('today')
     } catch (submitError) {
-      if (import.meta.env.DEV) {
-        const fallbackCreated = {
-          id: `fallback-new-${Date.now()}`,
-          schoolId: payload.schoolId,
-          schoolName: selectedSchool?.name || 'Sekolah',
-          portions: payload.portions,
-          pricePerPortion: payload.pricePerPortion,
-          totalCost: payload.portions * payload.pricePerPortion,
-          status: 'in_progress',
-          distributionDate: payload.distributionDate,
-          time: formatTime(new Date()),
-          failureReason: '',
-          hasProof: false,
-          proofUrl: '',
-        }
-        setDistributions((current) => [fallbackCreated, ...current])
-        showToast('warning', 'API create gagal, fallback development ditambahkan sementara.')
-        resetForm()
-        setActiveTab('today')
-      } else {
-        showToast('danger', submitError.message || 'Distribusi gagal disimpan.')
-      }
+      showToast('danger', submitError.message || 'Distribusi gagal disimpan.')
     } finally {
       setSubmitLoading('')
     }
@@ -468,12 +410,10 @@ function Distribusi({ onLogout }) {
     setSubmitLoading(`status-${selectedDistribution.id}`)
 
     try {
-      if (!isFallbackId(selectedDistribution.id)) {
-        await requestJson(`/distributions/${selectedDistribution.id}`, {
-          method: 'PUT',
-          body: { status: 'delivered' },
-        })
-      }
+      await requestJson(`/distributions/${selectedDistribution.id}`, {
+        method: 'PUT',
+        body: { status: 'delivered' },
+      })
       setDistributions((current) => {
         return current.map((item) => (item.id === selectedDistribution.id ? { ...item, status: 'delivered' } : item))
       })
@@ -535,17 +475,15 @@ function Distribusi({ onLogout }) {
     setSubmitLoading(`upload-${distribution.id}`)
 
     try {
-      if (!isFallbackId(distribution.id)) {
-        const uploadedFile = await uploadFile(file, controller.signal)
-        await requestJson('/proofs', {
-          method: 'POST',
-          body: {
-            distributionId: Number(distribution.id),
-            fileId: Number(uploadedFile.id),
-          },
-          signal: controller.signal,
-        })
-      }
+      const uploadedFile = await uploadFile(file, controller.signal)
+      await requestJson('/proofs', {
+        method: 'POST',
+        body: {
+          distributionId: Number(distribution.id),
+          fileId: Number(uploadedFile.id),
+        },
+        signal: controller.signal,
+      })
 
       setUploadedStatus((current) => ({ ...current, [distribution.id]: 'done' }))
       setDistributions((current) => {
@@ -557,19 +495,7 @@ function Distribusi({ onLogout }) {
       })
       showToast('success', 'Bukti foto berhasil diupload.')
     } catch (uploadError) {
-      if (import.meta.env.DEV) {
-        setUploadedStatus((current) => ({ ...current, [distribution.id]: 'done' }))
-        setDistributions((current) => {
-          return current.map((item) => {
-            return item.id === distribution.id
-              ? { ...item, hasProof: true, proofUrl: uploadPreview[distribution.id] || item.proofUrl }
-              : item
-          })
-        })
-        showToast('warning', 'API upload gagal, fallback development menandai foto terupload.')
-      } else {
-        showToast('danger', uploadError.message || 'Upload bukti gagal.')
-      }
+      showToast('danger', uploadError.message || 'Upload bukti gagal.')
     } finally {
       setSubmitLoading('')
     }
@@ -580,11 +506,14 @@ function Distribusi({ onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
+  }
+
+  const handleReloadAll = () => {
+    const controller = new AbortController()
+    fetchDistributions(controller.signal)
+    fetchSchoolsAndThreshold(controller.signal)
+    fetchProductionBatches(controller.signal)
   }
 
   return (
@@ -602,7 +531,7 @@ function Distribusi({ onLogout }) {
             <h1 className="distribusi-title">Distribusi Harian</h1>
             <p>Input distribusi, update status terkirim, dan unggah bukti foto sesuai alur SDD MBG.</p>
           </div>
-          <button className="distribusi-btn distribusi-btn-secondary" type="button" onClick={() => fetchDistributions(new AbortController().signal)}>
+          <button className="distribusi-btn distribusi-btn-secondary" type="button" onClick={handleReloadAll}>
             <RefreshCcw aria-hidden="true" />
             Muat Ulang
           </button>
@@ -618,6 +547,13 @@ function Distribusi({ onLogout }) {
           <div className="distribusi-error">
             <AlertTriangle aria-hidden="true" />
             <span>{error}</span>
+          </div>
+        ) : null}
+
+        {setupError ? (
+          <div className="distribusi-error">
+            <AlertTriangle aria-hidden="true" />
+            <span>{setupError}</span>
           </div>
         ) : null}
 
@@ -675,6 +611,13 @@ function Distribusi({ onLogout }) {
                   </tr>
                 </thead>
                 <tbody>
+                  {!loading && filteredDistributions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7}>
+                        <div className="distribusi-empty-state">Belum ada data distribusi dari backend.</div>
+                      </td>
+                    </tr>
+                  ) : null}
                   {filteredDistributions.map((item, index) => (
                     <tr key={item.id}>
                       <td>{index + 1}</td>
@@ -757,6 +700,11 @@ function Distribusi({ onLogout }) {
                     ))}
                   </select>
                   {formErrors.schoolId ? <small className="distribusi-field-error">{formErrors.schoolId}</small> : null}
+                  {!schools.length ? (
+                    <small className="distribusi-helper">
+                      Belum ada sekolah saluran. <Link to="/sekolah-saluran">Tambahkan sekolah dulu</Link>.
+                    </small>
+                  ) : null}
                 </label>
 
                 <label className="distribusi-field distribusi-field-wide">
@@ -783,11 +731,12 @@ function Distribusi({ onLogout }) {
                     name="portions"
                     type="number"
                     min="1"
-                    max={sppgCapacity}
+                    max={sppgCapacity || undefined}
                     value={formData.portions}
                     onChange={handleFormChange}
                     placeholder="Contoh: 450"
                   />
+                  {sppgCapacity === null ? <small className="distribusi-helper">Kapasitas SPPG belum tersedia dari backend.</small> : null}
                   {formErrors.portions ? <small className="distribusi-field-error">{formErrors.portions}</small> : null}
                 </label>
 
@@ -829,9 +778,15 @@ function Distribusi({ onLogout }) {
                   Harga melebihi batas normal wilayah ini (max {formatRupiah(priceThreshold)})
                 </div>
               ) : null}
+              {thresholdStatus ? (
+                <div className="distribusi-warning">
+                  <AlertTriangle aria-hidden="true" />
+                  {thresholdStatus}
+                </div>
+              ) : null}
 
               <div className="distribusi-action-row">
-                <button className="distribusi-btn distribusi-btn-primary" type="submit" disabled={submitLoading === 'create'}>
+                <button className="distribusi-btn distribusi-btn-primary" type="submit" disabled={submitLoading === 'create' || schools.length === 0}>
                   {submitLoading === 'create' ? <Loader2 aria-hidden="true" /> : <Save aria-hidden="true" />}
                   Simpan Distribusi
                 </button>
@@ -845,6 +800,9 @@ function Distribusi({ onLogout }) {
 
         {activeTab === 'proof' ? (
           <section className="distribusi-upload-list">
+            {uploadTargets.length === 0 ? (
+              <div className="distribusi-empty-state">Belum ada distribusi yang membutuhkan upload bukti.</div>
+            ) : null}
             {uploadTargets.map((item) => (
               <article
                 key={item.id}
@@ -857,7 +815,7 @@ function Distribusi({ onLogout }) {
                     <p>{item.portions.toLocaleString('id-ID')} porsi - {formatDate(item.distributionDate)}</p>
                   </div>
                   <div className={`distribusi-upload-status ${item.hasProof || uploadedStatus[item.id] === 'done' ? 'distribusi-upload-status-done' : 'distribusi-upload-status-empty'}`}>
-                    {item.hasProof || uploadedStatus[item.id] === 'done' ? 'Foto terupload ✓' : 'Belum ada foto'}
+                    {item.hasProof || uploadedStatus[item.id] === 'done' ? 'Foto terupload' : 'Belum ada foto'}
                   </div>
                 </div>
 

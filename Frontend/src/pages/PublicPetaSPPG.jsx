@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { apiRequest } from '../services/api'
+import { matchesSearchTokens, rankBySearch } from '../utils/search.js'
 import './PublicPetaSPPG.css'
 
 const INDONESIA_CENTER = [-2.5, 118]
@@ -378,16 +379,22 @@ function PublicPetaSPPG() {
   )
 
   const filteredMarkers = useMemo(() => {
-    const query = search.trim().toLowerCase()
-
-    return markers.filter((marker) => {
+    const filtered = markers.filter((marker) => {
       const matchesProvince = !province || marker.province === province
       const matchesStatus = !status || marker.status === status
-      const haystack = [marker.name, marker.city, marker.province, marker.district].join(' ').toLowerCase()
-      const matchesSearch = !query || haystack.includes(query)
+      const matchesSearch = matchesSearchTokens([marker.name, marker.city, marker.province, marker.district], search)
 
       return matchesProvince && matchesStatus && matchesSearch
     })
+
+    return search.trim()
+      ? rankBySearch(filtered, search, [
+        { field: 'name', weight: 6 },
+        { field: 'city', weight: 3 },
+        { field: 'district', weight: 3 },
+        { field: 'province', weight: 2 },
+      ])
+      : filtered
   }, [markers, province, search, status])
 
   const summary = useMemo(

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -19,8 +19,8 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
-import { apiRequest } from '../services/api'
-import useAuthStore from '../store/authStore'
+import { apiRequest } from '../services/api.js'
+import useAuthStore from '../store/authStore.js'
 import batikBg from '../assets/Batik.png'
 import newLogo from '../assets/NewLogo.png'
 
@@ -40,26 +40,6 @@ const INDONESIA_BOUNDS = {
   minLat: -12,
   maxLat: 8,
 }
-
-const FALLBACK_SUMMARY = {
-  totalActiveSppg: 2847,
-  distributionsToday: 18432,
-  successRate: 94.7,
-  problematicSppg: 23,
-}
-
-const FALLBACK_MARKERS = [
-  { id: 'fallback-aceh', name: 'SPPG Banda Aceh', province: 'Aceh', city: 'Banda Aceh', lat: 5.55, lng: 95.32, status: 'active' },
-  { id: 'fallback-medan', name: 'SPPG Medan', province: 'Sumatera Utara', city: 'Medan', lat: 3.59, lng: 98.67, status: 'active' },
-  { id: 'fallback-riau', name: 'SPPG Pekanbaru', province: 'Riau', city: 'Pekanbaru', lat: 0.51, lng: 101.45, status: 'inactive' },
-  { id: 'fallback-jakarta', name: 'SPPG Jakarta Timur', province: 'DKI Jakarta', city: 'Jakarta', lat: -6.2, lng: 106.85, status: 'active' },
-  { id: 'fallback-surabaya', name: 'SPPG Surabaya', province: 'Jawa Timur', city: 'Surabaya', lat: -7.25, lng: 112.75, status: 'active' },
-  { id: 'fallback-pontianak', name: 'SPPG Pontianak', province: 'Kalimantan Barat', city: 'Pontianak', lat: -0.03, lng: 109.34, status: 'active' },
-  { id: 'fallback-balikpapan', name: 'SPPG Balikpapan', province: 'Kalimantan Timur', city: 'Balikpapan', lat: -1.24, lng: 116.85, status: 'inactive' },
-  { id: 'fallback-makassar', name: 'SPPG Makassar', province: 'Sulawesi Selatan', city: 'Makassar', lat: -5.15, lng: 119.43, status: 'active' },
-  { id: 'fallback-kupang', name: 'SPPG Kupang', province: 'Nusa Tenggara Timur', city: 'Kupang', lat: -10.17, lng: 123.6, status: 'problem' },
-  { id: 'fallback-jayapura', name: 'SPPG Jayapura', province: 'Papua', city: 'Jayapura', lat: -2.53, lng: 140.72, status: 'active' },
-]
 
 const PROVINCES = [
   'Aceh',
@@ -230,30 +210,28 @@ function Landing() {
   const turnstileRef = useRef(null)
   const turnstileWidgetIdRef = useRef(null)
 
-  useEffect(() => {
-    const controller = new AbortController()
+  const loadSummary = useCallback((signal) => {
+    setSummary((current) => ({ ...current, loading: true, error: '' }))
 
-    requestJson('/analytics/summary', { signal: controller.signal })
+    return requestJson('/public/statistics', { signal })
       .then((data) => {
-        setSummary({ data, loading: false, error: '' })
+        setSummary({ data: data?.kpis || null, loading: false, error: '' })
       })
       .catch((error) => {
         if (error.name !== 'AbortError') {
           setSummary({
             data: null,
             loading: false,
-            error: 'Data statistik gagal dimuat dari API. Menampilkan fallback preview.',
+            error: 'Data statistik gagal dimuat dari API.',
           })
         }
       })
-
-    return () => controller.abort()
   }, [])
 
-  useEffect(() => {
-    const controller = new AbortController()
+  const loadMapData = useCallback((signal) => {
+    setMapData((current) => ({ ...current, loading: true, error: '', empty: false }))
 
-    requestJson('/public/sppg?limit=10', { signal: controller.signal })
+    return requestJson('/public/sppg?limit=10', { signal })
       .then((data) => {
         const markers = extractMarkers(data)
         setMapData({
@@ -268,14 +246,24 @@ function Landing() {
           setMapData({
             markers: [],
             loading: false,
-            error: 'Data peta SPPG gagal dimuat dari API. Menampilkan fallback preview.',
+            error: 'Data peta SPPG gagal dimuat dari API.',
             empty: false,
           })
         }
       })
-
-    return () => controller.abort()
   }, [])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    Promise.resolve().then(() => loadSummary(controller.signal))
+    return () => controller.abort()
+  }, [loadSummary])
+
+  useEffect(() => {
+    const controller = new AbortController()
+    Promise.resolve().then(() => loadMapData(controller.signal))
+    return () => controller.abort()
+  }, [loadMapData])
 
   useEffect(() => {
     if (!CAPTCHA_PROVIDER) {
@@ -334,8 +322,7 @@ function Landing() {
     }
   }, [])
 
-  const effectiveSummary = summary.data || FALLBACK_SUMMARY
-  const markerSource = mapData.markers.length ? mapData.markers : mapData.error || mapData.empty ? FALLBACK_MARKERS : []
+  const effectiveSummary = summary.data || {}
   const role = String(user?.role || '').toLowerCase()
   const fullMapPath = isAuthenticated && INTERNAL_MAP_ROLES.has(role) ? '/peta' : '/peta-publik'
 
@@ -369,7 +356,7 @@ function Landing() {
   const closeDrawer = () => setIsDrawerOpen(false)
 
   const handleMarkerClick = async (marker) => {
-    if (!marker?.id || String(marker.id).startsWith('fallback-')) {
+    if (!marker?.id) {
       setSppgDetail({
         data: null,
         loading: false,
@@ -611,13 +598,25 @@ function Landing() {
                 Ringkasan distribusi nasional
               </h2>
               <p className="mt-3 text-base leading-7 text-[#6b7280]">
-                KPI publik diambil dari endpoint backend GET /api/analytics/summary.
+                KPI publik diambil dari endpoint backend GET /api/public/statistics.
               </p>
             </div>
 
             {summary.error ? (
-              <div className="mb-5 rounded-lg border border-[#b5e0ea] bg-white px-4 py-3 text-sm font-semibold text-[#92400e]">
-                {summary.error}
+              <div className="mb-5 flex flex-col gap-3 rounded-lg border border-[#b5e0ea] bg-white px-4 py-3 text-sm font-semibold text-[#92400e] sm:flex-row sm:items-center sm:justify-between">
+                <span>{summary.error}</span>
+                <button
+                  className="inline-flex h-9 items-center justify-center rounded-lg bg-[#0f4c81] px-4 text-xs font-extrabold text-white"
+                  type="button"
+                  onClick={() => loadSummary()}
+                >
+                  Coba lagi
+                </button>
+              </div>
+            ) : null}
+            {!summary.loading && !summary.error && !summary.data ? (
+              <div className="mb-5 rounded-lg border border-[#b5e0ea] bg-white px-4 py-3 text-sm font-semibold text-[#6b7280]">
+                Data ringkasan publik belum tersedia.
               </div>
             ) : null}
 
@@ -638,7 +637,7 @@ function Landing() {
                               {kpi.value}
                             </p>
                             <p className="mt-3 text-xs font-bold text-[#057a55]">
-                              {summary.data ? 'Data backend aktif' : 'Fallback preview'}
+                              {summary.data ? 'Data backend aktif' : 'Data belum tersedia'}
                             </p>
                           </div>
                           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[#f4f8fb]" style={{ color: kpi.color }}>
@@ -665,8 +664,15 @@ function Landing() {
             </div>
 
             {mapData.error || mapData.empty ? (
-              <div className="mb-5 rounded-lg border border-[#b5e0ea] bg-[#f4f8fb] px-4 py-3 text-sm font-semibold text-[#92400e]">
-                {mapData.error || 'Data SPPG dari API belum memiliki koordinat. Menampilkan fallback preview.'}
+              <div className="mb-5 flex flex-col gap-3 rounded-lg border border-[#b5e0ea] bg-[#f4f8fb] px-4 py-3 text-sm font-semibold text-[#92400e] sm:flex-row sm:items-center sm:justify-between">
+                <span>{mapData.error || 'Data SPPG dari API belum memiliki koordinat publik.'}</span>
+                <button
+                  className="inline-flex h-9 items-center justify-center rounded-lg bg-[#0f4c81] px-4 text-xs font-extrabold text-white"
+                  type="button"
+                  onClick={() => loadMapData()}
+                >
+                  Coba lagi
+                </button>
               </div>
             ) : null}
 
@@ -675,7 +681,7 @@ function Landing() {
                 title="Preview OpenStreetMap Indonesia"
                 className="absolute inset-0 h-full w-full border-0 opacity-95 pointer-events-none"
                 loading="lazy"
-                src="https://www.openstreetmap.org/export/embed.html?bbox=94%2C-12%2C142%2C8&layer=mapnik&marker=-2.5%2C118"
+                src="https://www.openstreetmap.org/export/embed.html?bbox=94%2C-12%2C142%2C8&layer=mapnik"
               />
               <div className="absolute inset-x-0 bottom-0 z-10 h-1/2 bg-gradient-to-t from-[#0f4c81]/85 to-transparent" aria-hidden="true" />
               {mapData.loading ? (
@@ -685,8 +691,8 @@ function Landing() {
                     Memuat peta SPPG...
                   </span>
                 </div>
-              ) : (
-                markerSource.map((marker) => {
+              ) : mapData.markers.length ? (
+                mapData.markers.map((marker) => {
                   const color = getMarkerColor(marker.status)
                   const position = projectMarkerPosition(marker.lat, marker.lng)
                   const title = [marker.name, marker.city, marker.province].filter(Boolean).join(' - ')
@@ -707,6 +713,10 @@ function Landing() {
                     />
                   )
                 })
+              ) : (
+                <div className="absolute inset-0 z-20 grid place-items-center bg-white/55 px-5 text-center text-sm font-extrabold text-[#0f4c81]">
+                  Belum ada marker SPPG publik dari backend.
+                </div>
               )}
               {(sppgDetail.loading || sppgDetail.error || sppgDetail.data) ? (
                 <aside className="absolute left-5 top-5 z-30 max-h-[calc(100%-40px)] w-[min(360px,calc(100%-40px))] overflow-auto rounded-xl border border-[#b5e0ea] bg-white/95 p-4 text-[#111928] shadow-xl">

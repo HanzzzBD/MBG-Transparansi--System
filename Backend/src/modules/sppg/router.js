@@ -3,9 +3,17 @@ const express = require("express");
 const controller = require("./controller");
 const {
   createSppgSchema,
+  adminAssignSppgSchoolsSchema,
+  adminSppgSchoolsSchema,
+  adminUnassignSppgSchoolSchema,
+  assignMySchoolsSchema,
+  listDeletedSppgSchema,
+  listMyDapodikSchoolsSchema,
   listSppgSchema,
+  listMySchoolsSchema,
   mapMarkersSchema,
   sppgIdParamsSchema,
+  unassignMySchoolSchema,
   updateSppgSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
@@ -16,11 +24,67 @@ const router = express.Router();
 
 router.get("/", validateRequest(listSppgSchema), controller.listSppg);
 router.get(
+  "/deleted",
+  authenticate,
+  authorize("admin"),
+  validateRequest(listDeletedSppgSchema),
+  controller.listDeletedSppg
+);
+router.get(
   "/map-markers",
   authenticate,
   authorize("admin", "pemerintah", "sppg", "sekolah"),
   validateRequest(mapMarkersSchema),
   controller.listMapMarkers
+);
+router.get(
+  "/me/dapodik-schools",
+  authenticate,
+  authorize("sppg"),
+  validateRequest(listMyDapodikSchoolsSchema),
+  controller.listMyDapodikSchools
+);
+router.post(
+  "/me/schools/assign",
+  authenticate,
+  authorize("sppg"),
+  validateRequest(assignMySchoolsSchema),
+  controller.assignMySchools
+);
+router.patch(
+  "/me/schools/:assignmentId/unassign",
+  authenticate,
+  authorize("sppg"),
+  validateRequest(unassignMySchoolSchema),
+  controller.unassignMySchool
+);
+router.get(
+  "/me/schools",
+  authenticate,
+  authorize("sppg"),
+  validateRequest(listMySchoolsSchema),
+  controller.listMySchools
+);
+router.get(
+  "/:id/schools",
+  authenticate,
+  authorize("admin"),
+  validateRequest(adminSppgSchoolsSchema),
+  controller.listAdminSppgSchools
+);
+router.post(
+  "/:id/schools/assign",
+  authenticate,
+  authorize("admin"),
+  validateRequest(adminAssignSppgSchoolsSchema),
+  controller.assignAdminSppgSchools
+);
+router.patch(
+  "/:id/schools/:assignmentId/unassign",
+  authenticate,
+  authorize("admin"),
+  validateRequest(adminUnassignSppgSchoolSchema),
+  controller.unassignAdminSppgSchool
 );
 router.get(
   "/:id/detail",
@@ -38,6 +102,7 @@ router.get(
 );
 router.post("/", authenticate, authorize("admin"), validateRequest(createSppgSchema), controller.createSppg);
 router.put("/:id", authenticate, authorize("admin"), validateRequest(updateSppgSchema), controller.updateSppg);
+router.patch("/:id/restore", authenticate, authorize("admin"), validateRequest(sppgIdParamsSchema), controller.restoreSppg);
 router.delete("/:id", authenticate, authorize("admin"), validateRequest(sppgIdParamsSchema), controller.deleteSppg);
 
 module.exports = router;

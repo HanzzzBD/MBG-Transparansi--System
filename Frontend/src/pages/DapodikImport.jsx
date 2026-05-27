@@ -22,6 +22,7 @@ import {
 import './DapodikImport.css'
 
 const PAGE_SIZE = 12
+const SPPG_SEARCH_LIMIT = 10
 const DEFAULT_SEMESTER_ID = import.meta.env.VITE_DAPODIK_DEFAULT_SEMESTER_ID || '20252'
 const MAX_IMPORT_FILE_SIZE_MB = Number(import.meta.env.VITE_DAPODIK_IMPORT_MAX_FILE_SIZE_MB || 50)
 const MAX_IMPORT_FILE_SIZE_BYTES = MAX_IMPORT_FILE_SIZE_MB * 1024 * 1024
@@ -138,6 +139,10 @@ function normalizeSppg(item) {
   }
 }
 
+function formatSppgOption(item) {
+  return [item.name, item.city, item.province].filter(Boolean).join(' - ') || '-'
+}
+
 function normalizeSchool(item) {
   return {
     id: item.id,
@@ -219,6 +224,7 @@ function DapodikImport() {
   const [modalMode, setModalMode] = useState('')
   const [promoteForm, setPromoteForm] = useState(initialPromoteForm)
   const [linkForm, setLinkForm] = useState(initialLinkForm)
+  const [sppgSearch, setSppgSearch] = useState('')
   const [sppgOptions, setSppgOptions] = useState([])
   const [schoolOptions, setSchoolOptions] = useState([])
   const [resourceLoading, setResourceLoading] = useState(false)
@@ -263,19 +269,22 @@ function DapodikImport() {
     }
   }, [filters.city, filters.linkStatus, filters.province, filters.search, filters.semesterId, page])
 
-  const loadSppgOptions = useCallback(async () => {
+  const loadSppgOptions = useCallback(async (search = '', signal) => {
     setResourceLoading(true)
     try {
       const result = await getSppg({
         page: 1,
-        limit: 100,
+        limit: SPPG_SEARCH_LIMIT,
+        search: search.trim(),
         fields: 'province,city,status',
-      })
+      }, { signal })
+      if (signal?.aborted) return
       setSppgOptions(unwrapItems(result).map(normalizeSppg))
     } catch (error) {
+      if (signal?.aborted) return
       showToast(getErrorMessage(error), 'error')
     } finally {
-      setResourceLoading(false)
+      if (!signal?.aborted) setResourceLoading(false)
     }
   }, [showToast])
 
@@ -304,6 +313,23 @@ function DapodikImport() {
       controller.abort()
     }
   }, [loadRows])
+
+  useEffect(() => {
+    if (modalMode !== 'promote' || promoteForm.sppgId) return undefined
+
+    const query = sppgSearch.trim()
+    if (query.length < 2) {
+      return undefined
+    }
+
+    const controller = new AbortController()
+    const timer = window.setTimeout(() => loadSppgOptions(query, controller.signal), 250)
+
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [loadSppgOptions, modalMode, promoteForm.sppgId, sppgSearch])
 
   const stats = useMemo(() => {
     const linked = rows.filter((row) => row.linkedSchool).length
@@ -347,15 +373,16 @@ function DapodikImport() {
     }
   }
 
-  const openPromote = async (row) => {
+  const openPromote = (row) => {
     setSelected(row)
     setPromoteForm({
       sppgId: '',
       address: '',
       totalStudents: row.studentCount === '' || row.studentCount === null ? '' : String(row.studentCount),
     })
+    setSppgSearch('')
+    setSppgOptions([])
     setModalMode('promote')
-    if (!sppgOptions.length) await loadSppgOptions()
   }
 
   const openLink = async (row) => {
@@ -374,6 +401,27 @@ function DapodikImport() {
   const closeModal = () => {
     setModalMode('')
     setActionLoading(false)
+  }
+
+  const handleSppgSearchChange = (value) => {
+    setSppgSearch(value)
+    setPromoteForm((current) => ({ ...current, sppgId: '' }))
+    if (value.trim().length < 2) {
+      setSppgOptions([])
+      setResourceLoading(false)
+    }
+  }
+
+  const selectSppg = (item) => {
+    setPromoteForm((current) => ({ ...current, sppgId: item.id }))
+    setSppgSearch(formatSppgOption(item))
+    setSppgOptions([item])
+  }
+
+  const clearSelectedSppg = () => {
+    setPromoteForm((current) => ({ ...current, sppgId: '' }))
+    setSppgSearch('')
+    setSppgOptions([])
   }
 
   const handlePromoteSubmit = async (event) => {
@@ -664,27 +712,15 @@ function DapodikImport() {
         <ActionModal title="Promote ke Table School" onClose={closeModal}>
           <form className="dapodik-modal-form" onSubmit={handlePromoteSubmit}>
             <SelectedSchoolSummary row={selected} />
-            <label>
-              <span>ID SPPG Tujuan</span>
-              <input
-                type="number"
-                min="1"
-                value={promoteForm.sppgId}
-                onChange={(event) => setPromoteForm((current) => ({ ...current, sppgId: event.target.value }))}
-                placeholder="Contoh: 1"
-              />
-            </label>
-            <label>
-              <span>Pilih dari 100 SPPG pertama</span>
-              <select value={promoteForm.sppgId} onChange={(event) => setPromoteForm((current) => ({ ...current, sppgId: event.target.value }))}>
-                <option value="">Pilih SPPG</option>
-                {sppgOptions.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    #{item.id} - {item.name} ({[item.city, item.province].filter(Boolean).join(', ')})
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SppgAutocomplete
+              valueId={promoteForm.sppgId}
+              searchValue={sppgSearch}
+              options={sppgOptions}
+              loading={resourceLoading}
+              onSearchChange={handleSppgSearchChange}
+              onSelect={selectSppg}
+              onClear={clearSelectedSppg}
+            />
             <label>
               <span>Alamat override</span>
               <input value={promoteForm.address} onChange={(event) => setPromoteForm((current) => ({ ...current, address: event.target.value }))} />
@@ -761,6 +797,67 @@ function DapodikImport() {
             </button>
           </form>
         </ActionModal>
+      ) : null}
+    </div>
+  )
+}
+
+function SppgAutocomplete({
+  valueId,
+  searchValue,
+  options,
+  loading,
+  onSearchChange,
+  onSelect,
+  onClear,
+}) {
+  const queryReady = searchValue.trim().length >= 2
+  const showResults = !valueId && (queryReady || loading)
+
+  return (
+    <div className="dapodik-autocomplete-field">
+      <span>SPPG Tujuan</span>
+      <div className="dapodik-autocomplete-control">
+        <Search size={17} aria-hidden="true" />
+        <input
+          value={searchValue}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Cari nama, kota, provinsi"
+          autoComplete="off"
+        />
+        {valueId ? (
+          <button type="button" aria-label="Hapus SPPG terpilih" onClick={onClear}>
+            <X size={16} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
+
+      {valueId ? <small className="dapodik-selected-relation">SPPG terpilih: ID {valueId}</small> : null}
+
+      {showResults ? (
+        <div className="dapodik-autocomplete-results" role="listbox">
+          {loading ? (
+            <div className="dapodik-autocomplete-state">
+              <Loader2 className="dapodik-spin" size={17} aria-hidden="true" />
+              Memuat SPPG...
+            </div>
+          ) : options.length ? (
+            options.map((item) => (
+              <button
+                key={item.id}
+                className="dapodik-autocomplete-option"
+                type="button"
+                role="option"
+                onClick={() => onSelect(item)}
+              >
+                <strong>{item.name}</strong>
+                <span>{formatSppgOption(item)}</span>
+              </button>
+            ))
+          ) : (
+            <div className="dapodik-autocomplete-state">Tidak ada SPPG ditemukan.</div>
+          )}
+        </div>
       ) : null}
     </div>
   )

@@ -156,7 +156,8 @@ const lockDistribution = async (req, res, next) => {
     const result = await adminService.lockDistribution({
       id: req.params.id,
       actorUserId: req.user.userId,
-      ipAddress: getClientIp(req)
+      ipAddress: getClientIp(req),
+      reason: req.body.reason
     });
 
     res.status(200).json({
@@ -173,7 +174,9 @@ const unlockDistribution = async (req, res, next) => {
     const result = await adminService.unlockDistribution({
       id: req.params.id,
       actorUserId: req.user.userId,
-      ipAddress: getClientIp(req)
+      ipAddress: getClientIp(req),
+      reason: req.body.reason,
+      autoRelockAfterOneHour: req.body.autoRelockAfterOneHour
     });
 
     res.status(200).json({

@@ -415,6 +415,16 @@ describe("PR 1 security role guard", () => {
     assert.equal(session.refreshToken.length, 64);
     assert.notEqual(session.refreshToken, cookieValue);
 
+    const sessionResponse = await request("/api/auth/session", {
+      method: "POST",
+      cookie: refreshCookie
+    });
+
+    assert.equal(sessionResponse.status, 200);
+    assert.equal(sessionResponse.body?.data?.authenticated, true);
+    assert.ok(sessionResponse.body?.data?.accessToken);
+    assert.equal(sessionResponse.body?.data?.user?.id, state.users.admin.id);
+
     const refreshResponse = await request("/api/auth/refresh", {
       method: "POST",
       cookie: refreshCookie
@@ -439,6 +449,17 @@ describe("PR 1 security role guard", () => {
     });
 
     assert.equal(revokedSession.isRevoked, true);
+  });
+
+  it("returns an anonymous session state without 401 when no refresh cookie exists", async () => {
+    const response = await request("/api/auth/session", {
+      method: "POST"
+    });
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body?.data?.authenticated, false);
+    assert.equal(response.body?.data?.accessToken, null);
+    assert.equal(response.body?.data?.user, null);
   });
 
   it("returns 401 when protected endpoints are called without token", async () => {

@@ -32,6 +32,147 @@ const listMapMarkers = async (req, res, next) => {
   }
 };
 
+const listDeletedSppg = async (req, res, next) => {
+  try {
+    const result = await sppgService.listDeletedSppg({
+      query: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listMySchools = async (req, res, next) => {
+  try {
+    const result = await sppgService.listMySchools({
+      query: req.query,
+      user: req.user
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listMyDapodikSchools = async (req, res, next) => {
+  try {
+    const result = await sppgService.listMyDapodikSchools({
+      query: req.query,
+      user: req.user
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const assignMySchools = async (req, res, next) => {
+  try {
+    const result = await sppgService.assignSchoolsToSppg({
+      payload: req.body,
+      user: req.user,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unassignMySchool = async (req, res, next) => {
+  try {
+    const result = await sppgService.unassignSchoolFromSppg({
+      assignmentId: req.params.assignmentId,
+      payload: req.body,
+      user: req.user,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listAdminSppgSchools = async (req, res, next) => {
+  try {
+    const result = await sppgService.listAssignedSchoolsForSppg({
+      sppgId: req.params.id,
+      query: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const assignAdminSppgSchools = async (req, res, next) => {
+  try {
+    const result = await sppgService.assignSchoolsToSppg({
+      sppgId: req.params.id,
+      payload: req.body,
+      user: req.user,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unassignAdminSppgSchool = async (req, res, next) => {
+  try {
+    const result = await sppgService.unassignSchoolFromSppg({
+      sppgId: req.params.id,
+      assignmentId: req.params.assignmentId,
+      payload: req.body,
+      user: req.user,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getSppgDetail = async (req, res, next) => {
   try {
     const result = await sppgService.getSppgDetail({
@@ -114,12 +255,38 @@ const deleteSppg = async (req, res, next) => {
   }
 };
 
+const restoreSppg = async (req, res, next) => {
+  try {
+    const result = await sppgService.restoreSppg({
+      id: req.params.id,
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createSppg,
+  assignAdminSppgSchools,
+  assignMySchools,
   deleteSppg,
   getSppgOperationalDetail,
   getSppgDetail,
+  listDeletedSppg,
+  listAdminSppgSchools,
+  listMyDapodikSchools,
   listMapMarkers,
+  listMySchools,
   listSppg,
+  restoreSppg,
+  unassignAdminSppgSchool,
+  unassignMySchool,
   updateSppg
 };

@@ -25,6 +25,12 @@ const schoolIdParamsSchema = z.object({
   query: z.object({}).optional().default({})
 });
 
+const listDeletedSchoolsSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({}).optional().default({}),
+  query: listSchoolsSchema.shape.query
+});
+
 const createSchoolSchema = z.object({
   body: z.object({
     name: z.string().trim().min(1).max(255),
@@ -54,6 +60,7 @@ const updateSchoolSchema = z.object({
 
 module.exports = {
   createSchoolSchema,
+  listDeletedSchoolsSchema,
   listSchoolsSchema,
   schoolIdParamsSchema,
   updateSchoolSchema

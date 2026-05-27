@@ -466,6 +466,18 @@
   text-align: center;
 }
 
+.konfirmasi-empty-state {
+  border: 1px dashed var(--color-sky);
+  border-radius: 12px;
+  background: var(--color-light-gray);
+  color: var(--color-text-muted);
+  font-size: 13px;
+  font-weight: 900;
+  line-height: 1.5;
+  padding: 16px;
+  text-align: center;
+}
+
 .konfirmasi-empty svg {
   width: 42px;
   height: 42px;
@@ -574,6 +586,11 @@
 .konfirmasi-status-conflict {
   background: rgba(155, 28, 28, 0.1);
   color: var(--color-danger);
+}
+
+.konfirmasi-status-issue_reported {
+  background: rgba(120, 53, 15, 0.12);
+  color: #92400e;
 }
 
 @keyframes konfirmasi-spin {

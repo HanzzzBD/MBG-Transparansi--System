@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -18,6 +18,7 @@ import {
   downloadExport,
   getExportDetail,
   getExports,
+  isAbortError,
   retryExport,
   apiRequest as requestJson,
 } from '../services/api'
@@ -51,21 +52,6 @@ const STATUS_LABELS = {
   completed: 'Selesai',
   failed: 'Gagal',
   expired: 'Kedaluwarsa',
-}
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
 }
 
 function normalizeRole(role) {
@@ -176,9 +162,8 @@ function ExportData({ userRole, userName, onLogout }) {
   const navigate = useNavigate()
   const location = useLocation()
   const pollIntervalsRef = useRef({})
-  const storedUser = useMemo(() => getStoredUser(), [])
-  const resolvedRole = normalizeRole(userRole || storedUser?.role)
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Pengguna MBG'
+  const resolvedRole = normalizeRole(userRole)
+  const displayName = userName || 'Pengguna MBG'
   const canAccess = ACCESS_ROLES.includes(resolvedRole)
   const isAdmin = resolvedRole === 'admin'
 
@@ -228,7 +213,9 @@ function ExportData({ userRole, userName, onLogout }) {
       const result = await requestJson('/system-configs/export_max_rows', { signal })
       setMaxRows(getConfiguredValue(result))
     } catch (configError) {
-      setError(configError.message || 'Konfigurasi export_max_rows gagal dimuat dari API.')
+      if (!isAbortError(configError)) {
+        setError(configError.message || 'Konfigurasi export_max_rows gagal dimuat dari API.')
+      }
     }
   }, [])
 
@@ -243,8 +230,10 @@ function ExportData({ userRole, userName, onLogout }) {
 
       setHistory([])
     } catch (historyError) {
-      setHistory([])
-      setError(historyError.message || 'Riwayat export gagal dimuat dari API.')
+      if (!isAbortError(historyError)) {
+        setHistory([])
+        setError(historyError.message || 'Riwayat export gagal dimuat dari API.')
+      }
     }
   }, [])
 
@@ -314,10 +303,12 @@ function ExportData({ userRole, userName, onLogout }) {
       try {
         await Promise.all([fetchMaxRows(controller.signal), fetchHistory(controller.signal)])
       } catch (fetchError) {
-        setError(fetchError.message || 'Data export gagal dimuat dari API.')
-        setHistory([])
+        if (!isAbortError(fetchError)) {
+          setError(fetchError.message || 'Data export gagal dimuat dari API.')
+          setHistory([])
+        }
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) setLoading(false)
       }
     }
 
@@ -470,10 +461,6 @@ function ExportData({ userRole, userName, onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

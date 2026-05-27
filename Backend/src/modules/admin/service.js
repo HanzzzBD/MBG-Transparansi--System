@@ -8,6 +8,13 @@ const { checkDistributionPriceAnomaly } = require("../../utils/distributionPrice
 const { endOfDayUtc, startOfDayUtc } = require("../../utils/date");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 const {
+  buildRankedSearchCandidateWhere,
+  buildTokenSearchWhere,
+  getRankedSearchCandidateLimit,
+  hasSearchQuery,
+  paginateRankedSearch
+} = require("../../utils/search");
+const {
   createNotificationsForUsers,
   findUserIdsBySchoolId,
   findUserIdsBySppgId
@@ -305,29 +312,48 @@ const createDistributionLockedNotification = async ({ tx, distribution }) => {
 const listUsers = async ({ query }) => {
   const pagination = parsePagination(query);
   const isActiveFilter = parseBooleanFilter(query.isActive);
-  const where = {
+  const baseWhere = {
     deletedAt: null,
     ...(query.role ? { role: query.role } : {}),
-    ...(isActiveFilter !== undefined ? { isActive: isActiveFilter } : {}),
-    ...(query.search
-      ? {
-          OR: [
-            {
-              name: {
-                contains: query.search,
-                mode: "insensitive"
-              }
-            },
-            {
-              email: {
-                contains: query.search,
-                mode: "insensitive"
-              }
-            }
-          ]
-        }
-      : {})
+    ...(isActiveFilter !== undefined ? { isActive: isActiveFilter } : {})
   };
+  const where = {
+    ...baseWhere,
+    ...buildTokenSearchWhere(query.search, ["name", "email"])
+  };
+
+  if (hasSearchQuery(query.search)) {
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await prisma.user.findMany({
+      where: buildRankedSearchCandidateWhere(baseWhere, query.search, ["name", "email"]),
+      select: userSelect,
+      take: candidateLimit,
+      orderBy: [{ deletedAt: "asc" }, { createdAt: "desc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: [
+        { field: "name", weight: 7 },
+        { field: "email", weight: 4 },
+        { field: "role", weight: 1 }
+      ],
+      pagination
+    });
+
+    return {
+      data: ranked.items,
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: ranked.total
+        }),
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
 
   const [items, total] = await Promise.all([
     prisma.user.findMany({
@@ -504,6 +530,55 @@ const deleteUser = async ({ id, actorUserId, ipAddress }) => {
     });
 
     return deleted;
+  });
+
+  return {
+    data: user
+  };
+};
+
+const restoreUser = async ({ id, actorUserId, ipAddress }) => {
+  const existing = await getUserById(id);
+
+  if (!existing.deletedAt) {
+    return {
+      data: existing
+    };
+  }
+
+  await validateScopeAssignment({
+    role: existing.role,
+    sppgId: existing.sppgId,
+    schoolId: existing.schoolId
+  });
+
+  const user = await prisma.$transaction(async (tx) => {
+    const restored = await tx.user.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        deletedAt: null,
+        isActive: true
+      },
+      select: userSelect
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: actorUserId,
+      action: "UPDATE",
+      tableName: "users",
+      recordId: restored.id,
+      oldData: existing,
+      newData: {
+        ...restored,
+        auditAction: "RESTORE"
+      },
+      ipAddress
+    });
+
+    return restored;
   });
 
   return {
@@ -1073,38 +1148,54 @@ const updatePriceThreshold = async ({ province, payload, actorUserId, ipAddress 
 
 const listSystemConfigs = async ({ query }) => {
   const pagination = parsePagination(query);
-  const where = query.search
-    ? {
-        OR: [
-          {
-            key: {
-              contains: query.search,
-              mode: "insensitive"
-            }
-          },
-          {
-            description: {
-              contains: query.search,
-              mode: "insensitive"
-            }
-          }
-        ]
+  const where = buildTokenSearchWhere(query.search, ["key", "description"]);
+  const include = {
+    updatedByUser: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true
       }
-    : {};
+    }
+  };
+
+  if (hasSearchQuery(query.search)) {
+    const candidateLimit = getRankedSearchCandidateLimit(pagination);
+    let candidates = await prisma.systemConfig.findMany({
+      where: buildRankedSearchCandidateWhere({}, query.search, ["key", "description"]),
+      include,
+      take: candidateLimit,
+      orderBy: [{ key: "asc" }]
+    });
+
+    const ranked = paginateRankedSearch({
+      items: candidates,
+      query: query.search,
+      fieldConfigs: [
+        { field: "key", weight: 7 },
+        { field: "description", weight: 2 }
+      ],
+      pagination
+    });
+
+    return {
+      data: ranked.items,
+      meta: {
+        ...buildPaginationMeta({
+          page: pagination.page,
+          limit: pagination.limit,
+          total: ranked.total
+        }),
+        searchMode: "partial_fuzzy_ranked"
+      }
+    };
+  }
 
   const [items, total] = await Promise.all([
     prisma.systemConfig.findMany({
       where,
-      include: {
-        updatedByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
-          }
-        }
-      },
+      include,
       skip: pagination.skip,
       take: pagination.limit,
       orderBy: [{ key: "asc" }]
@@ -1235,6 +1326,7 @@ module.exports = {
   listUsers,
   lockDistribution,
   overrideDistribution,
+  restoreUser,
   resolveAnomalyLog,
   unlockDistribution,
   updatePriceThreshold,

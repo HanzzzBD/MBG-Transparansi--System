@@ -33,7 +33,7 @@ import {
   YAxis,
 } from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { getDashboardRoleSummary } from '../services/api'
+import { getDashboardRoleSummary, isAbortError } from '../services/api'
 import './Dashboard.css'
 
 const ROLE_LABELS = {
@@ -50,6 +50,7 @@ const STATUS_LABELS = {
   pending: 'Menunggu',
   verified: 'Terverifikasi',
   conflict: 'Konflik',
+  issue_reported: 'Masalah Dilaporkan',
   resolved: 'Resolved',
   open: 'Open',
 }
@@ -176,22 +177,6 @@ function formatTime(value) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
-}
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
 }
 
 function normalizeRole(role) {
@@ -477,7 +462,7 @@ function renderSppgCharts(data) {
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Porsi Diproduksi 7 Hari Terakhir" className="dashboard-chart-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <BarChart data={portionsTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -497,7 +482,7 @@ function renderSchoolCharts(data) {
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Tren Penerimaan 30 Hari" className="dashboard-chart-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <LineChart data={acceptanceTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -519,7 +504,7 @@ function renderNationalCharts(data) {
   return (
     <div className="dashboard-chart-grid">
       <ChartCard title="Distribusi Harian 7 Hari" className="dashboard-chart-main">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <BarChart data={distributionTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -534,7 +519,7 @@ function renderNationalCharts(data) {
       </ChartCard>
 
       <ChartCard title="Tren Success Rate 30 Hari" className="dashboard-chart-side">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <AreaChart data={successRateTrend}>
             <CartesianGrid stroke="#f4f8fb" vertical={false} />
             <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -554,7 +539,7 @@ function renderNationalCharts(data) {
       </ChartCard>
 
       <ChartCard title="TOP 10 Provinsi by Distribusi" className="dashboard-chart-full">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height={320}>
           <BarChart data={provinceRanking} layout="vertical" margin={{ left: 20, right: 24 }}>
             <CartesianGrid stroke="#f4f8fb" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 12, fill: '#6b7280' }} tickLine={false} axisLine={false} />
@@ -702,11 +687,10 @@ function renderNationalTable(data) {
 }
 
 function Dashboard({ userRole, userName, onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
   const location = useLocation()
   const navigate = useNavigate()
-  const normalizedRole = normalizeRole(userRole || storedUser?.role)
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Pengguna MBG'
+  const normalizedRole = normalizeRole(userRole)
+  const displayName = userName || 'Pengguna MBG'
   const defaultRange = useMemo(() => getDefaultDateRange(), [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -768,7 +752,7 @@ function Dashboard({ userRole, userName, onLogout }) {
         const response = await getDashboardRoleSummary(normalizedRole, params, { signal })
         setDashboardData(normalizeDashboardData(response))
       } catch (fetchError) {
-        if (fetchError.name !== 'AbortError') {
+        if (!isAbortError(fetchError)) {
           setDashboardData(makeInitialData())
           setError(fetchError.message || 'Dashboard gagal memuat data dari backend.')
         }
@@ -799,10 +783,6 @@ function Dashboard({ userRole, userName, onLogout }) {
       return
     }
 
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

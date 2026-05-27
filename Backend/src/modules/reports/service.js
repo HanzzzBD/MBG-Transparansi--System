@@ -2,8 +2,12 @@ const { getPrismaClient } = require("../../config/prisma");
 const AppError = require("../../utils/appError");
 const { createAuditLog } = require("../../utils/auditLog");
 const { shouldSilentlyRejectHoneypot, verifyCaptchaToken } = require("../../utils/captcha");
-const { assertSchoolOwnership, requireSchoolScope } = require("../../utils/ownership");
+const { assertSchoolOwnership, requireSchoolScope, requireSppgScope } = require("../../utils/ownership");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
+const {
+  createNotificationsForUsers,
+  findUserIdsBySppgId
+} = require("../../utils/notification");
 
 const prisma = getPrismaClient();
 
@@ -190,22 +194,28 @@ const serializePublicReport = (report) => {
   };
 };
 
-const getActiveSchool = async (id) => {
-  const school = await prisma.school.findFirst({
-    where: {
-      id: Number(id),
-      deletedAt: null
-    },
+const schoolReportInclude = {
+  school: {
     include: {
       sppg: true
     }
-  });
-
-  if (!school) {
-    throw new AppError("School not found.", 404, "SCHOOL_NOT_FOUND");
+  },
+  sppg: true,
+  distribution: {
+    include: {
+      sppg: true,
+      school: true,
+      validation: true
+    }
+  },
+  reporter: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true
+    }
   }
-
-  return school;
 };
 
 const listPublicReports = async ({ query }) => {
@@ -542,28 +552,24 @@ const listSchoolReports = async ({ query, user }) => {
 
   if (user.role === "sekolah") {
     where.schoolId = requireSchoolScope(user);
+  } else if (user.role === "sppg") {
+    where.sppgId = requireSppgScope(user);
   } else if (query.schoolId) {
     where.schoolId = Number(query.schoolId);
+  }
+
+  if (user.role !== "sppg" && query.sppgId) {
+    where.sppgId = Number(query.sppgId);
+  }
+
+  if (query.distributionId) {
+    where.distributionId = Number(query.distributionId);
   }
 
   const [items, total] = await Promise.all([
     prisma.schoolReport.findMany({
       where,
-      include: {
-        school: {
-          include: {
-            sppg: true
-          }
-        },
-        reporter: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            role: true
-          }
-        }
-      },
+      include: schoolReportInclude,
       skip: pagination.skip,
       take: pagination.limit,
       orderBy: [{ createdAt: "desc" }]
@@ -581,10 +587,81 @@ const listSchoolReports = async ({ query, user }) => {
   };
 };
 
+const getReportTargetFromDistribution = async ({ tx, payload, user, targetSchoolId }) => {
+  if (!payload.distributionId) {
+    const school = await tx.school.findFirst({
+      where: {
+        id: Number(targetSchoolId),
+        deletedAt: null
+      },
+      include: {
+        sppg: true
+      }
+    });
+
+    if (!school) {
+      throw new AppError("School not found.", 404, "SCHOOL_NOT_FOUND");
+    }
+
+    return {
+      schoolId: school.id,
+      sppgId: school.sppgId,
+      distributionId: null,
+      validation: null
+    };
+  }
+
+  const distribution = await tx.distribution.findFirst({
+    where: {
+      id: Number(payload.distributionId),
+      school: {
+        deletedAt: null
+      },
+      sppg: {
+        deletedAt: null
+      }
+    },
+    include: {
+      school: true,
+      sppg: true,
+      validation: true
+    }
+  });
+
+  if (!distribution) {
+    throw new AppError("Distribution not found.", 404, "DISTRIBUTION_NOT_FOUND");
+  }
+
+  if (user.role === "sekolah") {
+    assertSchoolOwnership(user, distribution.schoolId);
+  } else if (targetSchoolId && Number(targetSchoolId) !== Number(distribution.schoolId)) {
+    throw new AppError("schoolId does not match the distribution school.", 400, "SCHOOL_DISTRIBUTION_MISMATCH");
+  }
+
+  if (!distribution.validation) {
+    throw new AppError(
+      "Distribution does not have a validation record.",
+      409,
+      "DISTRIBUTION_VALIDATION_NOT_FOUND"
+    );
+  }
+
+  if (payload.validationId && Number(payload.validationId) !== Number(distribution.validation.id)) {
+    throw new AppError("validationId does not match the distribution.", 400, "VALIDATION_DISTRIBUTION_MISMATCH");
+  }
+
+  return {
+    schoolId: distribution.schoolId,
+    sppgId: distribution.sppgId,
+    distributionId: distribution.id,
+    validation: distribution.validation
+  };
+};
+
 const createSchoolReport = async ({ payload, user, ipAddress }) => {
   const targetSchoolId = user.role === "sekolah" ? requireSchoolScope(user) : payload.schoolId;
 
-  if (!targetSchoolId) {
+  if (!targetSchoolId && !payload.distributionId) {
     throw new AppError("schoolId is required.", 400, "SCHOOL_ID_REQUIRED");
   }
 
@@ -592,23 +669,24 @@ const createSchoolReport = async ({ payload, user, ipAddress }) => {
     assertSchoolOwnership(user, targetSchoolId);
   }
 
-  await getActiveSchool(targetSchoolId);
-
   const report = await prisma.$transaction(async (tx) => {
+    const target = await getReportTargetFromDistribution({
+      tx,
+      payload,
+      user,
+      targetSchoolId
+    });
+
     const created = await tx.schoolReport.create({
       data: {
-        schoolId: targetSchoolId,
+        schoolId: target.schoolId,
+        sppgId: target.sppgId,
+        distributionId: target.distributionId,
         reportedBy: user.userId,
         category: payload.category,
         message: payload.message.trim()
       },
-      include: {
-        school: {
-          include: {
-            sppg: true
-          }
-        }
-      }
+      include: schoolReportInclude
     });
 
     await createAuditLog({
@@ -620,6 +698,58 @@ const createSchoolReport = async ({ payload, user, ipAddress }) => {
       newData: created,
       ipAddress
     });
+
+    if (target.validation && target.validation.status === "pending") {
+      const updatedValidation = await tx.validation.update({
+        where: {
+          id: target.validation.id
+        },
+        data: {
+          status: "issue_reported",
+          notes: payload.message.trim(),
+          validatedAt: new Date()
+        },
+        include: {
+          school: true,
+          distribution: {
+            include: {
+              sppg: true,
+              school: true
+            }
+          }
+        }
+      });
+
+      await createAuditLog({
+        prisma: tx,
+        userId: user.userId,
+        action: "UPDATE",
+        tableName: "validations",
+        recordId: updatedValidation.id,
+        oldData: target.validation,
+        newData: updatedValidation,
+        ipAddress
+      });
+    }
+
+    if (target.sppgId) {
+      const sppgUserIds = await findUserIdsBySppgId(tx, target.sppgId);
+
+      await createNotificationsForUsers({
+        prisma: tx,
+        userIds: sppgUserIds,
+        type: "validation",
+        title: "Masalah Distribusi Dilaporkan",
+        message: `Sekolah melaporkan masalah pada distribusi #${target.distributionId ?? "tanpa distribusi"}.`,
+        payload: {
+          reportId: created.id,
+          distributionId: target.distributionId,
+          schoolId: target.schoolId,
+          sppgId: target.sppgId,
+          validationStatus: target.validation?.status === "pending" ? "issue_reported" : target.validation?.status ?? null
+        }
+      });
+    }
 
     return created;
   });

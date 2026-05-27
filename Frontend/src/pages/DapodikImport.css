@@ -302,6 +302,125 @@
   padding-right: 0;
 }
 
+.dapodik-autocomplete-field {
+  display: grid;
+  gap: 7px;
+  position: relative;
+}
+
+.dapodik-autocomplete-field > span {
+  color: #4b5563;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.dapodik-autocomplete-control {
+  align-items: center;
+  background: #f8fbfc;
+  border: 1px solid #c9e1e8;
+  border-radius: 8px;
+  display: flex;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 10px;
+}
+
+.dapodik-autocomplete-control:focus-within {
+  border-color: #0071e4;
+  box-shadow: 0 0 0 3px rgba(0, 113, 228, 0.14);
+}
+
+.dapodik-autocomplete-control svg {
+  color: #0f4c81;
+  flex: 0 0 auto;
+}
+
+.dapodik-autocomplete-control input {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #111928;
+  flex: 1;
+  font-size: 0.92rem;
+  font-weight: 750;
+  min-width: 0;
+  outline: none;
+  padding: 0;
+}
+
+.dapodik-autocomplete-control button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #6b7280;
+  cursor: pointer;
+  display: inline-flex;
+  height: 30px;
+  justify-content: center;
+  padding: 0;
+  width: 30px;
+}
+
+.dapodik-selected-relation {
+  color: #057a55;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.dapodik-autocomplete-results {
+  background: #ffffff;
+  border: 1px solid #c9e1e8;
+  border-radius: 8px;
+  box-shadow: 0 18px 40px rgba(17, 25, 40, 0.14);
+  display: grid;
+  left: 0;
+  max-height: 230px;
+  overflow: auto;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 4;
+}
+
+.dapodik-autocomplete-option {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #dbe9ee;
+  color: #111928;
+  cursor: pointer;
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  text-align: left;
+}
+
+.dapodik-autocomplete-option:hover,
+.dapodik-autocomplete-option:focus-visible {
+  background: #f4f8fb;
+  outline: none;
+}
+
+.dapodik-autocomplete-option strong {
+  color: #0f4c81;
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.dapodik-autocomplete-option span,
+.dapodik-autocomplete-state {
+  color: #6b7280;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.dapodik-autocomplete-state {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-height: 44px;
+  padding: 11px 12px;
+}
+
 .dapodik-inline-search button {
   border-bottom-left-radius: 0;
   border-top-left-radius: 0;

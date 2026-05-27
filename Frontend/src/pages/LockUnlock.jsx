@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -26,22 +26,6 @@ import {
 import './LockUnlock.css'
 
 const PAGE_SIZE = 10
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
-}
 
 function parseBoolean(value) {
   if (typeof value === 'boolean') return value
@@ -120,11 +104,10 @@ function getModalTitle(action, row) {
 }
 
 function LockUnlock({ userRole, userName, onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
   const location = useLocation()
   const navigate = useNavigate()
-  const resolvedRole = userRole || storedUser?.role || 'umum'
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Admin MBG'
+  const resolvedRole = userRole || 'umum'
+  const displayName = userName || 'Admin MBG'
   const isAdmin = resolvedRole === 'admin'
 
   const [rows, setRows] = useState([])
@@ -296,10 +279,6 @@ function LockUnlock({ userRole, userName, onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

@@ -1,6 +1,8 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Anggaran from './pages/Anggaran.jsx'
+import AdminSchools from './pages/AdminSchools.jsx'
+import AdminSppg from './pages/AdminSppg.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Distribusi from './pages/Distribusi.jsx'
 import DapodikImport from './pages/DapodikImport.jsx'
@@ -11,11 +13,22 @@ import LockUnlock from './pages/LockUnlock.jsx'
 import Login from './pages/Login.jsx'
 import OverrideData from './pages/OverrideData.jsx'
 import PublicPetaSPPG from './pages/PublicPetaSPPG.jsx'
+import PublicStatistik from './pages/PublicStatistik.jsx'
 import ProductionBatches from './pages/ProductionBatches.jsx'
+import SchoolHistory from './pages/SchoolHistory.jsx'
+import SchoolProfile from './pages/SchoolProfile.jsx'
+import SchoolReports from './pages/SchoolReports.jsx'
+import SppgHistory from './pages/SppgHistory.jsx'
+import SppgIssues from './pages/SppgIssues.jsx'
+import SppgMenu from './pages/SppgMenu.jsx'
+import SppgProfile from './pages/SppgProfile.jsx'
+import SppgSchools from './pages/SppgSchools.jsx'
 import UserManagement from './pages/UserManagement.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
-import { logoutRequest, refreshSessionRequest } from './services/api.js'
+import { checkSessionRequest, logoutRequest } from './services/api.js'
 import useAuthStore from './store/authStore.js'
+
+let sessionCheckPromise = null
 
 const Analytics = lazy(() => import('./pages/Analytics.jsx'))
 const AnomalyDetection = lazy(() => import('./pages/AnomalyDetection.jsx'))
@@ -28,14 +41,23 @@ const routeAccess = {
   '/dashboard': ['admin', 'pemerintah', 'sppg', 'sekolah'],
   '/peta': ['admin', 'pemerintah', 'sppg', 'sekolah'],
   '/distribusi': ['sppg', 'admin'],
+  '/sekolah-saluran': ['sppg'],
   '/production-batches': ['sppg', 'admin'],
-  '/konfirmasi': ['sekolah', 'admin'],
+  '/input-menu': ['sppg'],
+  '/laporan-kendala': ['sppg'],
+  '/riwayat': ['sppg', 'sekolah'],
+  '/profil': ['sppg', 'sekolah'],
+  '/validasi': ['sekolah'],
+  '/laporan-sekolah': ['sekolah'],
+  '/konfirmasi': ['sekolah'],
   '/analytics': ['pemerintah', 'admin'],
   '/anggaran': ['pemerintah', 'admin'],
   '/anomaly': ['pemerintah', 'admin'],
   '/audit-log': ['pemerintah', 'admin'],
   '/export': ['pemerintah', 'admin'],
   '/laporan-masyarakat': ['pemerintah', 'admin'],
+  '/admin/sppg': ['admin'],
+  '/admin/schools': ['admin'],
   '/users': ['admin'],
   '/lock-unlock': ['admin'],
   '/override': ['admin'],
@@ -47,8 +69,16 @@ const legacyRouteRedirects = [
   ['/dashboard/peta-sppg', '/peta'],
   ['/dashboard/distribusi/input', '/distribusi'],
   ['/dashboard/distribusi/status', '/distribusi'],
-  ['/dashboard/konfirmasi-distribusi', '/konfirmasi'],
-  ['/dashboard/validasi', '/konfirmasi'],
+  ['/dashboard/sekolah-saluran', '/sekolah-saluran'],
+  ['/dashboard/menu-harian', '/input-menu'],
+  ['/dashboard/kendala', '/laporan-kendala'],
+  ['/dashboard/riwayat-distribusi', '/riwayat'],
+  ['/dashboard/profil-sppg', '/profil'],
+  ['/dashboard/profil-sekolah', '/profil'],
+  ['/dashboard/profil', '/profil'],
+  ['/dashboard/konfirmasi-distribusi', '/validasi'],
+  ['/dashboard/validasi', '/validasi'],
+  ['/dashboard/laporan-sekolah', '/laporan-sekolah'],
   ['/dashboard/analitik-wilayah', '/analytics'],
   ['/dashboard/anggaran', '/anggaran'],
   ['/dashboard/anomaly', '/anomaly'],
@@ -56,6 +86,8 @@ const legacyRouteRedirects = [
   ['/dashboard/export', '/export'],
   ['/dashboard/laporan-masyarakat', '/laporan-masyarakat'],
   ['/dashboard/users', '/users'],
+  ['/dashboard/master-data', '/admin/sppg'],
+  ['/admin/master-data', '/admin/sppg'],
   ['/dashboard/lock-data', '/lock-unlock'],
   ['/dashboard/override', '/override'],
   ['/dashboard/api-monitoring', '/api-monitoring'],
@@ -68,7 +100,8 @@ const legacyRouteRedirects = [
   ['/exports', '/export'],
   ['/public-reports', '/laporan-masyarakat'],
   ['/distributions', '/distribusi'],
-  ['/validations', '/konfirmasi'],
+  ['/validations', '/validasi'],
+  ['/konfirmasi', '/validasi'],
 ]
 
 function getUserName(user) {
@@ -120,6 +153,7 @@ function ProtectedRoute({ allowedRoles, children }) {
   const routeProps = {
     userRole: role,
     userName: getUserName(user),
+    userId: user?.id || user?.userId || user?.email || '',
     currentPath: location.pathname,
     notifCount: user?.notifCount || user?.notificationCount || 0,
     token,
@@ -133,6 +167,7 @@ function ProtectedRoute({ allowedRoles, children }) {
     <DashboardLayout
       userRole={routeProps.userRole}
       userName={routeProps.userName}
+      userId={routeProps.userId}
       currentPath={routeProps.currentPath}
       notifCount={routeProps.notifCount}
       onLogout={routeProps.onLogout}
@@ -165,6 +200,14 @@ function LoginRoute() {
   return <Login onLoginSuccess={handleLoginSuccess} />
 }
 
+function RoleAwareHistory(props) {
+  return props.userRole === 'sekolah' ? <SchoolHistory {...props} /> : <SppgHistory {...props} />
+}
+
+function RoleAwareProfile(props) {
+  return props.userRole === 'sekolah' ? <SchoolProfile {...props} /> : <SppgProfile {...props} />
+}
+
 function FallbackRoute() {
   const { user, token, isAuthenticated, isSessionChecked } = useAuthStore()
 
@@ -182,15 +225,23 @@ function AppRoutes() {
     let isMounted = true
 
     const restoreSession = async () => {
+      if (useAuthStore.getState().isSessionChecked) return
+
       startSessionCheck()
 
       try {
-        const payload = await refreshSessionRequest()
+        if (!sessionCheckPromise) {
+          sessionCheckPromise = checkSessionRequest().finally(() => {
+            sessionCheckPromise = null
+          })
+        }
+
+        const payload = await sessionCheckPromise
         const data = payload?.data || payload || {}
 
         if (!isMounted) return
 
-        if (data.user && data.accessToken) {
+        if (data.authenticated && data.user && data.accessToken) {
           login(data.user, data.accessToken)
         } else {
           logout()
@@ -218,6 +269,8 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/peta-publik" element={<PublicPetaSPPG />} />
+      <Route path="/statistik" element={<PublicStatistik />} />
+      <Route path="/anggaran-publik" element={<PublicStatistik />} />
 
       <Route
         path="/dashboard"
@@ -244,6 +297,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/sekolah-saluran"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/sekolah-saluran']}>
+            {(props) => <SppgSchools {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/production-batches"
         element={
           <ProtectedRoute allowedRoles={routeAccess['/production-batches']}>
@@ -252,10 +313,58 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/input-menu"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/input-menu']}>
+            {(props) => <SppgMenu {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/laporan-kendala"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/laporan-kendala']}>
+            {(props) => <SppgIssues {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/riwayat"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/riwayat']}>
+            {(props) => <RoleAwareHistory {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profil"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/profil']}>
+            {(props) => <RoleAwareProfile {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/validasi"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/validasi']}>
+            {(props) => <Konfirmasi {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/laporan-sekolah"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/laporan-sekolah']}>
+            {(props) => <SchoolReports {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/konfirmasi"
         element={
           <ProtectedRoute allowedRoles={routeAccess['/konfirmasi']}>
-            {(props) => <Konfirmasi {...props} />}
+            {() => <Navigate to="/validasi" replace />}
           </ProtectedRoute>
         }
       />
@@ -304,6 +413,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute allowedRoles={routeAccess['/laporan-masyarakat']}>
             {(props) => <LaporanMasyarakat {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/sppg"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/admin/sppg']}>
+            {(props) => <AdminSppg {...props} />}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/schools"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/admin/schools']}>
+            {(props) => <AdminSchools {...props} />}
           </ProtectedRoute>
         }
       />
@@ -359,7 +484,7 @@ function AppRoutes() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
       <AppRoutes />
     </BrowserRouter>
   )

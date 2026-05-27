@@ -1,5 +1,83 @@
 # Local Web Feature Test Report
 
+# Re-Audit Update
+
+- Tanggal re-audit: 2026-05-26, Asia/Jakarta.
+- Branch/commit: `main` / `af846d8` dengan worktree berisi perubahan PR 1.1 sampai PR 6 yang belum semuanya committed.
+- Frontend URL terverifikasi dari config: `http://localhost:5173` (`Frontend/.env`, Vite default).
+- Backend URL terverifikasi dari config: `http://localhost:4000/api` (`Backend/.env` `PORT=4000`, `Frontend/.env` `VITE_API_URL`).
+- Sumber kebenaran: dokumen lama ini, codebase saat ini, test frontend/backend, endpoint lokal, dan browser smoke via Playwright.
+- Ringkasan terbaru: mayoritas gap lama sudah selesai. Security session sudah memory-only, public statistik/budget sudah ada, fallback dummy Landing/Distribusi/Konfirmasi sudah dihapus, route SDD SPPG/sekolah sudah tersedia, search/notifikasi sudah real backend, dan master CRUD admin sudah ada. Sisa utama adalah coverage audit yang belum lengkap untuk semua entity/action, public report submit dengan CAPTCHA asli masih blocked, dan warning Recharts pada browser dashboard.
+- Update relasi SPPG-Sekolah: flow baru memakai `sppg_school_assignments`; SPPG mencari sekolah dari `dapodik_schools` di `/sekolah-saluran`, melakukan assign/unassign tanpa dropdown ribuan data, dan distribusi SPPG hanya bisa dibuat ke sekolah saluran aktif.
+- Total status item re-audit: DONE/PASS 40, PARTIAL 5, FAIL 0, BLOCKED 2.
+- Catatan dokumen: section lama di bawah tetap dipertahankan sebagai baseline 2026-05-25. Tabel re-audit ini menjadi status terkini untuk setiap temuan/gap utama lama.
+
+| Item | Area | Old Status | Current Status | Evidence | Notes |
+|---|---|---|---|---|---|
+| Access token tidak disimpan di localStorage/sessionStorage | PR 1.1 Security | FAIL | DONE | `Frontend/src/store/authStore.js` hanya Zustand memory state; `Frontend/test/auth-session.test.js` PASS `does not persist access token or user to browser storage after login` | Legacy keys dibersihkan saat login/logout/session check. |
+| Tidak ada `mbg-auth-storage` token persist | PR 1.1 Security | FAIL | DONE | `Frontend/src/store/authStore.js` `clearLegacySession`; `rg` hanya menemukan cleanup/test | Tidak ada Zustand persist auth. |
+| `mbg.user` bukan sumber role/permission | PR 1.1 Security | FAIL | DONE | `Frontend/test/auth-session.test.js` PASS `does not read localStorage/sessionStorage as role or permission source` | Role berasal dari memory auth hasil backend session/login. |
+| `mbg.user` tidak membuat user dianggap login saat memory auth kosong | PR 1.1 Security | FAIL | DONE | `Frontend/test/auth-session.test.js` PASS `does not authenticate from stale mbg.user when memory auth is empty` | `isAuthenticated` butuh `user` dan `token` memory. |
+| Protected route memakai memory auth + refresh backend | PR 1.1 Security | PARTIAL | DONE | `Frontend/src/App.jsx` `restoreSession()` memanggil `/auth/session`; `ProtectedRoute` butuh `isAuthenticated && user && token` | Reload dapat memulihkan session dari refresh cookie. |
+| Refresh token HttpOnly cookie | PR 1.1 Security | PASS/PARTIAL | DONE | `Backend/src/utils/auth.js` `httpOnly: true`; `Backend/test/security-role-guard.test.js` PASS refresh cookie/hash test | Refresh token DB di-hash SHA-256. |
+| Logout membersihkan memory auth dan legacy storage | PR 1.1 Security | PARTIAL | DONE | `Frontend/src/store/authStore.js` `logout()`; `Frontend/src/App.jsx` `handleLogout()` memanggil `/auth/logout` lalu `logout()` | Backend juga clear refresh cookie. |
+| `apiRequest` auto refresh saat 401 | PR 1.1 Security | PARTIAL | DONE | `Frontend/src/services/api.js` `apiRequest()` retry sekali setelah `refreshAccessToken()` | Menghindari loop dengan `skipRefresh`. |
+| `apiBlobRequest` auto refresh saat 401 lalu retry download sekali | PR 1.1 Security | MISSING | DONE | `Frontend/src/services/api.js` `apiBlobRequest()`; `Frontend/test/auth-session.test.js` PASS 4 blob refresh tests | Download export tetap pakai token memory aktif. |
+| Regression IDOR distributions/validations/school reports | PR 1.1 Security | MISSING | DONE | `Backend/test/security-role-guard.test.js` PASS distribution, validation, school-report ownership tests | Backend test suite 33/33 PASS. |
+| Landing `FALLBACK_SUMMARY` dihapus | PR 2 Public | FAIL | DONE | `rg` tidak menemukan `FALLBACK_SUMMARY`; `Frontend/test/public-feature.test.js` PASS | KPI failure sekarang error/empty, bukan angka palsu. |
+| Landing `FALLBACK_MARKERS` dihapus | PR 2 Public | FAIL | DONE | `rg` tidak menemukan `FALLBACK_MARKERS`; `Frontend/test/public-feature.test.js` PASS | Marker kosong menampilkan empty state backend. |
+| Angka dummy `2847`, `18432`, `94.7`, `23` hilang | PR 2 Public | FAIL | DONE | `Frontend/test/public-feature.test.js` PASS regex anti dummy | Tidak ditemukan di `Landing.jsx`. |
+| API landing gagal menampilkan error/empty, bukan fake data | PR 2 Public | FAIL | DONE | `Frontend/src/pages/Landing.jsx` state `summary.error`, `mapData.error`, `mapData.empty`; test public feature PASS | Masih ada `PROVINCES` hardcoded untuk form, tetapi bukan KPI/marker real-looking. |
+| Route `/statistik` publik tersedia | PR 2 Public | FAIL | PASS | `Frontend/src/App.jsx` route `/statistik`; Playwright `http://localhost:5173/statistik` 200 | Tidak redirect ke `/`. |
+| Public statistik tanpa login | PR 2 Public | FAIL | PASS | `Backend/src/modules/public/router.js` `/statistics`; `Backend/test/public-feature.test.js` PASS | Endpoint `GET /api/public/statistics` local smoke 200. |
+| Public budget/transparansi anggaran tersedia | PR 2 Public | FAIL | PASS | `Frontend/src/App.jsx` `/anggaran-publik`; `Frontend/src/pages/PublicStatistik.jsx`; `Backend/src/modules/public/router.js` `/budget` | Endpoint `GET /api/public/budget` local smoke 200. |
+| Public budget tidak mengekspos sensitive fields | PR 2 Public | MISSING | PASS | `Backend/test/public-feature.test.js` PASS sensitive-key scan | Test memeriksa `phone`, `email`, token, audit/internal keys. |
+| Navbar Statistik dan Anggaran tidak broken | PR 2 Public | PARTIAL | PASS | `Landing.jsx` link `/statistik`; `PublicStatistik.jsx` section `#anggaran-publik`; Playwright `/statistik` 200 | Public budget disatukan di halaman statistik publik. |
+| Global search topbar punya handler | PR 3 Dashboard | FAIL | PASS | `Frontend/src/layouts/DashboardLayout.jsx` state/search dropdown; `Frontend/test/dashboard-polish.test.js` PASS | Ada clear, loading, empty, error states. |
+| Search terhubung ke backend dan role scoped | PR 3 Dashboard | FAIL | PASS | `Frontend/src/services/api.js` `getGlobalSearch`; `Backend/src/modules/search`; `Backend/test/dashboard-polish.test.js` PASS role leak tests | Endpoint `/api/search` 401/403/200 sesuai role. |
+| Notification dropdown real backend | PR 3 Dashboard | FAIL | PASS | `Frontend/src/layouts/DashboardLayout.jsx` fetch notifications; `Backend/src/modules/notifications`; `Backend/test/dashboard-polish.test.js` PASS | Static fake notification copy hilang. |
+| Notification empty state jujur | PR 3 Dashboard | FAIL | PASS | `DashboardLayout.jsx` renders empty state when `notificationState.items.length === 0` | Tidak ada pesan statis terlihat sebagai event real. |
+| React Router future warnings | PR 3 Dashboard | LOW | PASS | `Frontend/src/App.jsx` `BrowserRouter future={{ v7_relativeSplatPath, v7_startTransition }}`; frontend test PASS | Playwright `/statistik` 0 warnings. Dashboard masih punya warning Recharts, bukan React Router. |
+| Distribusi fallback dummy dihapus | PR 4 SPPG | FAIL | DONE | `Frontend/src/pages/Distribusi.jsx`; `Frontend/test/sppg-operational-flow.test.js` PASS anti fallback | Empty/error state menggantikan fallback rows. |
+| Endpoint sekolah tujuan role SPPG tersedia dan scoped | PR 4 SPPG | MISSING | PASS | `Backend/src/modules/sppg/router.js` `/me/schools`; `Backend/test/sppg-operational-flow.test.js` PASS own school/search leak tests | Non-SPPG 403. |
+| SPPG memilih sekolah saluran dari Dapodik | PR 4 SPPG | MISSING | PASS | `Backend/src/modules/sppg/router.js` `/me/dapodik-schools`, `/me/schools/assign`; `Frontend/src/pages/SppgSchools.jsx`; backend test PASS | Search async paginated, bukan dropdown ribuan sekolah. |
+| Distribusi dibatasi ke sekolah saluran aktif | PR 4 SPPG | PARTIAL | PASS | `Backend/src/modules/distributions/service.js` `ensureActiveSchoolAssignment`; backend test PASS `SCHOOL_NOT_ASSIGNED_TO_SPPG` | Admin route tetap tidak membuka akses SPPG lain lewat self-service. |
+| SPPG read-only threshold wilayahnya | PR 4 SPPG | MISSING | PASS | `Backend/src/modules/priceThresholds/router.js` `/my-region` authorize `sppg`; backend test PASS | Mutasi threshold SPPG 403. |
+| Route SDD SPPG `/input-menu`, `/laporan-kendala`, `/riwayat`, `/profil` | PR 4 SPPG | FAIL | PASS | `Frontend/src/App.jsx`; `Frontend/test/sppg-operational-flow.test.js` PASS | Legacy dashboard routes redirect eksplisit. |
+| Input menu harian | PR 4 SPPG | PARTIAL | PASS | `Frontend/src/pages/SppgMenu.jsx`; API helpers `createMenu`, `getMenus`; backend `/menus` existed | Frontend route `/input-menu` sekarang ada. |
+| Lapor kendala operasional | PR 4 SPPG | PARTIAL | PASS | `Frontend/src/pages/SppgIssues.jsx`; API helpers `getIssues`, `createIssue` | Route `/laporan-kendala` role SPPG. |
+| Upload bukti foto/update distribusi | PR 4 SPPG | PARTIAL | PASS | `Frontend/src/pages/Distribusi.jsx` `uploadFile()` `/files/upload`, `updateDistribution()`; `Backend/src/modules/files`, distributions service | File upload tetap guarded SPPG/admin. |
+| Konfirmasi fallback pending/history dihapus | PR 5 School | FAIL | DONE | `Frontend/src/pages/Konfirmasi.jsx`; `Frontend/test/school-validation-flow.test.js` PASS anti fallback | Empty state: `Belum ada distribusi...`, `Belum ada riwayat...`. |
+| Route sekolah `/validasi`, `/laporan-sekolah`, `/riwayat`, `/profil` | PR 5 School | FAIL | PASS | `Frontend/src/App.jsx`; `Frontend/test/school-validation-flow.test.js` PASS | `/konfirmasi` redirect ke `/validasi`. |
+| Sekolah hanya melihat/validasi miliknya | PR 5 School | PARTIAL | PASS | `Backend/src/modules/validations/service.js`; `Backend/test/school-validation-flow.e2e.test.js` PASS | Other school read/update 403. |
+| Flow verified dan conflict berjalan | PR 5 School | PARTIAL | PASS | `Backend/test/school-validation-flow.e2e.test.js` PASS verified/conflict | Conflict membuat `VALIDATION_CONFLICT`. |
+| Browser E2E verified/conflict isolated | PR 5 School | MISSING | PARTIAL | Backend isolated E2E ada: `Backend/test/school-validation-flow.e2e.test.js`; frontend source tests ada | Belum ada browser Playwright E2E flow klik UI dengan data isolated. |
+| UI master CRUD SPPG admin | PR 6 Admin | PARTIAL | PASS | `Frontend/src/pages/AdminSppg.jsx`; `Frontend/src/App.jsx` `/admin/sppg`; backend router create/update/delete/restore | UI create/edit/soft delete/restore tersedia. |
+| UI master CRUD Schools admin | PR 6 Admin | PARTIAL | PASS | `Frontend/src/pages/AdminSchools.jsx`; `Frontend/src/App.jsx` `/admin/schools`; backend router create/update/delete/restore | UI create/edit/soft delete/restore tersedia. |
+| School pilih SPPG pakai searchable async select/pagination | PR 6 Admin | MISSING | PASS | `AdminSchools.jsx` debounced `getSppg({ search, limit: RELATION_LIMIT })` | Bukan dropdown ribuan data. |
+| Restore SPPG/Schools/User admin only | PR 6 Admin | MISSING | PARTIAL | SPPG/Schools restore UI/API ada; `Backend/src/modules/users/router.js` has `/users/:id/restore` | User restore backend ada, tetapi UI restore user tidak diverifikasi di `UserManagement.jsx` pada re-audit ini. |
+| Restore masuk audit log | PR 6 Audit | MISSING | PARTIAL | `sppg/service.js`, `schools/service.js` write audit `auditAction: RESTORE`; PR6 test covers SPPG restore | School/user restore audit service ada, tetapi automated test hanya membuktikan SPPG restore. |
+| E2E export PDF/XLSX | PR 6 Export | MISSING | PASS | `Backend/test/pr6-gov-admin-analytics-export-audit.test.js` PASS PDF `%PDF` dan XLSX `PK` download | Admin/pemerintah allowed; SPPG/sekolah 403. |
+| Audit log old_data/new_data create/update/delete/restore/lock/unlock | PR 6 Audit | PARTIAL | PARTIAL | PR6 test covers SPPG create/update/delete/restore and distribution lock/unlock; service covers schools too | Belum ada test eksplisit untuk school create/update/delete/restore, user restore, dan override old/new pada PR6 test. |
+| Audit log tidak bisa dihapus | PR 6 Audit | PASS | PASS | `Backend/src/modules/auditLogs/router.js` no DELETE; PR6 test `DELETE /api/audit-logs` 404 | Delete route tidak tersedia. |
+| Public report submit dengan CAPTCHA valid | Old Missing Feature | BLOCKED | BLOCKED | `Landing.jsx` Turnstile/reCAPTCHA integration; old audit notes CAPTCHA provider needed | Tidak diuji karena butuh token provider valid; invalid/honeypot flow sudah ada. |
+| Browser local web smoke public/backend | Test | BLOCKED/PARTIAL | PASS | `GET /api/health` 200; `GET /api/public/statistics` 200; `GET /api/public/budget` 200; Playwright `/statistik` 200 | Local frontend/backend aktif dan public route utama tampil. |
+| Guest protected-route browser fresh context | Test | BLOCKED/PARTIAL | BLOCKED | Playwright `/dashboard` memakai refresh cookie yang masih valid di browser session | Kode/test route guard PASS, tetapi browser smoke guest redirect perlu fresh context/cookie clear. |
+| Dashboard browser console warnings | PR 3/UX | LOW | PARTIAL | Playwright `/dashboard`: 0 errors, 6 warnings from Recharts width/height -1 | React Router warning hilang; Recharts layout warning masih perlu polish. |
+
+## Re-Audit Test Commands
+
+| Command/check | Result | Notes |
+|---|---|---|
+| `cmd /c npm --prefix Frontend test` | PASS | 19 tests, 7 suites, 0 fail. |
+| `cmd /c npm --prefix Frontend run build` | PASS with warning | Build sukses; Vite chunk warning `index` > 1000 kB. |
+| `cmd /c npm --prefix Backend test` | PASS with warning | 33 tests, 6 suites, 0 fail; pg deprecation warning muncul pada beberapa tests. |
+| `Invoke-WebRequest http://localhost:4000/api/health` | PASS 200 | Backend local aktif. |
+| `Invoke-WebRequest http://localhost:4000/api/public/statistics` | PASS 200 | Public statistics endpoint tanpa login. |
+| `Invoke-WebRequest http://localhost:4000/api/public/budget` | PASS 200 | Public budget endpoint tanpa login. |
+| Playwright `http://localhost:5173/statistik` | PASS 200 | Route publik tampil, 0 console errors/warnings pada snapshot itu. |
+| Playwright `http://localhost:5173/dashboard` | PARTIAL | Dashboard tampil dengan refresh cookie yang masih valid; 0 errors, 6 Recharts warnings. |
+
 ## 1. Ringkasan
 
 - Tanggal test: 2026-05-25, Asia/Jakarta.
@@ -234,4 +312,3 @@ Security checks yang PASS:
   - Tambah UI master CRUD SPPG dan Schools.
   - Tambah restore soft delete jika tetap mengikuti SDD.
   - Tambah E2E export download PDF/XLSX dan audit log old/new data untuk operasi create/update/delete/lock/unlock.
-

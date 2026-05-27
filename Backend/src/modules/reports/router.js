@@ -60,7 +60,7 @@ router.post(
 router.get(
   "/school-reports",
   authenticate,
-  authorize("sekolah", "pemerintah", "admin"),
+  authorize("sekolah", "sppg", "pemerintah", "admin"),
   validateRequest(listSchoolReportsSchema),
   controller.listSchoolReports
 );

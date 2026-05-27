@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
@@ -61,21 +61,6 @@ const STATUS_LABELS = {
   ditinjau: 'Ditinjau',
   ditindak: 'Ditindak',
   ditutup: 'Ditutup',
-}
-
-function getStorageItem(key) {
-  if (typeof window === 'undefined') return null
-  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key)
-}
-
-function getStoredUser() {
-  const rawUser = getStorageItem('mbg.user') || getStorageItem('user')
-  if (!rawUser) return null
-  try {
-    return JSON.parse(rawUser)
-  } catch {
-    return null
-  }
 }
 
 function formatNumber(value) {
@@ -205,11 +190,10 @@ function buildReportParams(filters, page) {
 }
 
 function LaporanMasyarakat({ userRole, userName, onLogout }) {
-  const storedUser = useMemo(() => getStoredUser(), [])
   const location = useLocation()
   const navigate = useNavigate()
-  const resolvedRole = userRole || storedUser?.role || 'pemerintah'
-  const displayName = userName || storedUser?.name || storedUser?.email || 'Pengguna MBG'
+  const resolvedRole = userRole || 'pemerintah'
+  const displayName = userName || 'Pengguna MBG'
   const canAccess = ['admin', 'pemerintah'].includes(resolvedRole)
 
   const [reports, setReports] = useState([])
@@ -441,10 +425,6 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
       onLogout()
       return
     }
-    window.localStorage.removeItem('mbg.accessToken')
-    window.localStorage.removeItem('mbg.user')
-    window.sessionStorage.removeItem('mbg.accessToken')
-    window.sessionStorage.removeItem('mbg.user')
     navigate('/login')
   }
 

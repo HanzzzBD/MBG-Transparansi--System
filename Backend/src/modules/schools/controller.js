@@ -33,6 +33,22 @@ const getSchoolDetail = async (req, res, next) => {
   }
 };
 
+const listDeletedSchools = async (req, res, next) => {
+  try {
+    const result = await schoolService.listDeletedSchools({
+      query: req.query
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data,
+      meta: result.meta
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createSchool = async (req, res, next) => {
   try {
     const result = await schoolService.createSchool({
@@ -85,10 +101,29 @@ const deleteSchool = async (req, res, next) => {
   }
 };
 
+const restoreSchool = async (req, res, next) => {
+  try {
+    const result = await schoolService.restoreSchool({
+      id: req.params.id,
+      actorUserId: req.user.userId,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createSchool,
   deleteSchool,
   getSchoolDetail,
+  listDeletedSchools,
   listSchools,
+  restoreSchool,
   updateSchool
 };
