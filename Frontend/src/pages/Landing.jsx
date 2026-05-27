@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import { apiRequest } from '../services/api'
 import useAuthStore from '../store/authStore'
+import batikBg from '../assets/Batik.png'
+import newLogo from '../assets/NewLogo.png'
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_KEY || import.meta.env.VITE_RECAPTCHA_SITE_KEY || ''
@@ -477,10 +479,8 @@ function Landing() {
     <div className="min-h-screen bg-white font-sans text-[#111928]">
       <header className="sticky top-0 z-50 border-b border-[#b5e0ea] bg-white/95 backdrop-blur">
         <div className="mx-auto flex min-h-20 w-[min(1120px,calc(100%-32px))] items-center justify-between gap-6">
-          <Link to="/" className="flex items-center gap-3" aria-label="MBG Transparency System">
-            <span className="grid h-12 w-12 place-items-center rounded-lg bg-[#0071e4] text-sm font-black tracking-normal text-white">
-              MBG
-            </span>
+          <Link to="/" className="flex items-center gap-2" aria-label="MBG Transparency System">
+            <img className="h-16 w-16 object-contain" src={newLogo} alt="Logo MBG" />
             <span className="grid gap-0.5">
               <span className="text-lg font-black leading-tight text-[#0f4c81]">MBG</span>
               <span className="text-xs font-bold text-[#6b7280]">Transparency System</span>
@@ -530,10 +530,8 @@ function Landing() {
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-7 flex items-center justify-between gap-3">
-              <Link to="/" className="flex items-center gap-3" onClick={closeDrawer}>
-                <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#0071e4] text-sm font-black text-white">
-                  MBG
-                </span>
+              <Link to="/" className="flex items-center gap-2" onClick={closeDrawer}>
+                <img className="h-14 w-14 object-contain" src={newLogo} alt="Logo MBG" />
                 <span>
                   <span className="block text-base font-black text-[#0f4c81]">MBG</span>
                   <span className="block text-xs font-bold text-[#6b7280]">Transparency System</span>
@@ -570,11 +568,11 @@ function Landing() {
       ) : null}
 
       <main>
-        <section className="relative isolate overflow-hidden bg-gradient-to-br from-[#0f4c81] to-[#0071e4] text-white">
-          <div className="landing-geometric-pattern absolute inset-0 opacity-[0.13]" aria-hidden="true" />
-          <div className="absolute left-[-120px] top-[-140px] h-80 w-80 rounded-full bg-[#b5e0ea]/30 blur-3xl" aria-hidden="true" />
-          <div className="absolute bottom-[-140px] right-[-120px] h-96 w-96 rounded-full bg-white/20 blur-3xl" aria-hidden="true" />
-          <div className="relative mx-auto grid min-h-[610px] w-[min(1120px,calc(100%-32px))] items-center py-24">
+        <section
+          className="relative isolate overflow-hidden bg-cover bg-center text-white"
+          style={{ backgroundImage: `linear-gradient(90deg, rgba(15, 76, 129, 0.74), rgba(15, 76, 129, 0)), url(${batikBg})` }}
+        >
+          <div className="relative mx-auto grid min-h-[calc(100vh-80px)] w-[min(1120px,calc(100%-32px))] items-center py-24">
             <div className="max-w-3xl">
               <span className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white/10 px-3 py-2 text-[13px] font-extrabold text-[#e9f7fb]">
                 <ShieldCheck size={16} aria-hidden="true" />
@@ -1001,10 +999,8 @@ function Landing() {
       <footer className="bg-[#0f4c81] text-white">
         <div className="mx-auto grid w-[min(1120px,calc(100%-32px))] gap-9 border-t border-[#b5e0ea]/25 py-11 md:grid-cols-[1.3fr_0.8fr_0.8fr]">
           <div>
-            <Link to="/" className="flex items-center gap-3">
-              <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#0071e4] text-sm font-black text-white">
-                MBG
-              </span>
+            <Link to="/" className="flex items-center gap-2">
+              <img className="h-16 w-16 object-contain" src={newLogo} alt="Logo MBG" />
               <span>
                 <span className="block text-base font-black text-white">MBG</span>
                 <span className="block text-xs font-bold text-[#d9eef4]">Transparency System</span>

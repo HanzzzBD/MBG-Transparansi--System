@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
+  ArrowLeft,
   BarChart3,
   CheckCircle2,
   Eye,
@@ -203,6 +204,11 @@ function Login({ onLoginSuccess }) {
 
       <section className="login-form-panel">
         <div className="login-form-card login-fade-up">
+          <Link to="/" className="login-back-link" aria-label="Kembali ke landing">
+            <ArrowLeft aria-hidden="true" />
+            Kembali
+          </Link>
+
           <Link to="/" className="login-mobile-logo" aria-label="Kembali ke beranda MBG">
             <span className="login-logo-box">MBG</span>
             <span>
