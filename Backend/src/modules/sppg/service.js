@@ -1065,6 +1065,8 @@ const serializeDistribution = (distribution) => ({
   totalCost: toNumber(distribution.totalCost),
   distributionDate: distribution.distributionDate,
   status: distribution.status,
+  deliveryStatus: distribution.status,
+  confirmationStatus: distribution.validation?.status || "pending",
   failureReason: distribution.failureReason,
   school: distribution.school
     ? {

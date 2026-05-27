@@ -1,6 +1,7 @@
 const { getPrismaClient } = require("../../config/prisma");
 const { endOfDayUtc, startOfDayUtc } = require("../../utils/date");
 const AppError = require("../../utils/appError");
+const { normalizeCityName, normalizeProvinceName } = require("../../utils/region");
 const analyticsService = require("../analytics/service");
 const { serializePublicSppgDetail, serializePublicSppgMarker } = require("./serializer");
 
@@ -26,8 +27,8 @@ const publicSppgSelect = {
 
 const buildPublicSppgWhere = (query = {}) => ({
   deletedAt: null,
-  ...(query.province ? { province: { contains: query.province, mode: "insensitive" } } : {}),
-  ...(query.city ? { city: { contains: query.city, mode: "insensitive" } } : {}),
+  ...(query.province ? { province: { contains: normalizeProvinceName(query.province) || query.province, mode: "insensitive" } } : {}),
+  ...(query.city ? { city: { contains: normalizeCityName(query.city) || query.city, mode: "insensitive" } } : {}),
   ...(query.status ? { status: query.status } : {})
 });
 
@@ -46,20 +47,29 @@ const getPublicFilterOptions = async () => {
     orderBy: [{ province: "asc" }, { city: "asc" }]
   });
 
+  const provinces = new Set();
+  const cities = new Map();
+
+  for (const row of rows) {
+    const province = normalizeProvinceName(row.province);
+    const city = normalizeCityName(row.city);
+    if (province) provinces.add(province);
+    if (city) {
+      cities.set(`${province || "-"}|${city}`, { province, city });
+    }
+  }
+
   return {
-    provinces: Array.from(new Set(rows.map((row) => row.province).filter(Boolean))),
-    cities: rows
-      .filter((row) => row.city)
-      .map((row) => ({
-        province: row.province || null,
-        city: row.city
-      }))
+    provinces: Array.from(provinces).sort((first, second) => first.localeCompare(second, "id")),
+    cities: Array.from(cities.values()).sort((first, second) =>
+      `${first.province || ""}${first.city}`.localeCompare(`${second.province || ""}${second.city}`, "id")
+    )
   };
 };
 
 const getPublicFilters = (query = {}) => ({
-  province: query.province,
-  city: query.city,
+  province: normalizeProvinceName(query.province) || query.province,
+  city: normalizeCityName(query.city) || query.city,
   start_date: query.start_date,
   end_date: query.end_date
 });
@@ -220,6 +230,11 @@ const getPublicSppgDetail = async ({ id }) => {
           portions: true,
           status: true,
           distributionDate: true,
+          validation: {
+            select: {
+              status: true
+            }
+          },
           school: {
             select: {
               name: true

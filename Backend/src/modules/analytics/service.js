@@ -3,6 +3,7 @@ const { Prisma } = require("@prisma/client");
 const { getPrismaClient } = require("../../config/prisma");
 const { endOfDayUtc, startOfDayUtc } = require("../../utils/date");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
+const { normalizeCityName, normalizeProvinceName } = require("../../utils/region");
 const reportService = require("../reports/service");
 
 const prisma = getPrismaClient();
@@ -41,6 +42,72 @@ const normalizeValue = (value) => {
 };
 
 const normalizeRows = (rows) => rows.map((row) => normalizeValue(row));
+
+const mergeByRegion = (rows, keyFields, metricFields, averageFields = []) => {
+  const map = new Map();
+
+  for (const rawRow of normalizeRows(rows)) {
+    const row = { ...rawRow };
+    if (Object.hasOwn(row, "province")) row.province = normalizeProvinceName(row.province) || row.province;
+    if (Object.hasOwn(row, "city")) row.city = normalizeCityName(row.city) || row.city;
+
+    const key = keyFields.map((field) => row[field] || "-").join("|");
+    const current = map.get(key) || keyFields.reduce((result, field) => {
+      result[field] = row[field];
+      return result;
+    }, {});
+
+    for (const field of metricFields) {
+      current[field] = Number(current[field] || 0) + Number(row[field] || 0);
+    }
+
+    for (const field of averageFields) {
+      const weightField = field.weightField || "total_distributions";
+      const valueField = field.valueField;
+      current[field.sumKey] = Number(current[field.sumKey] || 0) + Number(row[valueField] || 0) * Number(row[weightField] || 0);
+      current[field.weightKey] = Number(current[field.weightKey] || 0) + Number(row[weightField] || 0);
+    }
+
+    map.set(key, current);
+  }
+
+  return Array.from(map.values()).map((row) => {
+    const result = { ...row };
+    for (const field of averageFields) {
+      result[field.valueField] = result[field.weightKey] ? Number((result[field.sumKey] / result[field.weightKey]).toFixed(2)) : 0;
+      delete result[field.sumKey];
+      delete result[field.weightKey];
+    }
+    return result;
+  });
+};
+
+const mergeBudgetRows = (rows, keyFields) =>
+  mergeByRegion(
+    rows,
+    keyFields,
+    ["total_distributions", "total_portions", "total_budget"],
+    [{ valueField: "avg_price_per_portion", sumKey: "_avg_price_sum", weightKey: "_avg_price_weight" }]
+  ).map((row) => {
+    const sourceRows = normalizeRows(rows).filter((item) => keyFields.every((field) => {
+      const normalized = field === "province" ? normalizeProvinceName(item[field]) : field === "city" ? normalizeCityName(item[field]) : item[field];
+      return (normalized || item[field] || "-") === (row[field] || "-");
+    }));
+    const minValues = sourceRows.map((item) => Number(item.min_price_per_portion || 0)).filter((value) => value > 0);
+    const maxValues = sourceRows.map((item) => Number(item.max_price_per_portion || 0)).filter((value) => value > 0);
+
+    return {
+      ...row,
+      min_price_per_portion: minValues.length ? Math.min(...minValues) : 0,
+      max_price_per_portion: maxValues.length ? Math.max(...maxValues) : 0
+    };
+  });
+
+const mergeSuccessRows = (rows, keyFields) =>
+  mergeByRegion(rows, keyFields, ["verified_count", "conflict_count", "validated_count"]).map((row) => ({
+    ...row,
+    success_rate: row.validated_count ? Number(((row.verified_count / row.validated_count) * 100).toFixed(2)) : 0
+  }));
 
 const buildRegionFilter = (filters = {}) => ({
   ...(filters.province ? { province: { contains: filters.province, mode: "insensitive" } } : {}),
@@ -322,8 +389,8 @@ const getSuccessRate = async ({ filters, granularity }) => {
   return {
     data: {
       timeSeries: normalizeRows(timeSeries),
-      byProvince: normalizeRows(byProvince),
-      byCity: normalizeRows(byCity)
+      byProvince: mergeSuccessRows(byProvince, ["province"]),
+      byCity: mergeSuccessRows(byCity, ["province", "city"])
     },
     meta: {
       granularity
@@ -383,8 +450,13 @@ const getBudget = async ({ filters }) => {
   return {
     data: {
       summary: normalizeRows(summaryRows)[0] || null,
-      byProvince: normalizeRows(byProvince),
-      byCity: normalizeRows(byCity)
+      byProvince: mergeBudgetRows(byProvince, ["province"]).sort((a, b) => Number(b.total_budget || 0) - Number(a.total_budget || 0)),
+      byCity: mergeByRegion(
+        byCity,
+        ["province", "city"],
+        ["total_distributions", "total_portions", "total_budget"],
+        [{ valueField: "avg_price_per_portion", sumKey: "_avg_price_sum", weightKey: "_avg_price_weight" }]
+      ).sort((a, b) => Number(b.total_budget || 0) - Number(a.total_budget || 0))
     }
   };
 };
@@ -480,7 +552,7 @@ const getPricePerProvince = async ({ filters }) => {
   const provinceMap = new Map();
 
   for (const batch of batchRows) {
-    const province = batch.sppg?.province;
+    const province = normalizeProvinceName(batch.sppg?.province);
     if (!province) {
       continue;
     }
@@ -504,8 +576,9 @@ const getPricePerProvince = async ({ filters }) => {
   }
 
   for (const threshold of normalizeRows(thresholds)) {
-    const current = provinceMap.get(threshold.province) || {
-      province: threshold.province,
+    const province = normalizeProvinceName(threshold.province);
+    const current = provinceMap.get(province) || {
+      province,
       minHarga: 0,
       maxHarga: 0,
       avgHarga: Number(threshold.avgReferencePrice || 0),
@@ -513,7 +586,7 @@ const getPricePerProvince = async ({ filters }) => {
       totalDistributions: 0
     };
 
-    provinceMap.set(threshold.province, {
+    provinceMap.set(province, {
       ...current,
       thresholdMin: Number(threshold.minPrice || 0),
       thresholdMax: Number(threshold.maxPrice || 0),
@@ -630,7 +703,18 @@ const getByProvince = async ({ filters, limit }) => {
   `;
 
   return {
-    data: normalizeRows(rows),
+    data: mergeByRegion(
+      rows,
+      ["province"],
+      ["total_distributions", "total_portions", "total_budget", "verified_count", "conflict_count", "validated_count"],
+      [{ valueField: "avg_price_per_portion", sumKey: "_avg_price_sum", weightKey: "_avg_price_weight" }]
+    )
+      .map((row) => ({
+        ...row,
+        success_rate: row.validated_count ? Number(((row.verified_count / row.validated_count) * 100).toFixed(2)) : 0
+      }))
+      .sort((a, b) => Number(b.total_portions || 0) - Number(a.total_portions || 0))
+      .slice(0, safeLimit),
     meta: {
       limit: safeLimit
     }

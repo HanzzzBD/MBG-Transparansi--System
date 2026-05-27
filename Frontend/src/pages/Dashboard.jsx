@@ -34,6 +34,7 @@ import {
 } from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
 import { getDashboardRoleSummary, isAbortError } from '../services/api'
+import { getStatusLabel } from '../utils/distributionStatus.js'
 import './Dashboard.css'
 
 const ROLE_LABELS = {
@@ -41,18 +42,6 @@ const ROLE_LABELS = {
   pemerintah: 'Pemerintah',
   sppg: 'SPPG',
   sekolah: 'Sekolah',
-}
-
-const STATUS_LABELS = {
-  in_progress: 'Sedang Berjalan',
-  delivered: 'Terkirim',
-  failed: 'Gagal',
-  pending: 'Menunggu',
-  verified: 'Terverifikasi',
-  conflict: 'Konflik',
-  issue_reported: 'Masalah Dilaporkan',
-  resolved: 'Resolved',
-  open: 'Open',
 }
 
 const ANOMALY_LABELS = {
@@ -190,10 +179,6 @@ function getDashboardParams(filters) {
     start_date: filters.dateFrom,
     end_date: filters.dateTo,
   }
-}
-
-function getStatusLabel(status) {
-  return STATUS_LABELS[status] || status || '-'
 }
 
 function getAnomalyLabel(type) {

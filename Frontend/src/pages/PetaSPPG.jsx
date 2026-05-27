@@ -28,6 +28,7 @@ import {
   YAxis,
 } from 'recharts'
 import { getSppgMapMarkers, getSppgOperationalDetail } from '../services/api'
+import { getDistributionValidationStatus } from '../utils/distributionStatus.js'
 import { matchesSearchTokens, rankBySearch } from '../utils/search.js'
 import './PetaSPPG.css'
 
@@ -790,7 +791,7 @@ function PetaSPPG() {
                           <tr key={item.id}>
                             <td>{item.school?.name || '-'}</td>
                             <td>{formatNumber(item.portions)}</td>
-                            <td>{item.status || '-'}</td>
+                            <td>{getDistributionValidationStatus(item)}</td>
                             <td>{formatDate(item.distributionDate)}</td>
                           </tr>
                         ))

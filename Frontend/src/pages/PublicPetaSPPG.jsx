@@ -112,7 +112,8 @@ function normalizeDetail(item) {
       ? (item.recentDistributions || item.recent_distributions).slice(0, 5).map((row) => ({
           schoolName: row.schoolName || row.school_name || '-',
           portions: Number(row.portions) || 0,
-          status: row.status || '-',
+          status: row.confirmationStatus || row.confirmation_status || row.validationStatus || row.validation_status || row.status || '-',
+          deliveryStatus: row.deliveryStatus || row.delivery_status || row.status || '-',
           date: row.date || row.distributionDate || row.distribution_date || '',
         }))
       : [],

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
 import { apiRequest as requestJson } from '../services/api'
+import { getValidationStatusLabel } from '../utils/distributionStatus.js'
 import './Konfirmasi.css'
 
 const PAGE_SIZE = 10
@@ -26,13 +27,6 @@ const REPORT_CATEGORIES = [
   { value: 'kualitas_makanan', label: 'Kualitas Makanan' },
   { value: 'lainnya', label: 'Lainnya' },
 ]
-
-const STATUS_LABELS = {
-  pending: 'PENDING',
-  verified: 'VERIFIED',
-  conflict: 'CONFLICT',
-  issue_reported: 'ISSUE REPORTED',
-}
 
 const initialFormData = {
   receivedPortions: '',
@@ -131,7 +125,7 @@ function validateFile(file) {
 }
 
 function StatusBadge({ status }) {
-  return <span className={`konfirmasi-status konfirmasi-status-${status}`}>{STATUS_LABELS[status] || status}</span>
+  return <span className={`konfirmasi-status konfirmasi-status-${status}`}>{getValidationStatusLabel(status).toUpperCase()}</span>
 }
 
 function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {

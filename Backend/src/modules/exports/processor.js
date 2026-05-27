@@ -197,6 +197,8 @@ const serializeDistributionRow = (distribution) => ({
   distribution_id: distribution.id,
   distribution_date: toDateString(distribution.distributionDate),
   status: distribution.status,
+  delivery_status: distribution.status,
+  confirmation_status: distribution.validation?.status ?? "pending",
   portions: distribution.portions,
   received_portions: distribution.validation?.receivedPortions ?? null,
   validation_status: distribution.validation?.status ?? "pending",

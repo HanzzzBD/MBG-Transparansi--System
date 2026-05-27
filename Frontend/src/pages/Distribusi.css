@@ -665,6 +665,22 @@
   color: var(--color-success);
 }
 
+.distribusi-status-verified {
+  background: rgba(5, 122, 85, 0.1);
+  color: var(--color-success);
+}
+
+.distribusi-status-pending {
+  background: rgba(146, 64, 14, 0.11);
+  color: var(--color-warning);
+}
+
+.distribusi-status-conflict,
+.distribusi-status-issue_reported {
+  background: rgba(155, 28, 28, 0.1);
+  color: var(--color-danger);
+}
+
 .distribusi-status-failed {
   background: rgba(155, 28, 28, 0.1);
   color: var(--color-danger);

@@ -1,3 +1,5 @@
+const { normalizeCityName, normalizeProvinceName } = require("../../utils/region");
+
 const toDateOnly = (value) => {
   if (!value) return null;
   return new Date(value).toISOString().slice(0, 10);
@@ -32,14 +34,16 @@ const serializePublicDistribution = (distribution) => ({
   schoolName: distribution.school?.name || "-",
   portions: toNumber(distribution.portions),
   status: distribution.status,
+  deliveryStatus: distribution.status,
+  confirmationStatus: distribution.validation?.status || "pending",
   date: toDateOnly(distribution.distributionDate)
 });
 
 const serializePublicSppgMarker = ({ sppg, district = null }) => ({
   id: String(sppg.id),
   name: sppg.name,
-  province: sppg.province,
-  city: sppg.city,
+  province: normalizeProvinceName(sppg.province) || sppg.province,
+  city: normalizeCityName(sppg.city) || sppg.city,
   district,
   status: sppg.status,
   lat: toNullableNumber(sppg.lat),

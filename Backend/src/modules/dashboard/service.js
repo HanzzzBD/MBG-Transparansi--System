@@ -148,7 +148,8 @@ const serializeDistribution = (distribution) => ({
   pricePerPortion: toNumber(distribution.pricePerPortion),
   totalCost: toNumber(distribution.totalCost),
   distributionDate: distribution.distributionDate,
-  status: distribution.status,
+  status: distribution.validation?.status || "pending",
+  deliveryStatus: distribution.status,
   failureReason: distribution.failureReason,
   createdAt: distribution.createdAt,
   school: distribution.school

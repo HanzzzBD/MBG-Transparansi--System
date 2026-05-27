@@ -199,6 +199,14 @@ const DISTRIBUTION_SEARCH_RANK_FIELDS = [
   { field: "id", weight: 0.25 }
 ];
 
+const decorateDistributionStatus = (distribution) => distribution
+  ? {
+      ...distribution,
+      deliveryStatus: distribution.status,
+      confirmationStatus: distribution.validation?.status || "pending"
+    }
+  : distribution;
+
 const getActiveSppg = async (id) => {
   const sppg = await prisma.sppg.findFirst({
     where: {
@@ -471,7 +479,7 @@ const listDistributions = async ({ query, user }) => {
     });
 
     return {
-      data: ranked.items,
+      data: ranked.items.map(decorateDistributionStatus),
       meta: {
         ...buildPaginationMeta({
           page: pagination.page,
@@ -495,7 +503,7 @@ const listDistributions = async ({ query, user }) => {
   ]);
 
   return {
-    data: items,
+    data: items.map(decorateDistributionStatus),
     meta: buildPaginationMeta({
       page: pagination.page,
       limit: pagination.limit,
@@ -543,7 +551,7 @@ const getDistributionDetail = async ({ id, user }) => {
   ensureDistributionAccess(user, distribution);
 
   return {
-    data: distribution
+    data: decorateDistributionStatus(distribution)
   };
 };
 
@@ -691,7 +699,7 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
   });
 
   return {
-    data: distribution
+    data: decorateDistributionStatus(distribution)
   };
 };
 
@@ -841,7 +849,7 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
   });
 
   return {
-    data: distribution
+    data: decorateDistributionStatus(distribution)
   };
 };
 

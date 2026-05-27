@@ -4,6 +4,7 @@ const { createAuditLog } = require("../../utils/auditLog");
 const { shouldSilentlyRejectHoneypot, verifyCaptchaToken } = require("../../utils/captcha");
 const { assertSchoolOwnership, requireSchoolScope, requireSppgScope } = require("../../utils/ownership");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
+const { normalizeCityName, normalizeProvinceName } = require("../../utils/region");
 const {
   createNotificationsForUsers,
   findUserIdsBySppgId
@@ -471,8 +472,8 @@ const createPublicReport = async ({ payload, ipAddress }) => {
         reporterName: payload.reporterName ?? null,
         category: payload.category,
         message: payload.message.trim(),
-        province: payload.province ?? null,
-        city: payload.city ?? null
+        province: normalizeProvinceName(payload.province),
+        city: normalizeCityName(payload.city)
       },
       include: publicReportInclude
     });
@@ -688,6 +689,7 @@ const createSchoolReport = async ({ payload, user, ipAddress }) => {
       },
       include: schoolReportInclude
     });
+    let validationStatus = target.validation?.status ?? null;
 
     await createAuditLog({
       prisma: tx,
@@ -719,6 +721,7 @@ const createSchoolReport = async ({ payload, user, ipAddress }) => {
           }
         }
       });
+      validationStatus = updatedValidation.status;
 
       await createAuditLog({
         prisma: tx,
@@ -746,12 +749,17 @@ const createSchoolReport = async ({ payload, user, ipAddress }) => {
           distributionId: target.distributionId,
           schoolId: target.schoolId,
           sppgId: target.sppgId,
-          validationStatus: target.validation?.status === "pending" ? "issue_reported" : target.validation?.status ?? null
+          validationStatus
         }
       });
     }
 
-    return created;
+    return tx.schoolReport.findUnique({
+      where: {
+        id: created.id
+      },
+      include: schoolReportInclude
+    });
   });
 
   return {

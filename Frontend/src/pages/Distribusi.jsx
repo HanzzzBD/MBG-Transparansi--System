@@ -19,6 +19,12 @@ import {
   getMyRegionPriceThreshold,
   isAbortError,
 } from '../services/api'
+import {
+  getDeliveryStatusLabel,
+  getDistributionDeliveryStatus,
+  getDistributionValidationStatus,
+  getValidationStatusLabel,
+} from '../utils/distributionStatus.js'
 import { rankBySearch } from '../utils/search.js'
 import './Distribusi.css'
 
@@ -38,12 +44,6 @@ const STATUS_OPTIONS = [
   { value: 'delivered', label: 'Terkirim' },
   { value: 'failed', label: 'Gagal' },
 ]
-
-const STATUS_LABELS = {
-  in_progress: 'Proses',
-  delivered: 'Terkirim',
-  failed: 'Gagal',
-}
 
 const initialFormData = {
   schoolId: '',
@@ -79,7 +79,9 @@ function normalizeDistribution(item) {
     portions,
     pricePerPortion: price,
     totalCost: Number(item.totalCost ?? item.total_cost ?? portions * price),
-    status: item.status || 'in_progress',
+    status: getDistributionValidationStatus(item),
+    deliveryStatus: getDistributionDeliveryStatus(item),
+    validation: item.validation || null,
     distributionDate: item.distributionDate || item.distribution_date || TODAY,
     time: item.time || formatTime(item.distributionDate || item.createdAt),
     failureReason: item.failureReason || item.failure_reason || '',
@@ -143,7 +145,11 @@ function formatTime(value) {
 }
 
 function StatusBadge({ status }) {
-  return <span className={`distribusi-status distribusi-status-${status}`}>{STATUS_LABELS[status] || status}</span>
+  return <span className={`distribusi-status distribusi-status-${status}`}>{getValidationStatusLabel(status)}</span>
+}
+
+function DeliveryStatusBadge({ status }) {
+  return <span className={`distribusi-status distribusi-status-${status}`}>{getDeliveryStatusLabel(status)}</span>
 }
 
 function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
@@ -301,7 +307,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
   }, [uploadPreview])
 
   const filteredDistributions = useMemo(() => {
-    return statusFilter ? distributions.filter((item) => item.status === statusFilter) : distributions
+    return statusFilter ? distributions.filter((item) => item.deliveryStatus === statusFilter) : distributions
   }, [distributions, statusFilter])
 
   const uploadTargets = useMemo(() => {
@@ -321,7 +327,8 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
 
   const totalPortions = filteredDistributions.reduce((total, item) => total + item.portions, 0)
   const totalCost = filteredDistributions.reduce((total, item) => total + item.totalCost, 0)
-  const deliveredCount = filteredDistributions.filter((item) => item.status === 'delivered').length
+  const deliveredCount = filteredDistributions.filter((item) => item.deliveryStatus === 'delivered').length
+  const respondedCount = filteredDistributions.filter((item) => item.status !== 'pending').length
   const previewTotal = (Number(formData.portions) || 0) * (Number(formData.pricePerPortion) || 0)
   const priceWarning = priceThreshold !== null && Number(formData.pricePerPortion) > priceThreshold
   const selectedBatch = productionBatches.find((batch) => String(batch.id) === String(formData.productionBatchId))
@@ -415,7 +422,9 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
         body: { status: 'delivered' },
       })
       setDistributions((current) => {
-        return current.map((item) => (item.id === selectedDistribution.id ? { ...item, status: 'delivered' } : item))
+        return current.map((item) => (
+          item.id === selectedDistribution.id ? { ...item, deliveryStatus: 'delivered' } : item
+        ))
       })
       setModalOpen(false)
       showToast('success', 'Distribusi ditandai terkirim.')
@@ -522,7 +531,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
       userName={userName}
       currentPath={location.pathname}
       onLogout={handleLogout}
-      notifCount={distributions.filter((item) => item.status === 'in_progress').length}
+      notifCount={distributions.filter((item) => item.status === 'pending').length}
     >
       <div className="distribusi-page">
         <header className="distribusi-header">
@@ -576,7 +585,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
           <section className="distribusi-card">
             <div className="distribusi-filter-row">
               <label className="distribusi-field">
-                <span className="distribusi-label">Filter Status</span>
+                <span className="distribusi-label">Filter Status Kirim</span>
                 <select className="distribusi-select" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                   {STATUS_OPTIONS.map((option) => (
                     <option key={option.value || 'all'} value={option.value}>
@@ -606,14 +615,15 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                     <th>Porsi</th>
                     <th>Harga/Porsi</th>
                     <th>Total</th>
-                    <th>Status</th>
+                    <th>Status Konfirmasi</th>
+                    <th>Status Kirim</th>
                     <th>Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {!loading && filteredDistributions.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={8}>
                         <div className="distribusi-empty-state">Belum ada data distribusi dari backend.</div>
                       </td>
                     </tr>
@@ -630,11 +640,15 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                       <td>{formatRupiah(item.totalCost)}</td>
                       <td>
                         <StatusBadge status={item.status} />
-                        {item.status === 'failed' && item.failureReason ? <small>{item.failureReason}</small> : null}
+                        {item.status === 'issue_reported' && item.validation?.notes ? <small>{item.validation.notes}</small> : null}
+                      </td>
+                      <td>
+                        <DeliveryStatusBadge status={item.deliveryStatus} />
+                        {item.deliveryStatus === 'failed' && item.failureReason ? <small>{item.failureReason}</small> : null}
                       </td>
                       <td>
                         <div className="distribusi-action-row">
-                          {item.status === 'in_progress' ? (
+                          {item.deliveryStatus === 'in_progress' ? (
                             <>
                               <button className="distribusi-btn distribusi-btn-primary" type="button" onClick={() => openDeliveredModal(item)}>
                                 <CheckCircle2 aria-hidden="true" />
@@ -646,7 +660,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                               </button>
                             </>
                           ) : null}
-                          {item.status === 'delivered' ? (
+                          {item.deliveryStatus === 'delivered' ? (
                             <>
                               <span className="distribusi-delivered-label">Terkirim</span>
                               <button className="distribusi-btn distribusi-btn-secondary" type="button" onClick={() => handleUploadShortcut(item)}>
@@ -654,7 +668,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                               </button>
                             </>
                           ) : null}
-                          {item.status === 'failed' ? <span className="distribusi-failed-label">Gagal diproses</span> : null}
+                          {item.deliveryStatus === 'failed' ? <span className="distribusi-failed-label">Gagal diproses</span> : null}
                         </div>
                       </td>
                     </tr>
@@ -667,6 +681,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
               <span>Total porsi: <strong>{totalPortions.toLocaleString('id-ID')}</strong></span>
               <span>Total biaya: <strong>{formatRupiah(totalCost)}</strong></span>
               <span>Terkirim: <strong>{deliveredCount}/{filteredDistributions.length}</strong></span>
+              <span>Direspons sekolah: <strong>{respondedCount}/{filteredDistributions.length}</strong></span>
             </footer>
           </section>
         ) : null}
