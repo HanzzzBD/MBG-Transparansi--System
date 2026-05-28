@@ -15,6 +15,8 @@ import {
   Soup,
 } from 'lucide-react'
 import { loginRequest } from '../services/api'
+import batik2Bg from '../assets/Batik2.png'
+import newLogo from '../assets/NewLogo.png'
 import './Login.css'
 
 const VALID_ROLES = new Set(['admin', 'pemerintah', 'sppg', 'sekolah', 'umum'])
@@ -146,10 +148,14 @@ function Login({ onLoginSuccess }) {
 
   return (
     <main className="login-page">
-      <section className="login-brand-panel" aria-label="Informasi MBG Transparency System">
+      <section
+        className="login-brand-panel"
+        style={{ backgroundImage: `linear-gradient(135deg, rgba(7, 30, 73, 0.9), rgba(7, 30, 73, 0.74)), url(${batik2Bg})` }}
+        aria-label="Informasi MBG Transparency System"
+      >
         <div className="login-brand-content">
           <Link to="/" className="login-logo" aria-label="Kembali ke beranda MBG">
-            <span className="login-logo-box">MBG</span>
+            <img className="login-logo-image" src={newLogo} alt="Logo MBG" />
             <span>
               <span className="login-brand-title">MBG Transparency System</span>
               <span className="login-brand-desc">
@@ -210,7 +216,7 @@ function Login({ onLoginSuccess }) {
           </Link>
 
           <Link to="/" className="login-mobile-logo" aria-label="Kembali ke beranda MBG">
-            <span className="login-logo-box">MBG</span>
+            <img className="login-mobile-logo-image" src={newLogo} alt="Logo MBG" />
             <span>
               <span>MBG</span>
               <small>Transparency System</small>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowRight,
@@ -9,9 +9,7 @@ import {
   FileWarning,
   Loader2,
   LockKeyhole,
-  LogIn,
   MapPinned,
-  Menu,
   PackageCheck,
   Send,
   ShieldCheck,
@@ -19,9 +17,12 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
+import PublicNavbar from '../components/PublicNavbar.jsx'
+import usePublicMapPath from '../hooks/usePublicMapPath.js'
 import { apiRequest } from '../services/api.js'
-import useAuthStore from '../store/authStore.js'
 import batikBg from '../assets/Batik.png'
+import batikFooterBg from '../assets/Batik2.png'
+import batikWhiteBg from '../assets/Batikputih.png'
 import newLogo from '../assets/NewLogo.png'
 
 const TURNSTILE_SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || ''
@@ -64,8 +65,6 @@ const REPORT_CATEGORIES = [
   { value: 'kekurangan_porsi', label: 'Kekurangan Porsi' },
   { value: 'lainnya', label: 'Lainnya' },
 ]
-
-const INTERNAL_MAP_ROLES = new Set(['admin', 'pemerintah', 'gov', 'sppg', 'sekolah'])
 
 const FEATURES = [
   {
@@ -199,8 +198,8 @@ function getMarkerColor(status) {
 }
 
 function Landing() {
-  const { user, isAuthenticated } = useAuthStore()
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false)
+  const location = useLocation()
+  const fullMapPath = usePublicMapPath()
   const [summary, setSummary] = useState({ data: null, loading: true, error: '' })
   const [mapData, setMapData] = useState({ markers: [], loading: true, error: '', empty: false })
   const [sppgDetail, setSppgDetail] = useState({ data: null, loading: false, error: '' })
@@ -209,6 +208,14 @@ function Landing() {
   const [captchaMessage, setCaptchaMessage] = useState(INITIAL_CAPTCHA_MESSAGE)
   const turnstileRef = useRef(null)
   const turnstileWidgetIdRef = useRef(null)
+
+  useEffect(() => {
+    if (!location.hash) return
+
+    requestAnimationFrame(() => {
+      document.getElementById(location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [location.hash])
 
   const loadSummary = useCallback((signal) => {
     setSummary((current) => ({ ...current, loading: true, error: '' }))
@@ -323,8 +330,6 @@ function Landing() {
   }, [])
 
   const effectiveSummary = summary.data || {}
-  const role = String(user?.role || '').toLowerCase()
-  const fullMapPath = isAuthenticated && INTERNAL_MAP_ROLES.has(role) ? '/peta' : '/peta-publik'
 
   const kpis = [
     {
@@ -352,8 +357,6 @@ function Landing() {
       color: '#9b1c1c',
     },
   ]
-
-  const closeDrawer = () => setIsDrawerOpen(false)
 
   const handleMarkerClick = async (marker) => {
     if (!marker?.id) {
@@ -464,95 +467,7 @@ function Landing() {
 
   return (
     <div className="min-h-screen bg-white font-sans text-[#111928]">
-      <header className="sticky top-0 z-50 border-b border-[#b5e0ea] bg-white/95 backdrop-blur">
-        <div className="mx-auto flex min-h-20 w-[min(1120px,calc(100%-32px))] items-center justify-between gap-6">
-          <Link to="/" className="flex items-center gap-2" aria-label="MBG Transparency System">
-            <img className="h-16 w-16 object-contain" src={newLogo} alt="Logo MBG" />
-            <span className="grid gap-0.5">
-              <span className="text-lg font-black leading-tight text-[#0f4c81]">MBG</span>
-              <span className="text-xs font-bold text-[#6b7280]">Transparency System</span>
-            </span>
-          </Link>
-
-          <nav className="hidden items-center gap-8 text-sm font-bold text-[#6b7280] lg:flex" aria-label="Navigasi utama">
-            <Link className="transition hover:text-[#0071e4]" to="/">
-              Beranda
-            </Link>
-            <Link className="transition hover:text-[#0071e4]" to={fullMapPath}>
-              Peta SPPG
-            </Link>
-            <Link className="transition hover:text-[#0071e4]" to="/statistik">
-              Statistik
-            </Link>
-            <a className="transition hover:text-[#0071e4]" href="#laporan">
-              Laporan
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <Link
-              to="/login"
-              className="hidden h-11 items-center gap-2 rounded-lg bg-[#0071e4] px-5 text-sm font-extrabold text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg lg:inline-flex"
-            >
-              <LogIn size={17} aria-hidden="true" />
-              Login
-            </Link>
-            <button
-              className="grid h-11 w-11 place-items-center rounded-lg border border-[#b5e0ea] bg-white text-[#0f4c81] lg:hidden"
-              type="button"
-              aria-label="Buka menu"
-              onClick={() => setIsDrawerOpen(true)}
-            >
-              <Menu size={22} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {isDrawerOpen ? (
-        <div className="fixed inset-0 z-[60] bg-[#111928]/40" role="presentation" onClick={closeDrawer}>
-          <aside
-            className="h-full w-[min(320px,86vw)] border-r border-[#b5e0ea] bg-white p-5 shadow-2xl"
-            aria-label="Menu mobile"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-7 flex items-center justify-between gap-3">
-              <Link to="/" className="flex items-center gap-2" onClick={closeDrawer}>
-                <img className="h-14 w-14 object-contain" src={newLogo} alt="Logo MBG" />
-                <span>
-                  <span className="block text-base font-black text-[#0f4c81]">MBG</span>
-                  <span className="block text-xs font-bold text-[#6b7280]">Transparency System</span>
-                </span>
-              </Link>
-              <button
-                className="grid h-10 w-10 place-items-center rounded-lg border border-[#b5e0ea] text-[#0f4c81]"
-                type="button"
-                aria-label="Tutup menu"
-                onClick={closeDrawer}
-              >
-                <X size={20} aria-hidden="true" />
-              </button>
-            </div>
-            <nav className="grid gap-2 text-sm font-extrabold text-[#111928]">
-              <Link className="rounded-lg px-3 py-3 hover:bg-[#f4f8fb] hover:text-[#0071e4]" to="/" onClick={closeDrawer}>
-                Beranda
-              </Link>
-              <Link className="rounded-lg px-3 py-3 hover:bg-[#f4f8fb] hover:text-[#0071e4]" to={fullMapPath} onClick={closeDrawer}>
-                Peta SPPG
-              </Link>
-              <Link className="rounded-lg px-3 py-3 hover:bg-[#f4f8fb] hover:text-[#0071e4]" to="/statistik" onClick={closeDrawer}>
-                Statistik
-              </Link>
-              <a className="rounded-lg px-3 py-3 hover:bg-[#f4f8fb] hover:text-[#0071e4]" href="#laporan" onClick={closeDrawer}>
-                Laporan
-              </a>
-              <Link className="mt-3 rounded-lg bg-[#0071e4] px-3 py-3 text-center text-white" to="/login" onClick={closeDrawer}>
-                Login
-              </Link>
-            </nav>
-          </aside>
-        </div>
-      ) : null}
+      <PublicNavbar />
 
       <main>
         <section
@@ -989,7 +904,10 @@ function Landing() {
           </div>
         </section>
 
-        <section className="bg-[#0f4c81] text-white">
+        <section
+          className="bg-cover bg-center text-white"
+          style={{ backgroundImage: `linear-gradient(90deg, rgba(24, 46, 88, 0.42), rgba(134, 175, 251, 0.43)), url(${batikWhiteBg})` }}
+        >
           <div className="mx-auto flex w-[min(1120px,calc(100%-32px))] flex-col gap-7 py-16 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-3xl font-black leading-tight text-white sm:text-4xl">Bergabung Memantau Program MBG</h2>
@@ -1006,7 +924,10 @@ function Landing() {
         </section>
       </main>
 
-      <footer className="bg-[#0f4c81] text-white">
+      <footer
+        className="bg-cover bg-center text-white"
+        style={{ backgroundImage: `linear-gradient(90deg, rgba(7, 30, 73, 0.88), rgba(7, 30, 73, 0.78)), url(${batikFooterBg})` }}
+      >
         <div className="mx-auto grid w-[min(1120px,calc(100%-32px))] gap-9 border-t border-[#b5e0ea]/25 py-11 md:grid-cols-[1.3fr_0.8fr_0.8fr]">
           <div>
             <Link to="/" className="flex items-center gap-2">

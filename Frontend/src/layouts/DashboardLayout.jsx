@@ -53,14 +53,6 @@ const ROLE_LABELS = {
   sekolah: 'Sekolah',
 }
 
-const ROLE_CLASSES = {
-  admin: 'dashboard-role-admin',
-  pemerintah: 'dashboard-role-pemerintah',
-  gov: 'dashboard-role-pemerintah',
-  sppg: 'dashboard-role-sppg',
-  sekolah: 'dashboard-role-sekolah',
-}
-
 const dashboardMenu = {
   label: 'Dashboard',
   icon: LayoutDashboard,
@@ -83,8 +75,21 @@ const sppgMenus = [
 ]
 
 const sekolahMenus = [
-  { label: 'Konfirmasi Distribusi', icon: CheckSquare, path: '/validasi', badgeKey: 'notif', permission: 'distribution.view' },
-  { label: 'Validasi Porsi & Kualitas', icon: ClipboardCheck, path: '/validasi', permission: 'distribution.view' },
+  {
+    label: 'Konfirmasi Distribusi',
+    icon: CheckSquare,
+    path: '/validasi?mode=konfirmasi',
+    badgeKey: 'notif',
+    permission: 'distribution.view',
+    activeMatch: (currentPath) => getValidationMenuMode(currentPath) !== 'validasi' && getPathnameOnly(currentPath) === '/validasi',
+  },
+  {
+    label: 'Validasi Porsi & Kualitas',
+    icon: ClipboardCheck,
+    path: '/validasi?mode=validasi',
+    permission: 'distribution.view',
+    activeMatch: (currentPath) => getPathnameOnly(currentPath) === '/validasi' && getValidationMenuMode(currentPath) === 'validasi',
+  },
   { label: 'Laporan Sekolah', icon: FileText, path: '/laporan-sekolah', permission: 'issue.view' },
   { label: 'Riwayat Distribusi', icon: History, path: '/riwayat', permission: 'distribution.view' },
   { label: 'Profil Sekolah', icon: School, path: '/profil', permission: 'account.view' },
@@ -181,11 +186,79 @@ function normalizeNotification(notification) {
   }
 }
 
-function getRoleMenus(userRole) {
-  if (userRole === 'admin') return [dashboardMenu, ...pemerintahMenus, ...adminExtraMenus]
-  if (userRole === 'pemerintah') return [dashboardMenu, ...pemerintahMenus]
-  if (userRole === 'sekolah') return [dashboardMenu, ...sekolahMenus]
-  return [dashboardMenu, ...sppgMenus]
+function getMenusByLabel(source, labels) {
+  return labels.map((label) => source.find((item) => item.label === label)).filter(Boolean)
+}
+
+function getRoleMenuGroups(userRole) {
+  if (userRole === 'admin') {
+    return [
+      { label: null, items: [dashboardMenu] },
+      {
+        label: 'Monitoring & Analitik',
+        items: getMenusByLabel(pemerintahMenus, ['Peta SPPG', 'Analitik Wilayah', 'Anomaly Detection']),
+      },
+      {
+        label: 'Transparansi & Laporan',
+        items: getMenusByLabel(pemerintahMenus, ['Transparansi Anggaran', 'Laporan Masyarakat', 'Audit Log', 'Export Data']),
+      },
+      {
+        label: 'Master Data',
+        items: getMenusByLabel(adminExtraMenus, ['Master SPPG', 'Master Sekolah', 'Import Dapodik']),
+      },
+      {
+        label: 'Manajemen Sistem',
+        items: getMenusByLabel(adminExtraMenus, ['User & Role', 'Lock / Unlock Data', 'Override Data', 'API Monitoring', 'Settings']),
+      },
+    ]
+  }
+
+  if (userRole === 'pemerintah') {
+    return [
+      { label: null, items: [dashboardMenu] },
+      { label: 'Pemantauan Wilayah', items: getMenusByLabel(pemerintahMenus, ['Peta SPPG', 'Analitik Wilayah']) },
+      { label: 'Deteksi & Pengawasan', items: getMenusByLabel(pemerintahMenus, ['Anomaly Detection']) },
+      {
+        label: 'Transparansi & Laporan',
+        items: getMenusByLabel(pemerintahMenus, ['Transparansi Anggaran', 'Laporan Masyarakat', 'Audit Log', 'Export Data']),
+      },
+    ]
+  }
+
+  if (userRole === 'sekolah') {
+    return [
+      { label: null, items: [dashboardMenu] },
+      {
+        label: 'Penerimaan Makanan',
+        items: getMenusByLabel(sekolahMenus, ['Konfirmasi Distribusi', 'Validasi Porsi & Kualitas']),
+      },
+      {
+        label: 'Laporan & Riwayat',
+        items: getMenusByLabel(sekolahMenus, ['Laporan Sekolah', 'Riwayat Distribusi']),
+      },
+      { label: 'Profil', items: getMenusByLabel(sekolahMenus, ['Profil Sekolah']) },
+    ]
+  }
+
+  return [
+    { label: null, items: [dashboardMenu] },
+    {
+      label: 'Operasional Harian',
+      items: getMenusByLabel(sppgMenus, ['Input Menu Harian', 'Input Porsi & Distribusi', 'Production Batch']),
+    },
+    {
+      label: 'Distribusi',
+      items: getMenusByLabel(sppgMenus, ['Sekolah Saluran', 'Status Distribusi', 'Riwayat Distribusi']),
+    },
+    {
+      label: 'Laporan & Profil',
+      items: getMenusByLabel(sppgMenus, ['Lapor Kendala', 'Profil SPPG']),
+    },
+  ]
+}
+
+function flattenMenuGroups(menuGroups) {
+  return menuGroups.flatMap((group) => group.items)
 }
 
 function normalizePermissionRequirement(requirement) {
@@ -203,23 +276,33 @@ function canAccessMenu(item, role, can, permissionsLoaded) {
   return requiredPermissions.some((permissionKey) => can(permissionKey))
 }
 
-function isMenuActive(pathname, itemPath) {
-  if (itemPath === '/dashboard') return pathname === '/dashboard'
-  return pathname === itemPath || pathname.startsWith(`${itemPath}/`)
+function getPathnameOnly(fullPath) {
+  return String(fullPath || '').split(/[?#]/)[0]
 }
 
-function getActiveMenu(menus, pathname) {
-  return [...menus]
+function getValidationMenuMode(fullPath) {
+  const queryString = String(fullPath || '').split('?')[1]?.split('#')[0] || ''
+  return new URLSearchParams(queryString).get('mode')
+}
+
+function isMenuActive(pathname, item) {
+  const itemPath = item.path
+  if (item.activeMatch) return item.activeMatch(pathname)
+  const currentPathname = getPathnameOnly(pathname)
+  const itemPathname = getPathnameOnly(itemPath)
+
+  if (itemPath === '/dashboard') return pathname === '/dashboard'
+  return currentPathname === itemPathname || currentPathname.startsWith(`${itemPathname}/`)
+}
+
+function getActiveMenu(menuGroups, pathname) {
+  return flattenMenuGroups(menuGroups)
     .sort((first, second) => second.path.length - first.path.length)
-    .find((menu) => isMenuActive(pathname, menu.path)) || dashboardMenu
+    .find((menu) => isMenuActive(pathname, menu)) || dashboardMenu
 }
 
 function getInitial(userName) {
   return (userName || 'U').trim().charAt(0).toUpperCase() || 'U'
-}
-
-function RoleBadge({ role }) {
-  return <span className={`dashboard-role-badge ${ROLE_CLASSES[role] || ''}`}>{ROLE_LABELS[role] || role}</span>
 }
 
 function MenuItem({ item, active, collapsed, notifCount, onClick }) {
@@ -243,13 +326,10 @@ function MenuItem({ item, active, collapsed, notifCount, onClick }) {
 }
 
 function SidebarContent({
-  menus,
+  menuGroups,
   currentPath,
   sidebarCollapsed,
-  userName,
-  userRole,
   notifCount,
-  onLogout,
   onMenuClick,
 }) {
   return (
@@ -265,31 +345,22 @@ function SidebarContent({
       </div>
 
       <nav className="dashboard-menu" aria-label="Menu dashboard">
-        {menus.map((item) => (
-          <MenuItem
-            key={item.path}
-            item={item}
-            active={isMenuActive(currentPath, item.path)}
-            collapsed={sidebarCollapsed}
-            notifCount={notifCount}
-            onClick={onMenuClick}
-          />
+        {menuGroups.map((group, groupIndex) => (
+          <div className="dashboard-menu-section" key={group.label || `primary-${groupIndex}`}>
+            {group.label ? <div className="dashboard-menu-section-label">{group.label}</div> : null}
+            {group.items.map((item) => (
+              <MenuItem
+                key={`${group.label || 'primary'}-${item.path}-${item.label}`}
+                item={item}
+                active={isMenuActive(currentPath, item)}
+                collapsed={sidebarCollapsed}
+                notifCount={notifCount}
+                onClick={onMenuClick}
+              />
+            ))}
+          </div>
         ))}
       </nav>
-
-      <div className="dashboard-sidebar-bottom">
-        <div className="dashboard-user-mini">
-          <span className="dashboard-avatar">{getInitial(userName)}</span>
-          <span className="dashboard-user-info">
-            <span className="dashboard-user-name">{userName || 'Pengguna MBG'}</span>
-            <RoleBadge role={userRole} />
-          </span>
-        </div>
-        <button className="dashboard-logout-btn" type="button" onClick={onLogout} title="Logout">
-          <LogOut aria-hidden="true" />
-          <span>Logout</span>
-        </button>
-      </div>
     </>
   )
 }
@@ -330,15 +401,22 @@ function DashboardLayout({
   const can = useAuthStore((state) => state.can)
   const permissionsLoaded = useAuthStore((state) => state.permissionsLoaded)
   const normalizedRole = ROLE_LABELS[userRole] ? userRole : 'sppg'
-  const pathname = currentPath || location.pathname
+  const currentPathBase = currentPath || location.pathname
+  const pathname = `${currentPathBase}${currentPathBase.includes('?') ? '' : location.search}`
   const trimmedSearchQuery = searchQuery.trim()
   const notificationCacheKey = `${normalizedRole}:${userId || userName || 'anonymous'}`
 
-  const menus = useMemo(
-    () => getRoleMenus(normalizedRole).filter((item) => canAccessMenu(item, normalizedRole, can, permissionsLoaded)),
+  const menuGroups = useMemo(
+    () =>
+      getRoleMenuGroups(normalizedRole)
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => canAccessMenu(item, normalizedRole, can, permissionsLoaded)),
+        }))
+        .filter((group) => group.items.length > 0),
     [can, normalizedRole, permissionsLoaded],
   )
-  const activeMenu = useMemo(() => getActiveMenu(menus, pathname), [menus, pathname])
+  const activeMenu = useMemo(() => getActiveMenu(menuGroups, pathname), [menuGroups, pathname])
   const displayNotifCount = notificationState.unreadCount
 
   const loadNotifications = useCallback(async (signal, { force = false } = {}) => {
@@ -558,13 +636,10 @@ function DashboardLayout({
       <div className="dashboard-shell">
         <aside className={`dashboard-sidebar ${sidebarCollapsed ? 'dashboard-sidebar-collapsed' : ''}`}>
           <SidebarContent
-            menus={menus}
+            menuGroups={menuGroups}
             currentPath={pathname}
             sidebarCollapsed={sidebarCollapsed}
-            userName={userName}
-            userRole={normalizedRole}
             notifCount={displayNotifCount}
-            onLogout={handleLogout}
           />
         </aside>
 
@@ -579,13 +654,10 @@ function DashboardLayout({
 
         <aside className={`dashboard-sidebar-mobile ${mobileMenuOpen ? 'dashboard-sidebar-open' : ''}`}>
           <SidebarContent
-            menus={menus}
+            menuGroups={menuGroups}
             currentPath={pathname}
             sidebarCollapsed={false}
-            userName={userName}
-            userRole={normalizedRole}
             notifCount={displayNotifCount}
-            onLogout={handleLogout}
             onMenuClick={handleMobileMenuClick}
           />
         </aside>

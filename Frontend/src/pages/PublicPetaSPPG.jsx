@@ -18,6 +18,7 @@ import {
   X,
 } from 'lucide-react'
 import { apiRequest } from '../services/api'
+import PublicNavbar from '../components/PublicNavbar.jsx'
 import { matchesSearchTokens, rankBySearch } from '../utils/search.js'
 import './PublicPetaSPPG.css'
 
@@ -455,32 +456,35 @@ function PublicPetaSPPG() {
   const selectedId = detailState.selected?.id || detailState.data?.id
 
   return (
-    <div className="public-map-page">
-      <header className="public-map-header">
-        <div>
-          <Link className="public-map-back" to="/">
-            <ArrowLeft size={18} aria-hidden="true" />
-            Beranda
-          </Link>
-          <h1>Peta Publik SPPG</h1>
-          <p>Informasi dasar SPPG untuk transparansi publik tanpa login.</p>
-        </div>
+    <div className="min-h-screen bg-[#eef6f9]">
+      <PublicNavbar />
 
-        <div className="public-map-summary" aria-label="Ringkasan peta publik">
-          <span>
-            <strong>{formatNumber(summary.total)}</strong>
-            Total SPPG
-          </span>
-          <span>
-            <strong>{formatNumber(summary.active)}</strong>
-            Aktif
-          </span>
-          <span>
-            <strong>{formatNumber(summary.visible)}</strong>
-            Ditampilkan
-          </span>
-        </div>
-      </header>
+      <div className="public-map-page">
+        <header className="public-map-header">
+          <div>
+            <Link className="public-map-back" to="/">
+              <ArrowLeft size={18} aria-hidden="true" />
+              Beranda
+            </Link>
+            <h1>Peta Publik SPPG</h1>
+            <p>Informasi dasar SPPG untuk transparansi publik tanpa login.</p>
+          </div>
+
+          <div className="public-map-summary" aria-label="Ringkasan peta publik">
+            <span>
+              <strong>{formatNumber(summary.total)}</strong>
+              Total SPPG
+            </span>
+            <span>
+              <strong>{formatNumber(summary.active)}</strong>
+              Aktif
+            </span>
+            <span>
+              <strong>{formatNumber(summary.visible)}</strong>
+              Ditampilkan
+            </span>
+          </div>
+        </header>
 
       <section className="public-map-toolbar" aria-label="Filter peta publik">
         <label className="public-map-field public-map-field-search">
@@ -607,6 +611,7 @@ function PublicPetaSPPG() {
           {detailState.data ? <PublicSppgDetail detail={detailState.data} /> : null}
         </aside>
       </main>
+      </div>
     </div>
   )
 }
