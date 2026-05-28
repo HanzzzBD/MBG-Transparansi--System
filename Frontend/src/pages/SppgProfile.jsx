@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Loader2, RefreshCcw } from 'lucide-react'
-import { getSppgDetail } from '../services/api.js'
+import { Edit3, Loader2, RefreshCcw, Save, X } from 'lucide-react'
+import { getSppgDetail, updateMySppgProfile } from '../services/api.js'
+import useAuthStore from '../store/authStore.js'
 import './SppgOperational.css'
 
 function formatNumber(value) {
@@ -10,9 +11,31 @@ function formatNumber(value) {
 
 function SppgProfile({ user }) {
   const sppgId = user?.sppgId || user?.sppg_id || ''
+  const can = useAuthStore((state) => state.can)
+  const canUpdateAccount = can('account.update')
   const [profile, setProfile] = useState(null)
+  const [form, setForm] = useState({
+    name: '',
+    address: '',
+    workers: '',
+    picName: '',
+    picPhone: '',
+  })
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState(false)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
+  const syncForm = useCallback((value) => {
+    setForm({
+      name: value?.name || '',
+      address: value?.address || '',
+      workers: value?.workers ?? '',
+      picName: value?.picName || value?.pic_name || '',
+      picPhone: value?.picPhone || value?.pic_phone || '',
+    })
+  }, [])
 
   const fetchProfile = useCallback(async (signal) => {
     if (!sppgId) {
@@ -28,6 +51,7 @@ function SppgProfile({ user }) {
     try {
       const { data } = await getSppgDetail(sppgId, { signal })
       setProfile(data || null)
+      syncForm(data || null)
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
         setProfile(null)
@@ -36,7 +60,7 @@ function SppgProfile({ user }) {
     } finally {
       if (!signal?.aborted) setLoading(false)
     }
-  }, [sppgId])
+  }, [sppgId, syncForm])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -45,6 +69,51 @@ function SppgProfile({ user }) {
   }, [fetchProfile])
 
   const stats = profile?.stats || {}
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleCancelEdit = () => {
+    syncForm(profile)
+    setEditing(false)
+    setError('')
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    if (!canUpdateAccount) {
+      setError('Anda tidak memiliki akses untuk mengubah profil.')
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const { data } = await updateMySppgProfile({
+        name: form.name,
+        address: form.address || null,
+        workers: form.workers === '' ? null : Number(form.workers),
+        picName: form.picName || null,
+        picPhone: form.picPhone || null,
+      })
+      setProfile((current) => ({
+        ...(current || {}),
+        ...(data || {}),
+        stats: current?.stats || {},
+      }))
+      syncForm(data || null)
+      setEditing(false)
+      setMessage('Profil SPPG berhasil diperbarui.')
+    } catch (saveError) {
+      setError(saveError.message || 'Profil SPPG gagal diperbarui.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   return (
     <div className="sppg-op-page">
@@ -60,6 +129,7 @@ function SppgProfile({ user }) {
         </button>
       </header>
 
+      {message ? <div className="sppg-op-state">{message}</div> : null}
       {loading ? <div className="sppg-op-state"><Loader2 aria-hidden="true" /> Memuat profil...</div> : null}
       {error ? <div className="sppg-op-state sppg-op-error">{error}</div> : null}
       {!loading && !profile && !error ? <div className="sppg-op-empty">Profil SPPG belum tersedia dari backend.</div> : null}
@@ -67,22 +137,74 @@ function SppgProfile({ user }) {
       {profile ? (
         <>
           <section className="sppg-op-card">
-            <h2>{profile.name}</h2>
-            <span className="sppg-op-badge">{profile.status || 'status tidak tersedia'}</span>
-            <div className="sppg-op-list">
-              <article className="sppg-op-item">
-                <strong>Wilayah</strong>
-                <span>{profile.province || '-'} / {profile.city || '-'}</span>
-              </article>
-              <article className="sppg-op-item">
-                <strong>Alamat</strong>
-                <span>{profile.address || '-'}</span>
-              </article>
-              <article className="sppg-op-item">
-                <strong>Akun Login</strong>
-                <span>{user?.name || '-'} | {user?.email || '-'}</span>
-              </article>
+            <div className="sppg-op-section-head">
+              <div>
+                <h2>{profile.name}</h2>
+                <span className="sppg-op-badge">{profile.status || 'status tidak tersedia'}</span>
+              </div>
+              {canUpdateAccount && !editing ? (
+                <button className="sppg-op-btn sppg-op-btn-secondary" type="button" onClick={() => setEditing(true)}>
+                  <Edit3 aria-hidden="true" />
+                  Edit Profil
+                </button>
+              ) : null}
             </div>
+
+            {editing ? (
+              <form className="sppg-op-form" onSubmit={handleSubmit}>
+                <label className="sppg-op-field">
+                  <span>Nama SPPG</span>
+                  <input className="sppg-op-input" name="name" value={form.name} onChange={handleChange} required maxLength={255} />
+                </label>
+                <label className="sppg-op-field">
+                  <span>Alamat</span>
+                  <textarea className="sppg-op-textarea" name="address" value={form.address} onChange={handleChange} maxLength={500} />
+                </label>
+                <div className="sppg-op-inline-grid">
+                  <label className="sppg-op-field">
+                    <span>Jumlah Pekerja</span>
+                    <input className="sppg-op-input" type="number" min="0" name="workers" value={form.workers} onChange={handleChange} />
+                  </label>
+                  <label className="sppg-op-field">
+                    <span>Nama PIC</span>
+                    <input className="sppg-op-input" name="picName" value={form.picName} onChange={handleChange} maxLength={255} />
+                  </label>
+                  <label className="sppg-op-field">
+                    <span>Telepon PIC</span>
+                    <input className="sppg-op-input" name="picPhone" value={form.picPhone} onChange={handleChange} maxLength={50} />
+                  </label>
+                </div>
+                <div className="sppg-op-actions">
+                  <button className="sppg-op-btn" type="submit" disabled={saving}>
+                    {saving ? <Loader2 aria-hidden="true" /> : <Save aria-hidden="true" />}
+                    Simpan Profil
+                  </button>
+                  <button className="sppg-op-btn sppg-op-btn-secondary" type="button" onClick={handleCancelEdit} disabled={saving}>
+                    <X aria-hidden="true" />
+                    Batal
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="sppg-op-list">
+                <article className="sppg-op-item">
+                  <strong>Wilayah</strong>
+                  <span>{profile.province || '-'} / {profile.city || '-'}</span>
+                </article>
+                <article className="sppg-op-item">
+                  <strong>Alamat</strong>
+                  <span>{profile.address || '-'}</span>
+                </article>
+                <article className="sppg-op-item">
+                  <strong>PIC</strong>
+                  <span>{profile.picName || profile.pic?.name || '-'} | {profile.picPhone || profile.pic?.phone || '-'}</span>
+                </article>
+                <article className="sppg-op-item">
+                  <strong>Akun Login</strong>
+                  <span>{user?.name || '-'} | {user?.email || '-'}</span>
+                </article>
+              </div>
+            )}
           </section>
 
           <section className="sppg-op-card">

@@ -25,7 +25,7 @@ import SppgProfile from './pages/SppgProfile.jsx'
 import SppgSchools from './pages/SppgSchools.jsx'
 import UserManagement from './pages/UserManagement.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
-import { checkSessionRequest, logoutRequest } from './services/api.js'
+import { checkSessionRequest, getMePermissions, logoutRequest } from './services/api.js'
 import useAuthStore from './store/authStore.js'
 
 let sessionCheckPromise = null
@@ -63,6 +63,103 @@ const routeAccess = {
   '/override': ['admin'],
   '/api-monitoring': ['admin'],
   '/dapodik': ['admin'],
+  '/settings': ['admin'],
+}
+
+const routePermissions = {
+  '/dashboard': {
+    admin: 'admin.dashboard.view',
+    pemerintah: 'admin.dashboard.view',
+  },
+  '/peta': {
+    admin: 'admin.map.view',
+    pemerintah: 'admin.map.view',
+  },
+  '/analytics': {
+    admin: 'admin.analytics.view',
+    pemerintah: 'admin.analytics.view',
+  },
+  '/anggaran': {
+    admin: 'admin.budget.view',
+    pemerintah: 'admin.budget.view',
+  },
+  '/laporan-masyarakat': {
+    admin: 'admin.public_reports.view',
+    pemerintah: 'admin.public_reports.view',
+  },
+  '/anomaly': {
+    admin: 'admin.anomaly.view',
+    pemerintah: 'admin.anomaly.view',
+  },
+  '/audit-log': {
+    admin: 'admin.audit_log.view',
+    pemerintah: 'admin.audit_log.view',
+  },
+  '/export': {
+    admin: 'admin.export.view',
+    pemerintah: 'admin.export.view',
+  },
+  '/admin/sppg': {
+    admin: ['admin.sppg.manage', 'admin.master_sppg.manage'],
+  },
+  '/admin/schools': {
+    admin: ['admin.school.manage', 'admin.master_school.manage'],
+  },
+  '/sppg': {
+    admin: ['admin.sppg.manage', 'admin.master_sppg.manage'],
+  },
+  '/sekolah': {
+    admin: ['admin.school.manage', 'admin.master_school.manage'],
+  },
+  '/dapodik': {
+    admin: 'admin.dapodik.manage',
+  },
+  '/users': {
+    admin: 'admin.users.manage',
+  },
+  '/lock-unlock': {
+    admin: 'admin.lock_unlock.manage',
+  },
+  '/override': {
+    admin: 'admin.override.manage',
+  },
+  '/api-monitoring': {
+    admin: 'admin.api_monitoring.view',
+  },
+  '/settings': {
+    admin: 'admin.settings.manage',
+  },
+  '/distribusi': {
+    admin: 'distribution.view',
+    sppg: 'distribution.view',
+  },
+  '/sekolah-saluran': {
+    sppg: 'sppg.school_channel.view',
+  },
+  '/production-batches': {
+    admin: 'production.view',
+    sppg: 'production.view',
+  },
+  '/input-menu': {
+    sppg: 'daily_menu.create',
+  },
+  '/laporan-kendala': {
+    sppg: 'issue.view',
+  },
+  '/riwayat': {
+    sppg: 'distribution.view',
+    sekolah: 'distribution.view',
+  },
+  '/validasi': {
+    sekolah: 'distribution.view',
+  },
+  '/laporan-sekolah': {
+    sekolah: 'issue.view',
+  },
+  '/profil': {
+    sppg: 'account.view',
+    sekolah: 'account.view',
+  },
 }
 
 const legacyRouteRedirects = [
@@ -88,7 +185,10 @@ const legacyRouteRedirects = [
   ['/dashboard/users', '/users'],
   ['/dashboard/master-data', '/admin/sppg'],
   ['/admin/master-data', '/admin/sppg'],
+  ['/sppg', '/admin/sppg'],
+  ['/sekolah', '/admin/schools'],
   ['/dashboard/lock-data', '/lock-unlock'],
+  ['/dashboard/settings', '/settings'],
   ['/dashboard/override', '/override'],
   ['/dashboard/api-monitoring', '/api-monitoring'],
   ['/admin/audit-logs', '/audit-log'],
@@ -109,7 +209,43 @@ function getUserName(user) {
 }
 
 function normalizeRole(role) {
-  return String(role || '').toLowerCase()
+  const normalized = String(role || '').toLowerCase()
+  return normalized === 'gov' ? 'pemerintah' : normalized
+}
+
+function normalizePermissionRequirement(requirement) {
+  if (!requirement) return []
+  return Array.isArray(requirement) ? requirement.filter(Boolean) : [requirement]
+}
+
+function hasAnyPermission(permissions, requirement) {
+  const requiredPermissions = normalizePermissionRequirement(requirement)
+  if (!requiredPermissions.length) return true
+  return requiredPermissions.some((permissionKey) => permissions.includes(permissionKey))
+}
+
+function getRouteRequiredPermissions(pathname, role) {
+  const matchedPath = Object.keys(routePermissions)
+    .sort((first, second) => second.length - first.length)
+    .find((path) => pathname === path || pathname.startsWith(`${path}/`))
+
+  if (!matchedPath) return []
+  return normalizePermissionRequirement(routePermissions[matchedPath]?.[role])
+}
+
+async function loadEffectivePermissions() {
+  const { setPermissions, setPermissionsLoading } = useAuthStore.getState()
+  setPermissionsLoading(true)
+
+  try {
+    const payload = await getMePermissions()
+    const data = payload?.data || payload || {}
+    setPermissions(data.effectivePermissions || data.permissions || [])
+  } catch {
+    setPermissions([])
+  } finally {
+    setPermissionsLoading(false)
+  }
 }
 
 function RouteFallback() {
@@ -120,10 +256,33 @@ function RouteFallback() {
   )
 }
 
+function AccessDenied({ requiredPermissions = [] }) {
+  return (
+    <section className="app-access-denied" aria-labelledby="access-denied-title">
+      <p className="app-access-denied-code">403</p>
+      <h1 id="access-denied-title">Akses Ditolak</h1>
+      <p>Anda tidak memiliki akses untuk membuka halaman ini.</p>
+      {requiredPermissions.length ? (
+        <small>Permission dibutuhkan: {requiredPermissions.join(', ')}</small>
+      ) : null}
+    </section>
+  )
+}
+
 function ProtectedRoute({ allowedRoles, children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, token, isAuthenticated, isRefreshingSession, isSessionChecked, logout } = useAuthStore()
+  const {
+    user,
+    token,
+    permissions,
+    permissionsLoaded,
+    permissionsLoading,
+    isAuthenticated,
+    isRefreshingSession,
+    isSessionChecked,
+    logout,
+  } = useAuthStore()
   const role = normalizeRole(user?.role)
   const authenticated = Boolean(isAuthenticated && user && token)
 
@@ -137,6 +296,13 @@ function ProtectedRoute({ allowedRoles, children }) {
 
   if (!allowedRoles?.includes(role)) {
     return <Navigate to="/dashboard" replace />
+  }
+
+  const requiredPermissions = getRouteRequiredPermissions(location.pathname, role)
+  const needsPermissionCheck = requiredPermissions.length > 0
+
+  if (needsPermissionCheck && (!permissionsLoaded || permissionsLoading)) {
+    return <RouteFallback />
   }
 
   const handleLogout = async () => {
@@ -159,6 +325,23 @@ function ProtectedRoute({ allowedRoles, children }) {
     token,
     user,
     onLogout: handleLogout,
+  }
+
+  const hasRoutePermission = hasAnyPermission(permissions, requiredPermissions)
+
+  if (!hasRoutePermission) {
+    return (
+      <DashboardLayout
+        userRole={routeProps.userRole}
+        userName={routeProps.userName}
+        userId={routeProps.userId}
+        currentPath={routeProps.currentPath}
+        notifCount={routeProps.notifCount}
+        onLogout={routeProps.onLogout}
+      >
+        <AccessDenied requiredPermissions={requiredPermissions} />
+      </DashboardLayout>
+    )
   }
 
   const page = typeof children === 'function' ? children(routeProps) : children
@@ -192,8 +375,9 @@ function LoginRoute() {
     return <Navigate to="/dashboard" replace />
   }
 
-  const handleLoginSuccess = (userData, accessToken) => {
+  const handleLoginSuccess = async (userData, accessToken) => {
     login(userData, accessToken)
+    await loadEffectivePermissions()
     navigate(location.state?.from || '/dashboard', { replace: true })
   }
 
@@ -243,6 +427,7 @@ function AppRoutes() {
 
         if (data.authenticated && data.user && data.accessToken) {
           login(data.user, data.accessToken)
+          await loadEffectivePermissions()
         } else {
           logout()
         }
@@ -464,6 +649,21 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoute allowedRoles={routeAccess['/settings']}>
+            {() => (
+              <section className="app-settings-page">
+                <p className="app-settings-eyebrow">Admin</p>
+                <h1>Pengaturan Sistem</h1>
+                <p>Belum ada panel pengaturan aktif.</p>
+              </section>
+            )}
+          </ProtectedRoute>
+        }
+      />
+
       <Route
         path="/api-monitoring"
         element={

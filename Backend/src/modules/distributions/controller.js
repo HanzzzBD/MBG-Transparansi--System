@@ -83,6 +83,23 @@ const updateDistribution = async (req, res, next) => {
   }
 };
 
+const markDistributionSent = async (req, res, next) => {
+  try {
+    const result = await distributionService.markDistributionSent({
+      id: req.params.id,
+      user: req.user,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const lockDistribution = async (req, res, next) => {
   try {
     const result = await adminService.lockDistribution({
@@ -147,6 +164,7 @@ module.exports = {
   getLockSummary,
   listDistributions,
   lockDistribution,
+  markDistributionSent,
   overrideDistribution,
   unlockDistribution,
   updateDistribution

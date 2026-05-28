@@ -115,7 +115,7 @@ function Login({ onLoginSuccess }) {
         throw new Error('Akun ini tidak aktif. Hubungi administrator.')
       }
 
-      onLoginSuccess?.(result.user, result.accessToken)
+      await onLoginSuccess?.(result.user, result.accessToken)
 
       if (!onLoginSuccess) {
         navigate('/dashboard', { replace: true })

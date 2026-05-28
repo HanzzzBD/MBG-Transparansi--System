@@ -36,7 +36,7 @@ const USER_ROLES = [
   {
     value: "pemerintah",
     label: "Pemerintah",
-    description: "Akses monitoring, analytics, audit operasional, dan laporan."
+    description: "Akses monitoring pemerintah, analytics, audit operasional, dan laporan."
   },
   {
     value: "sppg",

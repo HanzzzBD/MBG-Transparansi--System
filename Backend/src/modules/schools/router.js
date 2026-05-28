@@ -6,9 +6,11 @@ const {
   listDeletedSchoolsSchema,
   listSchoolsSchema,
   schoolIdParamsSchema,
+  updateMySchoolProfileSchema,
   updateSchoolSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
+const { requirePermission } = require("../../middlewares/permissions");
 const { authorize } = require("../../middlewares/rbac");
 const { validateRequest } = require("../../middlewares/validateRequest");
 
@@ -22,6 +24,13 @@ router.get(
   authorize("admin"),
   validateRequest(listDeletedSchoolsSchema),
   controller.listDeletedSchools
+);
+router.patch(
+  "/me/profile",
+  authorize("sekolah"),
+  requirePermission("account.update"),
+  validateRequest(updateMySchoolProfileSchema),
+  controller.updateMySchoolProfile
 );
 router.get(
   "/:id",

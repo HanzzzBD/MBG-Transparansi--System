@@ -16,8 +16,10 @@ import DashboardLayout from '../layouts/DashboardLayout.jsx'
 import {
   apiRequest as requestJson,
   getAssignedSppgSchools,
+  getMenus,
   getMyRegionPriceThreshold,
   isAbortError,
+  markDistributionSent,
 } from '../services/api'
 import {
   getDeliveryStatusLabel,
@@ -25,6 +27,7 @@ import {
   getDistributionValidationStatus,
   getValidationStatusLabel,
 } from '../utils/distributionStatus.js'
+import useAuthStore from '../store/authStore.js'
 import { rankBySearch } from '../utils/search.js'
 import './Distribusi.css'
 
@@ -40,12 +43,16 @@ const TABS = [
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Semua' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'pending', label: 'Menunggu Kirim' },
   { value: 'in_progress', label: 'Proses' },
+  { value: 'sent', label: 'Terkirim' },
   { value: 'delivered', label: 'Terkirim' },
   { value: 'failed', label: 'Gagal' },
 ]
 
 const initialFormData = {
+  menuId: '',
   schoolId: '',
   productionBatchId: '',
   portions: '',
@@ -71,9 +78,13 @@ function normalizeDistribution(item) {
   const portions = Number(item.portions ?? 0)
   const schoolName = item.schoolName || item.school?.name || '-'
   const proofList = Array.isArray(item.proofs) ? item.proofs : []
+  const menu = item.menu || null
 
   return {
     id: item.id,
+    menuId: item.menuId ?? item.menu_id ?? menu?.id,
+    menuName: menu?.menuName || menu?.menu_name || item.menuName || '-',
+    menuPriceValidationStatus: menu?.priceValidationStatus || menu?.price_validation_status || '',
     schoolId: item.schoolId ?? item.school_id ?? item.school?.id,
     schoolName,
     portions,
@@ -83,10 +94,21 @@ function normalizeDistribution(item) {
     deliveryStatus: getDistributionDeliveryStatus(item),
     validation: item.validation || null,
     distributionDate: item.distributionDate || item.distribution_date || TODAY,
+    sentAt: item.sentAt || item.sent_at || null,
     time: item.time || formatTime(item.distributionDate || item.createdAt),
     failureReason: item.failureReason || item.failure_reason || '',
     hasProof: item.hasProof ?? proofList.length > 0,
     proofUrl: item.proofUrl || proofList[0]?.file?.fileUrl || '',
+  }
+}
+
+function normalizeMenu(item) {
+  return {
+    id: item.id,
+    menuDate: item.menuDate || item.menu_date,
+    menuName: item.menuName || item.menu_name || '-',
+    manualPricePerPortion: Number(item.manualPricePerPortion ?? item.manual_price_per_portion ?? 0),
+    priceValidationStatus: item.priceValidationStatus || item.price_validation_status || 'PENDING_REVIEW',
   }
 }
 
@@ -152,12 +174,24 @@ function DeliveryStatusBadge({ status }) {
   return <span className={`distribusi-status distribusi-status-${status}`}>{getDeliveryStatusLabel(status)}</span>
 }
 
+function getMenuPriceStatusLabel(status) {
+  if (status === 'VERIFIED') return 'Harga terverifikasi'
+  if (status === 'MISMATCH') return 'Harga tidak sesuai'
+  if (status === 'PENDING_REVIEW') return 'Menunggu review harga'
+  return status || '-'
+}
+
+function canSendDistribution(item) {
+  return ['draft', 'pending', 'in_progress'].includes(item.deliveryStatus)
+}
+
 function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState(location.pathname.includes('/input') ? 'create' : 'today')
   const [distributions, setDistributions] = useState([])
   const [schools, setSchools] = useState([])
+  const [menus, setMenus] = useState([])
   const [productionBatches, setProductionBatches] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -178,9 +212,12 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
   const [setupError, setSetupError] = useState('')
   const [uploadErrors, setUploadErrors] = useState({})
   const fileInputRefs = useRef({})
+  const can = useAuthStore((state) => state.can)
 
   const sppgId = user?.sppgId || user?.sppg_id || ''
   const userName = authenticatedUserName || user?.name || user?.email || 'Petugas SPPG'
+  const canCreateDistribution = can('distribution.create')
+  const canMarkSent = can('distribution.mark_sent')
 
   const showToast = useCallback((type, message) => {
     setToast({ type, message })
@@ -263,6 +300,20 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
     }
   }, [sppgId])
 
+  const fetchMenus = useCallback(async (signal) => {
+    try {
+      const { data } = await getMenus({
+        ...(sppgId ? { sppgId } : {}),
+        limit: 100,
+      }, {
+        signal,
+      })
+      setMenus(Array.isArray(data) ? data.map(normalizeMenu) : [])
+    } catch (fetchError) {
+      if (!isAbortError(fetchError)) setMenus([])
+    }
+  }, [sppgId])
+
   const fetchProductionBatches = useCallback(async (signal) => {
     try {
       const { data } = await requestJson('/production-batches', {
@@ -295,6 +346,13 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
 
   useEffect(() => {
     const controller = new AbortController()
+    Promise.resolve().then(() => fetchMenus(controller.signal))
+
+    return () => controller.abort()
+  }, [fetchMenus])
+
+  useEffect(() => {
+    const controller = new AbortController()
     Promise.resolve().then(() => fetchProductionBatches(controller.signal))
 
     return () => controller.abort()
@@ -305,6 +363,16 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
       Object.values(uploadPreview).forEach((previewUrl) => URL.revokeObjectURL(previewUrl))
     }
   }, [uploadPreview])
+
+  useEffect(() => {
+    if (activeTab === 'create' && !canCreateDistribution) {
+      setActiveTab('today')
+    }
+  }, [activeTab, canCreateDistribution])
+
+  const visibleTabs = useMemo(() => (
+    TABS.filter((tab) => tab.value !== 'create' || canCreateDistribution)
+  ), [canCreateDistribution])
 
   const filteredDistributions = useMemo(() => {
     return statusFilter ? distributions.filter((item) => item.deliveryStatus === statusFilter) : distributions
@@ -327,17 +395,19 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
 
   const totalPortions = filteredDistributions.reduce((total, item) => total + item.portions, 0)
   const totalCost = filteredDistributions.reduce((total, item) => total + item.totalCost, 0)
-  const deliveredCount = filteredDistributions.filter((item) => item.deliveryStatus === 'delivered').length
+  const deliveredCount = filteredDistributions.filter((item) => ['sent', 'delivered'].includes(item.deliveryStatus)).length
   const respondedCount = filteredDistributions.filter((item) => item.status !== 'pending').length
   const previewTotal = (Number(formData.portions) || 0) * (Number(formData.pricePerPortion) || 0)
   const priceWarning = priceThreshold !== null && Number(formData.pricePerPortion) > priceThreshold
   const selectedBatch = productionBatches.find((batch) => String(batch.id) === String(formData.productionBatchId))
+  const selectedMenu = menus.find((menu) => String(menu.id) === String(formData.menuId))
 
   const validateForm = () => {
     const nextErrors = {}
     const portions = Number(formData.portions)
     const price = Number(formData.pricePerPortion)
 
+    if (!formData.menuId) nextErrors.menuId = 'Menu harian wajib dipilih.'
     if (!formData.schoolId) nextErrors.schoolId = 'Sekolah tujuan wajib dipilih.'
     if (!formData.portions) nextErrors.portions = 'Jumlah porsi wajib diisi.'
     if (formData.portions && (!Number.isFinite(portions) || portions <= 0)) nextErrors.portions = 'Jumlah porsi harus lebih dari 0.'
@@ -364,6 +434,15 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
         }
       }
 
+      if (name === 'menuId') {
+        const menu = menus.find((item) => String(item.id) === String(value))
+        return {
+          ...current,
+          menuId: value,
+          pricePerPortion: menu?.manualPricePerPortion ? String(menu.manualPricePerPortion) : current.pricePerPortion,
+        }
+      }
+
       return { ...current, [name]: value }
     })
     if (formErrors[name]) setFormErrors((current) => ({ ...current, [name]: '' }))
@@ -377,10 +456,15 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
 
   const handleCreateDistribution = async (event) => {
     event.preventDefault()
+    if (!canCreateDistribution) {
+      showToast('danger', 'Anda tidak memiliki akses untuk membuat distribusi.')
+      return
+    }
     if (!validateForm()) return
 
     const payload = {
       ...(sppgId ? { sppgId: Number(sppgId) } : {}),
+      menuId: Number(formData.menuId),
       schoolId: Number(formData.schoolId),
       ...(formData.productionBatchId ? { productionBatchId: Number(formData.productionBatchId) } : {}),
       portions: Number(formData.portions),
@@ -408,22 +492,28 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
   }
 
   const openDeliveredModal = (distribution) => {
+    if (!canMarkSent) {
+      showToast('danger', 'Anda tidak memiliki akses untuk menandai distribusi terkirim.')
+      return
+    }
     setSelectedDistribution(distribution)
     setModalOpen(true)
   }
 
   const handleConfirmDelivered = async () => {
     if (!selectedDistribution) return
+    if (!canMarkSent) {
+      showToast('danger', 'Anda tidak memiliki akses untuk menandai distribusi terkirim.')
+      return
+    }
     setSubmitLoading(`status-${selectedDistribution.id}`)
 
     try {
-      await requestJson(`/distributions/${selectedDistribution.id}`, {
-        method: 'PUT',
-        body: { status: 'delivered' },
-      })
+      const { data } = await markDistributionSent(selectedDistribution.id)
+      const updated = normalizeDistribution(data)
       setDistributions((current) => {
         return current.map((item) => (
-          item.id === selectedDistribution.id ? { ...item, deliveryStatus: 'delivered' } : item
+          item.id === selectedDistribution.id ? updated : item
         ))
       })
       setModalOpen(false)
@@ -522,6 +612,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
     const controller = new AbortController()
     fetchDistributions(controller.signal)
     fetchSchoolsAndThreshold(controller.signal)
+    fetchMenus(controller.signal)
     fetchProductionBatches(controller.signal)
   }
 
@@ -567,7 +658,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
         ) : null}
 
         <div className="distribusi-tabs" role="tablist" aria-label="Tab distribusi SPPG">
-          {TABS.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.value}
               className={`distribusi-tab ${activeTab === tab.value ? 'distribusi-tab-active' : ''}`}
@@ -611,6 +702,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                 <thead>
                   <tr>
                     <th>No</th>
+                    <th>Menu</th>
                     <th>Sekolah Tujuan</th>
                     <th>Porsi</th>
                     <th>Harga/Porsi</th>
@@ -623,7 +715,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                 <tbody>
                   {!loading && filteredDistributions.length === 0 ? (
                     <tr>
-                      <td colSpan={8}>
+                      <td colSpan={9}>
                         <div className="distribusi-empty-state">Belum ada data distribusi dari backend.</div>
                       </td>
                     </tr>
@@ -631,6 +723,10 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                   {filteredDistributions.map((item, index) => (
                     <tr key={item.id}>
                       <td>{index + 1}</td>
+                      <td>
+                        <strong>{item.menuName}</strong>
+                        <span>{getMenuPriceStatusLabel(item.menuPriceValidationStatus)}</span>
+                      </td>
                       <td>
                         <strong>{item.schoolName}</strong>
                         <span>{formatDate(item.distributionDate)} - {item.time}</span>
@@ -648,19 +744,27 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                       </td>
                       <td>
                         <div className="distribusi-action-row">
-                          {item.deliveryStatus === 'in_progress' ? (
+                          {canSendDistribution(item) ? (
                             <>
-                              <button className="distribusi-btn distribusi-btn-primary" type="button" onClick={() => openDeliveredModal(item)}>
-                                <CheckCircle2 aria-hidden="true" />
-                                Tandai Terkirim
-                              </button>
+                              {canMarkSent ? (
+                                <button
+                                  className="distribusi-btn distribusi-btn-primary"
+                                  type="button"
+                                  disabled={item.menuPriceValidationStatus !== 'VERIFIED'}
+                                  title={item.menuPriceValidationStatus !== 'VERIFIED' ? 'Harga menu harus VERIFIED dulu' : undefined}
+                                  onClick={() => openDeliveredModal(item)}
+                                >
+                                  <CheckCircle2 aria-hidden="true" />
+                                  Tandai Terkirim
+                                </button>
+                              ) : null}
                               <button className="distribusi-btn distribusi-btn-secondary" type="button" onClick={() => handleUploadShortcut(item)}>
                                 <Camera aria-hidden="true" />
                                 Upload Foto
                               </button>
                             </>
                           ) : null}
-                          {item.deliveryStatus === 'delivered' ? (
+                          {['sent', 'delivered'].includes(item.deliveryStatus) ? (
                             <>
                               <span className="distribusi-delivered-label">Terkirim</span>
                               <button className="distribusi-btn distribusi-btn-secondary" type="button" onClick={() => handleUploadShortcut(item)}>
@@ -686,10 +790,29 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
           </section>
         ) : null}
 
-        {activeTab === 'create' ? (
+        {activeTab === 'create' && canCreateDistribution ? (
           <section className="distribusi-card">
             <form className="distribusi-form" onSubmit={handleCreateDistribution}>
               <div className="distribusi-form-grid">
+                <label className="distribusi-field distribusi-field-wide">
+                  <span className="distribusi-label">Menu Harian</span>
+                  <select className="distribusi-select" name="menuId" value={formData.menuId} onChange={handleFormChange}>
+                    <option value="">Pilih menu harian</option>
+                    {menus.map((menu) => (
+                      <option key={menu.id} value={menu.id}>
+                        {menu.menuName} - {formatDate(menu.menuDate)} - {getMenuPriceStatusLabel(menu.priceValidationStatus)}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.menuId ? <small className="distribusi-field-error">{formErrors.menuId}</small> : null}
+                  {!menus.length ? <small className="distribusi-helper">Belum ada menu harian. Buat menu harian dulu di halaman Menu Harian.</small> : null}
+                  {selectedMenu ? (
+                    <small className="distribusi-helper">
+                      Harga menu {formatRupiah(selectedMenu.manualPricePerPortion)}. Status: {getMenuPriceStatusLabel(selectedMenu.priceValidationStatus)}.
+                    </small>
+                  ) : null}
+                </label>
+
                 <label className="distribusi-field distribusi-field-wide">
                   <span className="distribusi-label">Cari Sekolah</span>
                   <span className="distribusi-search-wrap">
@@ -801,7 +924,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
               ) : null}
 
               <div className="distribusi-action-row">
-                <button className="distribusi-btn distribusi-btn-primary" type="submit" disabled={submitLoading === 'create' || schools.length === 0}>
+                <button className="distribusi-btn distribusi-btn-primary" type="submit" disabled={submitLoading === 'create' || schools.length === 0 || menus.length === 0}>
                   {submitLoading === 'create' ? <Loader2 aria-hidden="true" /> : <Save aria-hidden="true" />}
                   Simpan Distribusi
                 </button>

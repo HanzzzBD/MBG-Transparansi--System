@@ -1,5 +1,8 @@
 export const DELIVERY_STATUS_LABELS = {
+  draft: 'Draft',
+  pending: 'Menunggu Kirim',
   in_progress: 'Proses',
+  sent: 'Terkirim',
   delivered: 'Terkirim',
   failed: 'Gagal',
 }
@@ -35,5 +38,5 @@ export function getDistributionValidationStatus(item) {
 }
 
 export function getDistributionDeliveryStatus(item) {
-  return item?.deliveryStatus || item?.status || 'in_progress'
+  return item?.deliveryStatus || item?.status || 'pending'
 }

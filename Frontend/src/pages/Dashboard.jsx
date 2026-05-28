@@ -34,6 +34,7 @@ import {
 } from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
 import { getDashboardRoleSummary, isAbortError } from '../services/api'
+import useAuthStore from '../store/authStore.js'
 import { getStatusLabel } from '../utils/distributionStatus.js'
 import './Dashboard.css'
 
@@ -545,7 +546,7 @@ function renderNationalCharts(data) {
   )
 }
 
-function renderSppgTable(data) {
+function renderSppgTable(data, can) {
   const rows = getRecentRows(data, 'distributionsToday').slice(0, 5)
   const columns = [
     {
@@ -577,9 +578,11 @@ function renderSppgTable(data) {
       key: 'action',
       label: 'Aksi',
       render: (row) => (
-        <Link className="dashboard-action-btn" to={`/dashboard/distribusi/status?id=${row.id}`}>
-          Update Status
-        </Link>
+        can('distribution.mark_sent') ? (
+          <Link className="dashboard-action-btn" to={`/dashboard/distribusi/status?id=${row.id}`}>
+            Update Status
+          </Link>
+        ) : null
       ),
     },
   ]
@@ -587,7 +590,7 @@ function renderSppgTable(data) {
   return <DataTable columns={columns} rows={rows} emptyText="Belum ada distribusi aktif hari ini." />
 }
 
-function renderSchoolTable(data) {
+function renderSchoolTable(data, can) {
   const rows = getRecentRows(data, 'pendingValidations').slice(0, 5)
   const columns = [
     {
@@ -615,12 +618,16 @@ function renderSchoolTable(data) {
       label: 'Aksi',
       render: (row) => (
         <div className="dashboard-table-actions">
-          <Link className="dashboard-action-btn" to={`/dashboard/konfirmasi-distribusi?id=${row.id}`}>
-            Konfirmasi
-          </Link>
-          <Link className="dashboard-action-btn dashboard-action-secondary" to="/dashboard/laporan-sekolah">
-            Laporkan
-          </Link>
+          {can('distribution.confirm') ? (
+            <Link className="dashboard-action-btn" to={`/dashboard/konfirmasi-distribusi?id=${row.id}`}>
+              Konfirmasi
+            </Link>
+          ) : null}
+          {can('distribution.report_issue') ? (
+            <Link className="dashboard-action-btn dashboard-action-secondary" to="/dashboard/laporan-sekolah">
+              Laporkan
+            </Link>
+          ) : null}
         </div>
       ),
     },
@@ -690,6 +697,7 @@ function Dashboard({ userRole, userName, onLogout }) {
     dateFrom: defaultRange.dateFrom,
     dateTo: defaultRange.dateTo,
   })
+  const can = useAuthStore((state) => state.can)
 
   const isNationalRole = normalizedRole === 'pemerintah' || normalizedRole === 'admin'
 
@@ -895,8 +903,8 @@ function Dashboard({ userRole, userName, onLogout }) {
             </h2>
           </div>
           <div className="dashboard-table-card dashboard-fade-card">
-            {normalizedRole === 'sppg' ? renderSppgTable(dashboardData) : null}
-            {normalizedRole === 'sekolah' ? renderSchoolTable(dashboardData) : null}
+            {normalizedRole === 'sppg' ? renderSppgTable(dashboardData, can) : null}
+            {normalizedRole === 'sekolah' ? renderSchoolTable(dashboardData, can) : null}
             {isNationalRole ? renderNationalTable(dashboardData) : null}
           </div>
         </section>

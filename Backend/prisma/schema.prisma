@@ -9,9 +9,15 @@ datasource db {
 enum UserRole {
   admin
   pemerintah
+  gov
   sppg
   sekolah
   umum
+}
+
+enum PermissionEffect {
+  ALLOW
+  DENY
 }
 
 enum SppgStatus {
@@ -21,9 +27,18 @@ enum SppgStatus {
 }
 
 enum DistributionStatus {
+  draft
+  pending
   in_progress
+  sent
   delivered
   failed
+}
+
+enum MenuPriceValidationStatus {
+  PENDING_REVIEW
+  VERIFIED
+  MISMATCH
 }
 
 enum ValidationStatus {
@@ -129,13 +144,64 @@ model User {
   updatedPriceThresholds PriceThreshold[] @relation("PriceThresholdUpdater")
   updatedSystemConfigs   SystemConfig[]   @relation("SystemConfigUpdater")
   notifications          Notification[]   @relation("UserNotifications")
+  validatedMenuPrices    Menu[]           @relation("MenuPriceValidator")
   followedUpPublicReports PublicReport[]   @relation("PublicReportFollower")
   schoolAssignments      SppgSchoolAssignment[]
+  permissions            UserPermission[] @relation("UserPermissions")
+  grantedPermissions     UserPermission[] @relation("PermissionGrantor")
 
   @@index([deletedAt], map: "idx_users_deleted_at")
   @@index([sppgId], map: "idx_users_sppg")
   @@index([schoolId], map: "idx_users_school")
   @@map("users")
+}
+
+model Permission {
+  id              Int              @id @default(autoincrement())
+  key             String           @unique
+  name            String
+  description     String?
+  group           String?
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  role         UserRole
+  permissionId Int        @map("permission_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([role, permissionId], map: "role_permissions_role_permission_id_key")
+  @@index([role], map: "idx_role_permissions_role")
+  @@index([permissionId], map: "idx_role_permissions_permission")
+  @@map("role_permissions")
+}
+
+model UserPermission {
+  id           Int              @id @default(autoincrement())
+  userId       Int              @map("user_id")
+  permissionId Int              @map("permission_id")
+  effect       PermissionEffect
+  grantedBy    Int?             @map("granted_by")
+  reason       String?
+  createdAt    DateTime         @default(now()) @map("created_at")
+  updatedAt    DateTime         @updatedAt @map("updated_at")
+  user         User             @relation("UserPermissions", fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission       @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  grantor      User?            @relation("PermissionGrantor", fields: [grantedBy], references: [id], onDelete: SetNull)
+
+  @@unique([userId, permissionId], map: "user_permissions_user_permission_id_key")
+  @@index([userId], map: "idx_user_permissions_user")
+  @@index([permissionId], map: "idx_user_permissions_permission")
+  @@index([grantedBy], map: "idx_user_permissions_granted_by")
+  @@map("user_permissions")
 }
 
 model UserSession {
@@ -393,6 +459,7 @@ model Distribution {
   id               Int                @id @default(autoincrement())
   sppgId           Int                @map("sppg_id")
   schoolId         Int                @map("school_id")
+  menuId           Int?               @map("menu_id")
   productionBatchId Int?              @map("production_batch_id")
   portions         Int
   pricePerPortion  Decimal            @map("price_per_portion") @db.Decimal(10, 2)
@@ -400,6 +467,7 @@ model Distribution {
   totalCost        Decimal            @default(dbgenerated()) @map("total_cost") @db.Decimal(12, 2)
   distributionDate DateTime           @map("distribution_date") @db.Date
   status           DistributionStatus @default(in_progress)
+  sentAt           DateTime?          @map("sent_at")
   failureReason    String?            @map("failure_reason")
   isLocked         Boolean            @default(false) @map("is_locked")
   unlockedUntil    DateTime?          @map("unlocked_until")
@@ -407,6 +475,7 @@ model Distribution {
   updatedAt        DateTime           @updatedAt @map("updated_at")
   sppg             Sppg               @relation(fields: [sppgId], references: [id], onDelete: Restrict)
   school           School             @relation(fields: [schoolId], references: [id], onDelete: Restrict)
+  menu             Menu?              @relation(fields: [menuId], references: [id], onDelete: SetNull)
   productionBatch  ProductionBatch?    @relation(fields: [productionBatchId], references: [id], onDelete: SetNull)
   validation       Validation?        @relation("DistributionValidation")
   proofs           Proof[]
@@ -415,6 +484,7 @@ model Distribution {
 
   @@index([sppgId], map: "idx_distributions_sppg")
   @@index([schoolId], map: "idx_distributions_school")
+  @@index([menuId], map: "idx_distributions_menu")
   @@index([productionBatchId], map: "idx_distributions_production_batch")
   @@index([distributionDate], map: "idx_distributions_date")
   @@index([status], map: "idx_distributions_status")
@@ -442,21 +512,33 @@ model Validation {
 }
 
 model Menu {
-  id         Int      @id @default(autoincrement())
-  sppgId     Int      @map("sppg_id")
-  menuDate   DateTime @map("menu_date") @db.Date
-  menuName   String   @map("menu_name")
-  calories   Int?
-  proteinG   Int?     @map("protein_g")
-  carbsG     Int?     @map("carbs_g")
-  fatG       Int?     @map("fat_g")
-  deletedAt  DateTime? @map("deleted_at")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  sppg       Sppg     @relation(fields: [sppgId], references: [id], onDelete: Cascade)
+  id                       Int                       @id @default(autoincrement())
+  sppgId                   Int                       @map("sppg_id")
+  menuDate                 DateTime                  @map("menu_date") @db.Date
+  menuName                 String                    @map("menu_name")
+  items                    Json?
+  photoFileId              Int?                      @map("photo_file_id")
+  manualPricePerPortion    Decimal?                  @map("manual_price_per_portion") @db.Decimal(10, 2)
+  priceValidationStatus    MenuPriceValidationStatus @default(PENDING_REVIEW) @map("price_validation_status")
+  priceValidationNotes     String?                   @map("price_validation_notes")
+  priceValidatedAt         DateTime?                 @map("price_validated_at")
+  priceValidatedBy         Int?                      @map("price_validated_by")
+  calories                 Int?
+  proteinG                 Int?                      @map("protein_g")
+  carbsG                   Int?                      @map("carbs_g")
+  fatG                     Int?                      @map("fat_g")
+  deletedAt                DateTime?                 @map("deleted_at")
+  createdAt                DateTime                  @default(now()) @map("created_at")
+  updatedAt                DateTime                  @updatedAt @map("updated_at")
+  sppg                     Sppg                      @relation(fields: [sppgId], references: [id], onDelete: Cascade)
+  photoFile                File?                     @relation("MenuPhoto", fields: [photoFileId], references: [id], onDelete: SetNull)
+  priceValidator           User?                     @relation("MenuPriceValidator", fields: [priceValidatedBy], references: [id], onDelete: SetNull)
   productionBatches ProductionBatch[]
+  distributions     Distribution[]
 
   @@unique([sppgId, menuDate], map: "menus_sppg_id_menu_date_key")
+  @@index([photoFileId], map: "idx_menus_photo_file")
+  @@index([priceValidationStatus], map: "idx_menus_price_validation_status")
   @@index([deletedAt], map: "idx_menus_deleted_at")
   @@map("menus")
 }
@@ -641,6 +723,7 @@ model File {
   uploader     User       @relation("FileUploader", fields: [uploadedBy], references: [id])
   proofs       Proof[]
   exports      Export[]
+  menuPhotos   Menu[]     @relation("MenuPhoto")
 
   @@index([uploadedBy], map: "idx_files_uploaded_by")
   @@index([status], map: "idx_files_status")

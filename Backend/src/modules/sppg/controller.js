@@ -238,6 +238,23 @@ const updateSppg = async (req, res, next) => {
   }
 };
 
+const updateMySppgProfile = async (req, res, next) => {
+  try {
+    const result = await sppgService.updateMySppgProfile({
+      payload: req.body,
+      user: req.user,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const deleteSppg = async (req, res, next) => {
   try {
     const result = await sppgService.deleteSppg({
@@ -288,5 +305,6 @@ module.exports = {
   restoreSppg,
   unassignAdminSppgSchool,
   unassignMySchool,
+  updateMySppgProfile,
   updateSppg
 };

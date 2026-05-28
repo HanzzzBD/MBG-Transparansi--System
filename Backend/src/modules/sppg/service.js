@@ -1480,6 +1480,16 @@ const updateSppg = async ({ id, payload, actorUserId, ipAddress }) => {
   };
 };
 
+const updateMySppgProfile = async ({ payload, user, ipAddress }) => {
+  const sppgId = requireSppgScope(user);
+  return updateSppg({
+    id: sppgId,
+    payload,
+    actorUserId: user.userId,
+    ipAddress
+  });
+};
+
 const deleteSppg = async ({ id, actorUserId, ipAddress }) => {
   const existing = await getActiveSppgById(id);
 
@@ -1563,5 +1573,6 @@ module.exports = {
   listSppg,
   restoreSppg,
   unassignSchoolFromSppg,
+  updateMySppgProfile,
   updateSppg
 };

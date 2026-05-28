@@ -6,14 +6,44 @@ const { buildPaginationMeta, parsePagination } = require("../../utils/pagination
 
 const prisma = getPrismaClient();
 
-const buildMenuWhere = (query = {}) => ({
-  deletedAt: null,
-  sppg: {
-    deletedAt: null
-  },
-  ...(query.sppgId ? { sppgId: Number(query.sppgId) } : {}),
-  ...(query.date ? { menuDate: new Date(query.date) } : {})
-});
+const menuInclude = {
+  sppg: true,
+  photoFile: true,
+  priceValidator: {
+    select: {
+      id: true,
+      name: true,
+      email: true
+    }
+  }
+};
+
+const decorateMenu = (menu) => menu
+  ? {
+      ...menu,
+      manualPricePerPortion: menu.manualPricePerPortion === null || menu.manualPricePerPortion === undefined
+        ? menu.manualPricePerPortion
+        : Number(menu.manualPricePerPortion)
+    }
+  : menu;
+
+const buildMenuWhere = ({ query = {}, user } = {}) => {
+  const where = {
+    deletedAt: null,
+    sppg: {
+      deletedAt: null
+    },
+    ...(query.sppgId ? { sppgId: Number(query.sppgId) } : {}),
+    ...(query.date ? { menuDate: new Date(query.date) } : {}),
+    ...(query.priceValidationStatus ? { priceValidationStatus: query.priceValidationStatus } : {})
+  };
+
+  if (user?.role === "sppg") {
+    where.sppgId = requireSppgScope(user);
+  }
+
+  return where;
+};
 
 const getActiveSppg = async (id) => {
   const sppg = await prisma.sppg.findFirst({
@@ -42,9 +72,7 @@ const getActiveMenuById = async (id) => {
         deletedAt: null
       }
     },
-    include: {
-      sppg: true
-    }
+    include: menuInclude
   });
 
   if (!menu) {
@@ -54,16 +82,14 @@ const getActiveMenuById = async (id) => {
   return menu;
 };
 
-const listMenus = async ({ query }) => {
+const listMenus = async ({ query, user }) => {
   const pagination = parsePagination(query);
-  const where = buildMenuWhere(query);
+  const where = buildMenuWhere({ query, user });
 
   const [items, total] = await Promise.all([
     prisma.menu.findMany({
       where,
-      include: {
-        sppg: true
-      },
+      include: menuInclude,
       skip: pagination.skip,
       take: pagination.limit,
       orderBy: [{ menuDate: "desc" }, { createdAt: "desc" }]
@@ -72,7 +98,7 @@ const listMenus = async ({ query }) => {
   ]);
 
   return {
-    data: items,
+    data: items.map(decorateMenu),
     meta: buildPaginationMeta({
       page: pagination.page,
       limit: pagination.limit,
@@ -100,14 +126,19 @@ const createMenu = async ({ payload, user, ipAddress }) => {
         sppgId: targetSppgId,
         menuDate: new Date(payload.menuDate),
         menuName: payload.menuName.trim(),
+        items: payload.items || [],
+        photoFileId: payload.photoFileId ?? null,
+        manualPricePerPortion: payload.manualPricePerPortion ?? null,
+        priceValidationStatus: "PENDING_REVIEW",
+        priceValidationNotes: null,
+        priceValidatedAt: null,
+        priceValidatedBy: null,
         calories: payload.calories ?? null,
         proteinG: payload.proteinG ?? null,
         carbsG: payload.carbsG ?? null,
         fatG: payload.fatG ?? null
       },
-      include: {
-        sppg: true
-      }
+      include: menuInclude
     });
 
     await createAuditLog({
@@ -124,7 +155,7 @@ const createMenu = async ({ payload, user, ipAddress }) => {
   });
 
   return {
-    data: menu
+    data: decorateMenu(menu)
   };
 };
 
@@ -152,14 +183,23 @@ const updateMenu = async ({ id, payload, user, ipAddress }) => {
         ...(payload.sppgId !== undefined ? { sppgId: payload.sppgId } : {}),
         ...(payload.menuDate !== undefined ? { menuDate: new Date(payload.menuDate) } : {}),
         ...(payload.menuName !== undefined ? { menuName: payload.menuName.trim() } : {}),
+        ...(payload.items !== undefined ? { items: payload.items || [] } : {}),
+        ...(payload.photoFileId !== undefined ? { photoFileId: payload.photoFileId } : {}),
+        ...(payload.manualPricePerPortion !== undefined
+          ? {
+              manualPricePerPortion: payload.manualPricePerPortion,
+              priceValidationStatus: "PENDING_REVIEW",
+              priceValidationNotes: null,
+              priceValidatedAt: null,
+              priceValidatedBy: null
+            }
+          : {}),
         ...(payload.calories !== undefined ? { calories: payload.calories } : {}),
         ...(payload.proteinG !== undefined ? { proteinG: payload.proteinG } : {}),
         ...(payload.carbsG !== undefined ? { carbsG: payload.carbsG } : {}),
         ...(payload.fatG !== undefined ? { fatG: payload.fatG } : {})
       },
-      include: {
-        sppg: true
-      }
+      include: menuInclude
     });
 
     await createAuditLog({
@@ -177,7 +217,47 @@ const updateMenu = async ({ id, payload, user, ipAddress }) => {
   });
 
   return {
-    data: menu
+    data: decorateMenu(menu)
+  };
+};
+
+const validateMenuPrice = async ({ id, payload, user, ipAddress }) => {
+  const existing = await getActiveMenuById(id);
+
+  if (user.role === "sppg") {
+    assertSppgOwnership(user, existing.sppgId);
+  }
+
+  const menu = await prisma.$transaction(async (tx) => {
+    const updated = await tx.menu.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        priceValidationStatus: payload.status,
+        priceValidationNotes: payload.notes?.trim() || null,
+        priceValidatedAt: new Date(),
+        priceValidatedBy: user.userId
+      },
+      include: menuInclude
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: user.userId,
+      action: "UPDATE",
+      tableName: "menus",
+      recordId: updated.id,
+      oldData: existing,
+      newData: updated,
+      ipAddress
+    });
+
+    return updated;
+  });
+
+  return {
+    data: decorateMenu(menu)
   };
 };
 
@@ -220,5 +300,6 @@ module.exports = {
   createMenu,
   deleteMenu,
   listMenus,
-  updateMenu
+  updateMenu,
+  validateMenuPrice
 };

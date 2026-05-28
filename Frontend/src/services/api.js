@@ -280,6 +280,8 @@ export const checkSessionRequest = () =>
 
 export const getCurrentUser = () => apiRequest('/auth/me')
 
+export const getMePermissions = (options = {}) => apiRequest('/me/permissions', options)
+
 export const logoutRequest = () =>
   apiRequest('/auth/logout', {
     method: 'POST',
@@ -294,6 +296,7 @@ export const getGlobalSearch = (params, options = {}) => apiRequest('/search', {
 const DASHBOARD_SUMMARY_ENDPOINTS = {
   admin: '/dashboard/admin-summary',
   pemerintah: '/dashboard/gov-summary',
+  gov: '/dashboard/gov-summary',
   sppg: '/dashboard/sppg-summary',
   sekolah: '/dashboard/school-summary',
 }
@@ -348,6 +351,20 @@ export const assignMySppgSchools = (payload, options = {}) =>
 
 export const unassignMySppgSchool = (assignmentId, payload = {}, options = {}) =>
   apiRequest(`/sppg/me/schools/${assignmentId}/unassign`, {
+    ...options,
+    method: 'PATCH',
+    body: payload,
+  })
+
+export const updateMySppgProfile = (payload, options = {}) =>
+  apiRequest('/sppg/me/profile', {
+    ...options,
+    method: 'PATCH',
+    body: payload,
+  })
+
+export const updateMySchoolProfile = (payload, options = {}) =>
+  apiRequest('/schools/me/profile', {
     ...options,
     method: 'PATCH',
     body: payload,
@@ -421,6 +438,11 @@ export const updateDistribution = (id, payload) =>
   apiRequest(`/distributions/${id}`, {
     method: 'PUT',
     body: payload,
+  })
+
+export const markDistributionSent = (id) =>
+  apiRequest(`/distributions/${id}/mark-sent`, {
+    method: 'POST',
   })
 
 export const getProductionBatches = (params, options = {}) => apiRequest('/production-batches', { ...options, params })
@@ -519,6 +541,33 @@ export const getUsers = (params, options = {}) => apiRequest('/users', { ...opti
 
 export const getRoles = (options = {}) => apiRequest('/roles', options)
 
+export const getPermissions = (options = {}) => apiRequest('/permissions', options)
+
+export const getUserPermissions = (id, options = {}) => apiRequest(`/users/${id}/permissions`, options)
+
+export const grantUserPermission = (id, payload) =>
+  apiRequest(`/users/${id}/permissions/grant`, {
+    method: 'POST',
+    body: payload,
+  })
+
+export const denyUserPermission = (id, payload) =>
+  apiRequest(`/users/${id}/permissions/deny`, {
+    method: 'POST',
+    body: payload,
+  })
+
+export const revokeUserPermission = (id, payload) =>
+  apiRequest(`/users/${id}/permissions/revoke`, {
+    method: 'POST',
+    body: payload,
+  })
+
+export const resetUserPermission = (id, permissionKey) =>
+  apiRequest(`/users/${id}/permissions/${encodeURIComponent(permissionKey)}`, {
+    method: 'DELETE',
+  })
+
 export const createUser = (payload) =>
   apiRequest('/users', {
     method: 'POST',
@@ -553,6 +602,12 @@ export const getMyRegionPriceThreshold = (options = {}) => apiRequest('/price-th
 
 export const createMenu = (payload) =>
   apiRequest('/menus', {
+    method: 'POST',
+    body: payload,
+  })
+
+export const validateMenuPrice = (id, payload) =>
+  apiRequest(`/menus/${id}/price-validation`, {
     method: 'POST',
     body: payload,
   })

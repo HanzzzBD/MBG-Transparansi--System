@@ -320,6 +320,52 @@
   .border-default { border-color: rgba(255,255,255,0.20); }
 }
 
+.app-access-denied,
+.app-settings-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px;
+  color: #0f172a;
+}
+
+.app-access-denied {
+  min-height: 320px;
+  display: grid;
+  align-content: center;
+  gap: 12px;
+}
+
+.app-access-denied-code,
+.app-settings-eyebrow {
+  margin: 0;
+  color: #0071e4;
+  font-size: 0.85rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.app-access-denied h1,
+.app-settings-page h1 {
+  margin: 0;
+  color: #0f4c81;
+  font-size: 2rem;
+  letter-spacing: 0;
+}
+
+.app-access-denied p,
+.app-settings-page p {
+  margin: 0;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.app-access-denied small {
+  color: #94a3b8;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
 /* === REDUCED MOTION === */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

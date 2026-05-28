@@ -42,11 +42,13 @@ import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from '../services/api.js'
+import useAuthStore from '../store/authStore.js'
 import './DashboardLayout.css'
 
 const ROLE_LABELS = {
   admin: 'Admin',
   pemerintah: 'Pemerintah',
+  gov: 'Pemerintah',
   sppg: 'SPPG',
   sekolah: 'Sekolah',
 }
@@ -54,6 +56,7 @@ const ROLE_LABELS = {
 const ROLE_CLASSES = {
   admin: 'dashboard-role-admin',
   pemerintah: 'dashboard-role-pemerintah',
+  gov: 'dashboard-role-pemerintah',
   sppg: 'dashboard-role-sppg',
   sekolah: 'dashboard-role-sekolah',
 }
@@ -62,45 +65,49 @@ const dashboardMenu = {
   label: 'Dashboard',
   icon: LayoutDashboard,
   path: '/dashboard',
+  permissionByRole: {
+    admin: 'admin.dashboard.view',
+    pemerintah: 'admin.dashboard.view',
+  },
 }
 
 const sppgMenus = [
-  { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/input-menu' },
-  { label: 'Sekolah Saluran', icon: School, path: '/sekolah-saluran' },
-  { label: 'Input Porsi & Distribusi', icon: Package, path: '/distribusi' },
-  { label: 'Status Distribusi', icon: Truck, path: '/distribusi' },
-  { label: 'Lapor Kendala', icon: AlertTriangle, path: '/laporan-kendala' },
-  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat' },
-  { label: 'Profil SPPG', icon: Building2, path: '/profil' },
+  { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/input-menu', permission: 'daily_menu.create' },
+  { label: 'Sekolah Saluran', icon: School, path: '/sekolah-saluran', permission: 'sppg.school_channel.view' },
+  { label: 'Input Porsi & Distribusi', icon: Package, path: '/distribusi', permission: 'distribution.create' },
+  { label: 'Status Distribusi', icon: Truck, path: '/distribusi', permission: 'distribution.view' },
+  { label: 'Lapor Kendala', icon: AlertTriangle, path: '/laporan-kendala', permission: 'issue.view' },
+  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat', permission: 'distribution.view' },
+  { label: 'Profil SPPG', icon: Building2, path: '/profil', permission: 'account.view' },
 ]
 
 const sekolahMenus = [
-  { label: 'Konfirmasi Distribusi', icon: CheckSquare, path: '/validasi', badgeKey: 'notif' },
-  { label: 'Validasi Porsi & Kualitas', icon: ClipboardCheck, path: '/validasi' },
-  { label: 'Laporan Sekolah', icon: FileText, path: '/laporan-sekolah' },
-  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat' },
-  { label: 'Profil Sekolah', icon: School, path: '/profil' },
+  { label: 'Konfirmasi Distribusi', icon: CheckSquare, path: '/validasi', badgeKey: 'notif', permission: 'distribution.view' },
+  { label: 'Validasi Porsi & Kualitas', icon: ClipboardCheck, path: '/validasi', permission: 'distribution.view' },
+  { label: 'Laporan Sekolah', icon: FileText, path: '/laporan-sekolah', permission: 'issue.view' },
+  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat', permission: 'distribution.view' },
+  { label: 'Profil Sekolah', icon: School, path: '/profil', permission: 'account.view' },
 ]
 
 const pemerintahMenus = [
-  { label: 'Peta SPPG', icon: Map, path: '/peta' },
-  { label: 'Analitik Wilayah', icon: BarChart3, path: '/analytics' },
-  { label: 'Transparansi Anggaran', icon: Wallet, path: '/anggaran' },
-  { label: 'Laporan Masyarakat', icon: MessageSquare, path: '/laporan-masyarakat', badgeKey: 'notif' },
-  { label: 'Anomaly Detection', icon: Zap, path: '/anomaly' },
-  { label: 'Audit Log', icon: ClipboardList, path: '/audit-log' },
-  { label: 'Export Data', icon: Download, path: '/export' },
+  { label: 'Peta SPPG', icon: Map, path: '/peta', permission: 'admin.map.view' },
+  { label: 'Analitik Wilayah', icon: BarChart3, path: '/analytics', permission: 'admin.analytics.view' },
+  { label: 'Transparansi Anggaran', icon: Wallet, path: '/anggaran', permission: 'admin.budget.view' },
+  { label: 'Laporan Masyarakat', icon: MessageSquare, path: '/laporan-masyarakat', badgeKey: 'notif', permission: 'admin.public_reports.view' },
+  { label: 'Anomaly Detection', icon: Zap, path: '/anomaly', permission: 'admin.anomaly.view' },
+  { label: 'Audit Log', icon: ClipboardList, path: '/audit-log', permission: 'admin.audit_log.view' },
+  { label: 'Export Data', icon: Download, path: '/export', permission: 'admin.export.view' },
 ]
 
 const adminExtraMenus = [
-  { label: 'Master SPPG', icon: Building2, path: '/admin/sppg' },
-  { label: 'Master Sekolah', icon: School, path: '/admin/schools' },
-  { label: 'Import Dapodik', icon: Database, path: '/dapodik' },
-  { label: 'User & Role', icon: Users, path: '/users' },
-  { label: 'Lock / Unlock Data', icon: Lock, path: '/lock-unlock' },
-  { label: 'Override Data', icon: ShieldAlert, path: '/override' },
-  { label: 'API Monitoring', icon: Activity, path: '/api-monitoring' },
-  { label: 'Settings', icon: Settings, path: '/dashboard/settings' },
+  { label: 'Master SPPG', icon: Building2, path: '/admin/sppg', permissions: ['admin.sppg.manage', 'admin.master_sppg.manage'] },
+  { label: 'Master Sekolah', icon: School, path: '/admin/schools', permissions: ['admin.school.manage', 'admin.master_school.manage'] },
+  { label: 'Import Dapodik', icon: Database, path: '/dapodik', permission: 'admin.dapodik.manage' },
+  { label: 'User & Role', icon: Users, path: '/users', permission: 'admin.users.manage' },
+  { label: 'Lock / Unlock Data', icon: Lock, path: '/lock-unlock', permission: 'admin.lock_unlock.manage' },
+  { label: 'Override Data', icon: ShieldAlert, path: '/override', permission: 'admin.override.manage' },
+  { label: 'API Monitoring', icon: Activity, path: '/api-monitoring', permission: 'admin.api_monitoring.view' },
+  { label: 'Settings', icon: Settings, path: '/settings', permission: 'admin.settings.manage' },
 ]
 
 const SEARCH_GROUPS = [
@@ -178,6 +185,21 @@ function getRoleMenus(userRole) {
   if (userRole === 'pemerintah') return [dashboardMenu, ...pemerintahMenus]
   if (userRole === 'sekolah') return [dashboardMenu, ...sekolahMenus]
   return [dashboardMenu, ...sppgMenus]
+}
+
+function normalizePermissionRequirement(requirement) {
+  if (!requirement) return []
+  return Array.isArray(requirement) ? requirement.filter(Boolean) : [requirement]
+}
+
+function canAccessMenu(item, role, can, permissionsLoaded) {
+  if (!permissionsLoaded) return true
+
+  const roleRequirement = item.permissionByRole?.[role]
+  const requiredPermissions = normalizePermissionRequirement(roleRequirement || item.permissions || item.permission)
+  if (!requiredPermissions.length) return true
+
+  return requiredPermissions.some((permissionKey) => can(permissionKey))
 }
 
 function isMenuActive(pathname, itemPath) {
@@ -304,12 +326,17 @@ function DashboardLayout({
   const notifWrapRef = useRef(null)
   const userMenuRef = useRef(null)
   const isNestedLayout = useContext(DashboardLayoutContext)
+  const can = useAuthStore((state) => state.can)
+  const permissionsLoaded = useAuthStore((state) => state.permissionsLoaded)
   const normalizedRole = ROLE_LABELS[userRole] ? userRole : 'sppg'
   const pathname = currentPath || location.pathname
   const trimmedSearchQuery = searchQuery.trim()
   const notificationCacheKey = `${normalizedRole}:${userId || userName || 'anonymous'}`
 
-  const menus = useMemo(() => getRoleMenus(normalizedRole), [normalizedRole])
+  const menus = useMemo(
+    () => getRoleMenus(normalizedRole).filter((item) => canAccessMenu(item, normalizedRole, can, permissionsLoaded)),
+    [can, normalizedRole, permissionsLoaded],
+  )
   const activeMenu = useMemo(() => getActiveMenu(menus, pathname), [menus, pathname])
   const displayNotifCount = notificationState.unreadCount
 

@@ -14,9 +14,11 @@ const {
   mapMarkersSchema,
   sppgIdParamsSchema,
   unassignMySchoolSchema,
+  updateMySppgProfileSchema,
   updateSppgSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
+const { requirePermission } = require("../../middlewares/permissions");
 const { authorize } = require("../../middlewares/rbac");
 const { validateRequest } = require("../../middlewares/validateRequest");
 
@@ -41,6 +43,7 @@ router.get(
   "/me/dapodik-schools",
   authenticate,
   authorize("sppg"),
+  requirePermission("sppg.school_channel.view"),
   validateRequest(listMyDapodikSchoolsSchema),
   controller.listMyDapodikSchools
 );
@@ -48,6 +51,7 @@ router.post(
   "/me/schools/assign",
   authenticate,
   authorize("sppg"),
+  requirePermission("sppg.school_channel.manage"),
   validateRequest(assignMySchoolsSchema),
   controller.assignMySchools
 );
@@ -55,6 +59,7 @@ router.patch(
   "/me/schools/:assignmentId/unassign",
   authenticate,
   authorize("sppg"),
+  requirePermission("sppg.school_channel.manage"),
   validateRequest(unassignMySchoolSchema),
   controller.unassignMySchool
 );
@@ -62,8 +67,17 @@ router.get(
   "/me/schools",
   authenticate,
   authorize("sppg"),
+  requirePermission("sppg.school_channel.view"),
   validateRequest(listMySchoolsSchema),
   controller.listMySchools
+);
+router.patch(
+  "/me/profile",
+  authenticate,
+  authorize("sppg"),
+  requirePermission("account.update"),
+  validateRequest(updateMySppgProfileSchema),
+  controller.updateMySppgProfile
 );
 router.get(
   "/:id/schools",
