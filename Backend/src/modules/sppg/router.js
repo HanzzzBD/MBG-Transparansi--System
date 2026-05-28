@@ -14,15 +14,24 @@ const {
   mapMarkersSchema,
   sppgIdParamsSchema,
   unassignMySchoolSchema,
+  updateMySppgProfileSchema,
+  updateSppgStatusSchema,
   updateSppgSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
+const { requirePermission } = require("../../middlewares/permissions");
 const { authorize } = require("../../middlewares/rbac");
 const { validateRequest } = require("../../middlewares/validateRequest");
 
 const router = express.Router();
 
-router.get("/", validateRequest(listSppgSchema), controller.listSppg);
+router.get(
+  "/",
+  authenticate,
+  authorize("admin", "pemerintah", "sppg", "sekolah"),
+  validateRequest(listSppgSchema),
+  controller.listSppg
+);
 router.get(
   "/deleted",
   authenticate,
@@ -34,6 +43,7 @@ router.get(
   "/map-markers",
   authenticate,
   authorize("admin", "pemerintah", "sppg", "sekolah"),
+  requirePermission("sppg.status.read"),
   validateRequest(mapMarkersSchema),
   controller.listMapMarkers
 );
@@ -41,6 +51,7 @@ router.get(
   "/me/dapodik-schools",
   authenticate,
   authorize("sppg"),
+  requirePermission("sppg.school_channel.view"),
   validateRequest(listMyDapodikSchoolsSchema),
   controller.listMyDapodikSchools
 );
@@ -48,6 +59,7 @@ router.post(
   "/me/schools/assign",
   authenticate,
   authorize("sppg"),
+  requirePermission("sppg.school_channel.manage"),
   validateRequest(assignMySchoolsSchema),
   controller.assignMySchools
 );
@@ -55,6 +67,7 @@ router.patch(
   "/me/schools/:assignmentId/unassign",
   authenticate,
   authorize("sppg"),
+  requirePermission("sppg.school_channel.manage"),
   validateRequest(unassignMySchoolSchema),
   controller.unassignMySchool
 );
@@ -62,8 +75,17 @@ router.get(
   "/me/schools",
   authenticate,
   authorize("sppg"),
+  requirePermission("sppg.school_channel.view"),
   validateRequest(listMySchoolsSchema),
   controller.listMySchools
+);
+router.patch(
+  "/me/profile",
+  authenticate,
+  authorize("sppg"),
+  requirePermission("account.update"),
+  validateRequest(updateMySppgProfileSchema),
+  controller.updateMySppgProfile
 );
 router.get(
   "/:id/schools",
@@ -90,6 +112,7 @@ router.get(
   "/:id/detail",
   authenticate,
   authorize("admin", "pemerintah", "sppg", "sekolah"),
+  requirePermission("sppg.status.read"),
   validateRequest(sppgIdParamsSchema),
   controller.getSppgOperationalDetail
 );
@@ -97,11 +120,27 @@ router.get(
   "/:id",
   authenticate,
   authorize("sppg", "pemerintah", "admin"),
+  requirePermission("sppg.status.read"),
   validateRequest(sppgIdParamsSchema),
   controller.getSppgDetail
 );
 router.post("/", authenticate, authorize("admin"), validateRequest(createSppgSchema), controller.createSppg);
-router.put("/:id", authenticate, authorize("admin"), validateRequest(updateSppgSchema), controller.updateSppg);
+router.patch(
+  "/:id/status",
+  authenticate,
+  authorize("admin"),
+  requirePermission("sppg.status.update"),
+  validateRequest(updateSppgStatusSchema),
+  controller.updateSppgStatus
+);
+router.put(
+  "/:id",
+  authenticate,
+  authorize("admin"),
+  requirePermission("sppg.status.update"),
+  validateRequest(updateSppgSchema),
+  controller.updateSppg
+);
 router.patch("/:id/restore", authenticate, authorize("admin"), validateRequest(sppgIdParamsSchema), controller.restoreSppg);
 router.delete("/:id", authenticate, authorize("admin"), validateRequest(sppgIdParamsSchema), controller.deleteSppg);
 

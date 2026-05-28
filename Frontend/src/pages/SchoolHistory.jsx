@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, RefreshCcw } from 'lucide-react'
 import { getDistributions, getValidations, isAbortError } from '../services/api.js'
+import { getDistributionValidationStatus } from '../utils/distributionStatus.js'
 import './SppgOperational.css'
 
 function formatDate(value) {
@@ -16,7 +17,8 @@ function normalizeDistribution(item) {
     sppgName: item.sppg?.name || '-',
     distributionDate: item.distributionDate || item.distribution_date,
     portions: Number(item.portions || 0),
-    status: item.status,
+    status: getDistributionValidationStatus(item),
+    deliveryStatus: item.status,
   }
 }
 
@@ -102,7 +104,7 @@ function SchoolHistory() {
               <article className="sppg-op-item" key={distribution.id}>
                 <strong>{distribution.sppgName}</strong>
                 <span>{formatDate(distribution.distributionDate)} | {distribution.portions.toLocaleString('id-ID')} porsi</span>
-                <small>{distribution.status}</small>
+                <small>{distribution.status} | kirim: {distribution.deliveryStatus}</small>
               </article>
             ))}
           </div>

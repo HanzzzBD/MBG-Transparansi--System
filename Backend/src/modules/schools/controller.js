@@ -84,6 +84,23 @@ const updateSchool = async (req, res, next) => {
   }
 };
 
+const updateMySchoolProfile = async (req, res, next) => {
+  try {
+    const result = await schoolService.updateMySchoolProfile({
+      payload: req.body,
+      user: req.user,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result.data
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const deleteSchool = async (req, res, next) => {
   try {
     const result = await schoolService.deleteSchool({
@@ -125,5 +142,6 @@ module.exports = {
   listDeletedSchools,
   listSchools,
   restoreSchool,
+  updateMySchoolProfile,
   updateSchool
 };

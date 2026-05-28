@@ -197,6 +197,8 @@ const serializeDistributionRow = (distribution) => ({
   distribution_id: distribution.id,
   distribution_date: toDateString(distribution.distributionDate),
   status: distribution.status,
+  delivery_status: distribution.status,
+  confirmation_status: distribution.validation?.status ?? "pending",
   portions: distribution.portions,
   received_portions: distribution.validation?.receivedPortions ?? null,
   validation_status: distribution.validation?.status ?? "pending",
@@ -305,6 +307,7 @@ const serializeProductionBatchRow = ({ batch, mode }) => {
     operational_cost: toNumber(batch.operationalCost),
     packaging_cost: toNumber(batch.packagingCost),
     distribution_cost: toNumber(batch.distributionCost),
+    rent_cost: toNumber(batch.rentCost),
     notes: batch.notes ?? null
   };
 };

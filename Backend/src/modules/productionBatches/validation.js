@@ -28,6 +28,7 @@ const productionBatchBodySchema = z.object({
   operationalCost: z.coerce.number().nonnegative().optional().default(0),
   packagingCost: z.coerce.number().nonnegative().optional().default(0),
   distributionCost: z.coerce.number().nonnegative().optional().default(0),
+  rentCost: z.coerce.number().nonnegative().optional().default(0),
   notes: z.string().trim().max(2000).optional().nullable()
 });
 

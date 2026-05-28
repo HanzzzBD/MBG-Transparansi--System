@@ -7,6 +7,7 @@ const {
   myRegionPriceThresholdSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
+const { requirePermission } = require("../../middlewares/permissions");
 const { authorize } = require("../../middlewares/rbac");
 const { validateRequest } = require("../../middlewares/validateRequest");
 
@@ -29,6 +30,7 @@ router.get(
 router.post(
   "/generate-from-food-prices",
   authorize("admin"),
+  requirePermission("daily_menu.price.validate"),
   validateRequest(generatePriceThresholdsSchema),
   controller.generateFromFoodPrices
 );

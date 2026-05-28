@@ -7,8 +7,8 @@ const prisma = getPrismaClient();
 
 const DEMO_SPPG = {
   name: "SPPG Demo MBG",
-  province: "Prov. Jawa Barat",
-  city: "Kab. Bogor",
+  province: "JAWA BARAT",
+  city: "KABUPATEN BOGOR",
   address: "Jl. Demo MBG No. 1",
   lat: -6.595,
   lng: 106.816,
@@ -21,9 +21,9 @@ const DEMO_SPPG = {
 
 const DEMO_SCHOOL = {
   name: "SD Demo MBG",
-  province: "Prov. Jawa Barat",
-  city: "Kab. Bogor",
-  district: "Kec. Demo",
+  province: "JAWA BARAT",
+  city: "KABUPATEN BOGOR",
+  district: "DEMO",
   address: "Jl. Sekolah Demo MBG No. 1",
   totalStudents: 320,
   npsn: "99900099",

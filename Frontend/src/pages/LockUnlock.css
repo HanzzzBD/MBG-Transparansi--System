@@ -86,7 +86,7 @@
   gap: 8px 13px;
   align-items: center;
   border: 1px solid var(--color-sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--color-white);
   box-shadow: 0 18px 42px rgba(15, 76, 129, 0.08);
   padding: 17px;
@@ -139,7 +139,7 @@
 .lock-table-card,
 .lock-log-card {
   border: 1px solid var(--color-sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--color-white);
   box-shadow: 0 18px 42px rgba(15, 76, 129, 0.08);
   padding: 18px;
@@ -779,3 +779,4 @@
     display: grid;
   }
 }
+

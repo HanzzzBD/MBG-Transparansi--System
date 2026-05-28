@@ -14,6 +14,8 @@ import {
 } from 'lucide-react'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
 import { apiRequest as requestJson } from '../services/api'
+import useAuthStore from '../store/authStore.js'
+import { getValidationStatusLabel } from '../utils/distributionStatus.js'
 import './Konfirmasi.css'
 
 const PAGE_SIZE = 10
@@ -26,13 +28,6 @@ const REPORT_CATEGORIES = [
   { value: 'kualitas_makanan', label: 'Kualitas Makanan' },
   { value: 'lainnya', label: 'Lainnya' },
 ]
-
-const STATUS_LABELS = {
-  pending: 'PENDING',
-  verified: 'VERIFIED',
-  conflict: 'CONFLICT',
-  issue_reported: 'ISSUE REPORTED',
-}
 
 const initialFormData = {
   receivedPortions: '',
@@ -131,7 +126,7 @@ function validateFile(file) {
 }
 
 function StatusBadge({ status }) {
-  return <span className={`konfirmasi-status konfirmasi-status-${status}`}>{STATUS_LABELS[status] || status}</span>
+  return <span className={`konfirmasi-status konfirmasi-status-${status}`}>{getValidationStatusLabel(status).toUpperCase()}</span>
 }
 
 function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
@@ -152,9 +147,12 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
   const [formErrors, setFormErrors] = useState({})
   const [reportErrors, setReportErrors] = useState({})
   const [filePreview, setFilePreview] = useState('')
+  const can = useAuthStore((state) => state.can)
 
   const userName = authenticatedUserName || user?.name || user?.email || 'Petugas Sekolah'
   const schoolId = user?.schoolId || user?.school_id || selectedDistribusi?.schoolId || ''
+  const canConfirmDistribution = can('distribution.confirm')
+  const canReportIssue = can('distribution.report_issue')
 
   const showToast = useCallback((type, message) => {
     setToast({ type, message })
@@ -210,6 +208,10 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
     : false
 
   const selectForValidation = (item) => {
+    if (!canConfirmDistribution) {
+      showToast('danger', 'Anda tidak memiliki akses untuk mengonfirmasi distribusi.')
+      return
+    }
     setSelectedDistribusi(item)
     setShowReportForm(false)
     setFormErrors({})
@@ -224,6 +226,10 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
   }
 
   const openReportForm = (item) => {
+    if (!canReportIssue) {
+      showToast('danger', 'Anda tidak memiliki akses untuk melaporkan masalah distribusi.')
+      return
+    }
     setSelectedDistribusi(item)
     setShowReportForm(true)
     setReportErrors({})
@@ -285,6 +291,10 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
 
   const handleSubmitValidation = async (event) => {
     event.preventDefault()
+    if (!canConfirmDistribution) {
+      showToast('danger', 'Anda tidak memiliki akses untuk mengonfirmasi distribusi.')
+      return
+    }
     if (!selectedDistribusi || !validateConfirmation()) return
 
     const receivedPortions = Number(formData.receivedPortions)
@@ -336,6 +346,10 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
 
   const handleSubmitReport = async (event) => {
     event.preventDefault()
+    if (!canReportIssue) {
+      showToast('danger', 'Anda tidak memiliki akses untuk melaporkan masalah distribusi.')
+      return
+    }
     if (!selectedDistribusi || !validateReport()) return
 
     const message = reportData.message.trim()
@@ -446,14 +460,18 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
                         <strong>{item.claimedPortions.toLocaleString('id-ID')}</strong>
                       </div>
                       <div className="konfirmasi-actions">
-                        <button className="konfirmasi-btn konfirmasi-btn-success" type="button" onClick={() => selectForValidation(item)}>
-                          <ClipboardCheck aria-hidden="true" />
-                          Konfirmasi
-                        </button>
-                        <button className="konfirmasi-btn konfirmasi-btn-danger-outline" type="button" onClick={() => openReportForm(item)}>
-                          <FileWarning aria-hidden="true" />
-                          Laporkan Masalah
-                        </button>
+                        {canConfirmDistribution ? (
+                          <button className="konfirmasi-btn konfirmasi-btn-success" type="button" onClick={() => selectForValidation(item)}>
+                            <ClipboardCheck aria-hidden="true" />
+                            Konfirmasi
+                          </button>
+                        ) : null}
+                        {canReportIssue ? (
+                          <button className="konfirmasi-btn konfirmasi-btn-danger-outline" type="button" onClick={() => openReportForm(item)}>
+                            <FileWarning aria-hidden="true" />
+                            Laporkan Masalah
+                          </button>
+                        ) : null}
                       </div>
                     </article>
                   )
@@ -584,16 +602,21 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
                         </div>
                       ) : null}
 
-                      <button className="konfirmasi-btn konfirmasi-btn-success konfirmasi-full-btn" type="submit" disabled={submitLoading === 'validation'}>
-                        {submitLoading === 'validation' ? <Loader2 aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
-                        Konfirmasi Diterima
-                      </button>
-                      <button className="konfirmasi-btn konfirmasi-btn-danger-outline konfirmasi-full-btn" type="button" onClick={() => setShowReportForm(true)}>
-                        <MessageSquare aria-hidden="true" />
-                        Laporkan Masalah
-                      </button>
+                      {canConfirmDistribution ? (
+                        <button className="konfirmasi-btn konfirmasi-btn-success konfirmasi-full-btn" type="submit" disabled={submitLoading === 'validation'}>
+                          {submitLoading === 'validation' ? <Loader2 aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+                          Konfirmasi Diterima
+                        </button>
+                      ) : null}
+                      {canReportIssue ? (
+                        <button className="konfirmasi-btn konfirmasi-btn-danger-outline konfirmasi-full-btn" type="button" onClick={() => setShowReportForm(true)}>
+                          <MessageSquare aria-hidden="true" />
+                          Laporkan Masalah
+                        </button>
+                      ) : null}
                     </form>
                   ) : (
+                    canReportIssue ? (
                     <form className="konfirmasi-report-form" onSubmit={handleSubmitReport}>
                       <label className="konfirmasi-field">
                         <span className="konfirmasi-label">Kategori</span>
@@ -622,6 +645,9 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
                         Batal
                       </button>
                     </form>
+                    ) : (
+                      <div className="konfirmasi-empty-state">Anda tidak memiliki akses untuk membuat laporan masalah.</div>
+                    )
                   )}
                 </>
               ) : (

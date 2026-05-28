@@ -1,9 +1,13 @@
+const { normalizeCityName, normalizeProvinceName } = require("../../utils/region");
+
 const toDateOnly = (value) => {
   if (!value) return null;
   return new Date(value).toISOString().slice(0, 10);
 };
 
 const toNumber = (value) => Number(value) || 0;
+const PUBLIC_SPPG_STATUSES = new Set(["active", "inactive", "problem"]);
+const normalizePublicSppgStatus = (status) => (PUBLIC_SPPG_STATUSES.has(status) ? status : "active");
 
 const toNullableNumber = (value) => {
   if (value === null || value === undefined) {
@@ -32,16 +36,18 @@ const serializePublicDistribution = (distribution) => ({
   schoolName: distribution.school?.name || "-",
   portions: toNumber(distribution.portions),
   status: distribution.status,
+  deliveryStatus: distribution.status,
+  confirmationStatus: distribution.validation?.status || "pending",
   date: toDateOnly(distribution.distributionDate)
 });
 
 const serializePublicSppgMarker = ({ sppg, district = null }) => ({
   id: String(sppg.id),
   name: sppg.name,
-  province: sppg.province,
-  city: sppg.city,
+  province: normalizeProvinceName(sppg.province) || sppg.province,
+  city: normalizeCityName(sppg.city) || sppg.city,
   district,
-  status: sppg.status,
+  status: normalizePublicSppgStatus(sppg.status),
   lat: toNullableNumber(sppg.lat),
   lng: toNullableNumber(sppg.lng),
   capacity: toNumber(sppg.capacity)

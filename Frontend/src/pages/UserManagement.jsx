@@ -3,10 +3,15 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import {
   AlertTriangle,
+  Ban,
+  Check,
   Edit3,
+  KeyRound,
   Loader2,
   Plus,
+  RotateCcw,
   Search,
+  ShieldCheck,
   Trash2,
   UserCheck,
   Users,
@@ -16,10 +21,15 @@ import DashboardLayout from '../layouts/DashboardLayout.jsx'
 import {
   createUser as createUserRequest,
   deleteUser as deleteUserRequest,
+  denyUserPermission,
+  getPermissions,
   getRoles,
   getSchools,
   getSppg,
+  getUserPermissions,
   getUsers,
+  grantUserPermission,
+  resetUserPermission,
   updateUser as updateUserRequest,
   updateUserStatus,
 } from '../services/api'
@@ -42,6 +52,78 @@ const ROLE_COLORS = {
   sekolah: '#92400e',
   umum: '#6b7280',
 }
+const PERMISSION_GROUP_LABELS = {
+  admin: 'Admin',
+  daily_menu: 'Daily Menu',
+  production: 'Production',
+  distribution: 'Distribution',
+  issue: 'Issue',
+  audit: 'Audit',
+  user: 'User',
+  permission: 'Permission',
+}
+const PERMISSION_GROUP_ORDER = ['admin', 'daily_menu', 'production', 'distribution', 'issue', 'audit', 'user', 'permission']
+const SENSITIVE_PERMISSIONS = new Set([
+  'permission.grant',
+  'permission.revoke',
+  'permission.manage_role_default',
+  'admin.settings.manage',
+  'admin.users.manage',
+  'admin.override.manage',
+  'user.lock',
+  'user.unlock',
+])
+
+const ROLE_GRANTABLE_PERMISSION_KEYS = {
+  pemerintah: new Set([
+    'admin.dashboard.view',
+    'admin.map.view',
+    'admin.analytics.view',
+    'admin.budget.view',
+    'admin.public_reports.view',
+    'admin.anomaly.view',
+    'admin.audit_log.view',
+    'admin.export.view',
+    'audit.view',
+    'audit.export',
+    'distribution.view',
+    'production.view',
+    'issue.view',
+    'account.view',
+    'account.update',
+  ]),
+  sppg: new Set([
+    'daily_menu.view',
+    'daily_menu.create',
+    'daily_menu.update',
+    'daily_menu.price.validate',
+    'daily_menu.price.override',
+    'production.view',
+    'production.create',
+    'production.update',
+    'production.delete',
+    'distribution.view',
+    'distribution.create',
+    'distribution.mark_sent',
+    'sppg.school_channel.view',
+    'sppg.school_channel.manage',
+    'issue.view',
+    'account.view',
+    'account.update',
+  ]),
+  sekolah: new Set([
+    'distribution.view',
+    'distribution.confirm',
+    'distribution.report_issue',
+    'issue.view',
+    'account.view',
+    'account.update',
+  ]),
+  umum: new Set([
+    'account.view',
+    'account.update',
+  ]),
+}
 
 const emptyForm = {
   name: '',
@@ -52,6 +134,11 @@ const emptyForm = {
   isActive: true,
   sppgId: '',
   schoolId: '',
+}
+
+function normalizeRole(role) {
+  const normalized = String(role || 'umum').toLowerCase()
+  return normalized === 'gov' ? 'pemerintah' : normalized
 }
 
 function formatDateTime(value) {
@@ -72,7 +159,7 @@ function normalizeUser(item) {
     id: item.id,
     name: item.name || '-',
     email: item.email || '-',
-    role: item.role || 'umum',
+    role: normalizeRole(item.role),
     isActive: Boolean(item.isActive ?? item.is_active),
     lastLogin: item.lastLogin || item.last_login || item.lastLoginAt || null,
     sppgId: item.sppgId ?? item.sppg_id ?? item.sppg?.id ?? '',
@@ -80,6 +167,11 @@ function normalizeUser(item) {
     sppgName: item.sppgName || item.sppg?.name || '',
     schoolName: item.schoolName || item.school?.name || '',
   }
+}
+
+function normalizeRoleOptions(roles) {
+  return [...new Set((roles.length ? roles : DEFAULT_ROLES).map(normalizeRole))]
+    .filter((role) => DEFAULT_ROLES.includes(role))
 }
 
 function normalizeSppg(item) {
@@ -161,6 +253,54 @@ function getBackendErrorMessage(error) {
   return messages[0] || details?.formErrors?.[0] || error?.message || 'Validasi backend gagal.'
 }
 
+function normalizePermission(item) {
+  return {
+    id: item.id,
+    key: item.key,
+    name: item.name || item.key,
+    description: item.description || '',
+    group: item.group || 'other',
+  }
+}
+
+function normalizePermissionOverrideRows(rows) {
+  if (!Array.isArray(rows)) return []
+  return rows.map((row) => row.permissionKey || row.permission?.key).filter(Boolean)
+}
+
+function getPermissionSummaryKeys(summary) {
+  return new Set([
+    ...(summary?.rolePermissions || []),
+    ...(summary?.effectivePermissions || []),
+    ...normalizePermissionOverrideRows(summary?.userAllowPermissions),
+    ...normalizePermissionOverrideRows(summary?.userDenyPermissions),
+  ])
+}
+
+function canGrantPermissionToRole(permission, role, summary) {
+  const normalizedRole = normalizeRole(role)
+  if (normalizedRole === 'admin') return true
+
+  const grantableKeys = ROLE_GRANTABLE_PERMISSION_KEYS[normalizedRole] || new Set()
+  const summaryKeys = getPermissionSummaryKeys(summary)
+  return grantableKeys.has(permission.key) || summaryKeys.has(permission.key)
+}
+
+function getPermissionGroupLabel(group) {
+  return PERMISSION_GROUP_LABELS[group] || group || 'Other'
+}
+
+function sortPermissionGroups(groups) {
+  return [...new Set(groups)].sort((first, second) => {
+    const firstIndex = PERMISSION_GROUP_ORDER.indexOf(first)
+    const secondIndex = PERMISSION_GROUP_ORDER.indexOf(second)
+    if (firstIndex !== -1 || secondIndex !== -1) {
+      return (firstIndex === -1 ? 999 : firstIndex) - (secondIndex === -1 ? 999 : secondIndex)
+    }
+    return getPermissionGroupLabel(first).localeCompare(getPermissionGroupLabel(second))
+  })
+}
+
 function UserManagement({ userRole, userName, onLogout, user }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -186,6 +326,14 @@ function UserManagement({ userRole, userName, onLogout, user }) {
   const [formErrors, setFormErrors] = useState({})
   const [confirm, setConfirm] = useState(null)
   const [submitLoading, setSubmitLoading] = useState(false)
+  const [permissionModalUser, setPermissionModalUser] = useState(null)
+  const [permissionCatalog, setPermissionCatalog] = useState([])
+  const [permissionSummary, setPermissionSummary] = useState(null)
+  const [permissionLoading, setPermissionLoading] = useState(false)
+  const [permissionError, setPermissionError] = useState('')
+  const [permissionSearch, setPermissionSearch] = useState('')
+  const [permissionGroup, setPermissionGroup] = useState('')
+  const [permissionActionLoading, setPermissionActionLoading] = useState('')
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
@@ -232,8 +380,8 @@ function UserManagement({ userRole, userName, onLogout, user }) {
       const values = Array.isArray(result.data)
         ? result.data.map((item) => item.value || item.role).filter(Boolean)
         : []
-      if (!signal?.aborted && values.length) {
-        setRoleOptions(values)
+      if (!signal?.aborted) {
+        setRoleOptions(normalizeRoleOptions(values))
       }
     } catch (rolesError) {
       if (!signal?.aborted) {
@@ -312,6 +460,22 @@ function UserManagement({ userRole, userName, onLogout, user }) {
     value: users.filter((user) => user.role === role).length,
   })).filter((item) => item.value > 0)
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+  const permissionTargetRole = normalizeRole(permissionSummary?.user?.role || permissionModalUser?.role)
+  const roleScopedPermissionCatalog = permissionCatalog.filter((permission) => (
+    canGrantPermissionToRole(permission, permissionTargetRole, permissionSummary)
+  ))
+  const permissionGroupOptions = sortPermissionGroups(roleScopedPermissionCatalog.map((permission) => permission.group))
+  const rolePermissionKeys = new Set(permissionSummary?.rolePermissions || [])
+  const allowPermissionKeys = new Set(normalizePermissionOverrideRows(permissionSummary?.userAllowPermissions))
+  const denyPermissionKeys = new Set(normalizePermissionOverrideRows(permissionSummary?.userDenyPermissions))
+  const effectivePermissionKeys = new Set(permissionSummary?.effectivePermissions || [])
+  const permissionQuery = permissionSearch.trim().toLowerCase()
+  const filteredPermissions = roleScopedPermissionCatalog.filter((permission) => {
+    const matchesGroup = !permissionGroup || permission.group === permissionGroup
+    const searchable = `${permission.key} ${permission.name} ${permission.description}`.toLowerCase()
+    const matchesSearch = !permissionQuery || searchable.includes(permissionQuery)
+    return matchesGroup && matchesSearch
+  })
 
   const openCreateModal = () => {
     setSelectedUser(null)
@@ -324,7 +488,7 @@ function UserManagement({ userRole, userName, onLogout, user }) {
 
   const openEditModal = (user) => {
     const normalized = normalizeUser(user)
-    setSelectedUser(user)
+    setSelectedUser(normalized)
     setForm({
       name: normalized.name,
       email: normalized.email,
@@ -517,6 +681,78 @@ function UserManagement({ userRole, userName, onLogout, user }) {
     setPage(1)
   }
 
+  const fetchPermissionSummary = useCallback(async (targetUserId, signal) => {
+    const result = await getUserPermissions(targetUserId, { signal })
+    setPermissionSummary(result.data)
+    return result.data
+  }, [])
+
+  const openPermissionModal = useCallback(async (targetUser) => {
+    setPermissionModalUser(targetUser)
+    setPermissionSummary(null)
+    setPermissionError('')
+    setPermissionSearch('')
+    setPermissionGroup('')
+    setPermissionLoading(true)
+
+    try {
+      const [catalogResult] = await Promise.all([
+        getPermissions(),
+        fetchPermissionSummary(targetUser.id),
+      ])
+      const catalogItems = Array.isArray(catalogResult.data?.permissions)
+        ? catalogResult.data.permissions
+        : []
+      setPermissionCatalog(catalogItems.map(normalizePermission))
+    } catch (permissionFetchError) {
+      setPermissionError(permissionFetchError.message || 'Data permission gagal dimuat.')
+    } finally {
+      setPermissionLoading(false)
+    }
+  }, [fetchPermissionSummary])
+
+  const closePermissionModal = () => {
+    setPermissionModalUser(null)
+    setPermissionSummary(null)
+    setPermissionError('')
+    setPermissionSearch('')
+    setPermissionGroup('')
+    setPermissionActionLoading('')
+  }
+
+  const handlePermissionMutation = async (permissionKey, action) => {
+    if (!permissionModalUser) return
+    if (action === 'grant' && SENSITIVE_PERMISSIONS.has(permissionKey)) {
+      const confirmed = window.confirm(`Permission sensitif "${permissionKey}" akan diberikan ke ${permissionModalUser.name}. Lanjutkan?`)
+      if (!confirmed) return
+    }
+
+    setPermissionActionLoading(`${action}:${permissionKey}`)
+    setPermissionError('')
+
+    try {
+      const payload = { permissionKey }
+      if (action === 'grant') {
+        await grantUserPermission(permissionModalUser.id, payload)
+        showToast('Permission berhasil diberikan.', 'success')
+      } else if (action === 'deny') {
+        await denyUserPermission(permissionModalUser.id, payload)
+        showToast('Permission berhasil ditolak untuk user ini.', 'success')
+      } else {
+        await resetUserPermission(permissionModalUser.id, permissionKey)
+        showToast('Override permission berhasil direset.', 'success')
+      }
+
+      await fetchPermissionSummary(permissionModalUser.id)
+    } catch (permissionMutationError) {
+      const message = getBackendErrorMessage(permissionMutationError)
+      setPermissionError(message)
+      showToast(message || 'Aksi permission gagal.', 'danger')
+    } finally {
+      setPermissionActionLoading('')
+    }
+  }
+
   const handleLogout = () => {
     if (onLogout) {
       onLogout()
@@ -652,6 +888,9 @@ function UserManagement({ userRole, userName, onLogout, user }) {
                       <div className="user-action-row">
                         <button className="user-icon-btn user-icon-edit" type="button" aria-label={`Edit ${user.name}`} onClick={() => openEditModal(user)}>
                           <Edit3 aria-hidden="true" />
+                        </button>
+                        <button className="user-icon-btn user-icon-access" type="button" aria-label={`Kelola akses ${user.name}`} title="Kelola Akses" onClick={() => openPermissionModal(user)}>
+                          <ShieldCheck aria-hidden="true" />
                         </button>
                         <button className="user-icon-btn user-icon-delete" type="button" aria-label={`Nonaktifkan ${user.name}`} onClick={() => openDeleteConfirm(user)}>
                           <Trash2 aria-hidden="true" />
@@ -795,6 +1034,28 @@ function UserManagement({ userRole, userName, onLogout, user }) {
           </div>
         ) : null}
 
+        {permissionModalUser ? (
+          <PermissionManagementModal
+            user={permissionModalUser}
+            summary={permissionSummary}
+            permissions={filteredPermissions}
+            groupOptions={permissionGroupOptions}
+            rolePermissionKeys={rolePermissionKeys}
+            allowPermissionKeys={allowPermissionKeys}
+            denyPermissionKeys={denyPermissionKeys}
+            effectivePermissionKeys={effectivePermissionKeys}
+            searchValue={permissionSearch}
+            groupValue={permissionGroup}
+            loading={permissionLoading}
+            error={permissionError}
+            actionLoading={permissionActionLoading}
+            onSearchChange={setPermissionSearch}
+            onGroupChange={setPermissionGroup}
+            onAction={handlePermissionMutation}
+            onClose={closePermissionModal}
+          />
+        ) : null}
+
         {confirm ? (
           <div className="user-modal-backdrop" role="presentation">
             <div className="user-modal user-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="user-confirm-title">
@@ -822,6 +1083,184 @@ function UserManagement({ userRole, userName, onLogout, user }) {
         ) : null}
       </div>
     </DashboardLayout>
+  )
+}
+
+function PermissionManagementModal({
+  user,
+  summary,
+  permissions,
+  groupOptions,
+  rolePermissionKeys,
+  allowPermissionKeys,
+  denyPermissionKeys,
+  effectivePermissionKeys,
+  searchValue,
+  groupValue,
+  loading,
+  error,
+  actionLoading,
+  onSearchChange,
+  onGroupChange,
+  onAction,
+  onClose,
+}) {
+  const targetRole = normalizeRole(summary?.user?.role || user.role)
+  const roleLabel = ROLE_LABELS[targetRole] || targetRole
+
+  return (
+    <div className="user-modal-backdrop" role="presentation">
+      <div className="user-modal user-permission-modal" role="dialog" aria-modal="true" aria-labelledby="permission-modal-title">
+        <header className="user-modal-header">
+          <div>
+            <p className="user-subtitle">Permission Management</p>
+            <h2 id="permission-modal-title" className="user-modal-title">Kelola Akses</h2>
+            <p className="user-permission-user">
+              {user.name} · {user.email} · <strong>{roleLabel}</strong>
+            </p>
+          </div>
+          <button className="user-modal-close" type="button" aria-label="Tutup kelola akses" onClick={onClose}>
+            <X aria-hidden="true" />
+          </button>
+        </header>
+        <div className="user-modal-body">
+          {loading ? (
+            <div className="user-loading">
+              <Loader2 aria-hidden="true" />
+              Memuat permission user...
+            </div>
+          ) : null}
+          {error ? (
+            <div className="user-error">
+              <AlertTriangle aria-hidden="true" />
+              <span>{error}</span>
+            </div>
+          ) : null}
+          {!loading && summary ? (
+            <div className="user-permission-content">
+              <div className="user-permission-overview">
+                <PermissionKeyPanel title="Role Permissions" keys={summary.rolePermissions} tone="role" />
+                <PermissionKeyPanel title="User ALLOW" keys={normalizePermissionOverrideRows(summary.userAllowPermissions)} tone="allow" />
+                <PermissionKeyPanel title="User DENY" keys={normalizePermissionOverrideRows(summary.userDenyPermissions)} tone="deny" />
+                <PermissionKeyPanel title="Effective" keys={summary.effectivePermissions} tone="effective" />
+              </div>
+
+              <div className="user-permission-toolbar">
+                <label className="user-filter-field user-filter-field-wide">
+                  <span className="user-label">Search Permission</span>
+                  <span className="user-search-wrap">
+                    <Search aria-hidden="true" />
+                    <input
+                      className="user-input"
+                      type="search"
+                      value={searchValue}
+                      onChange={(event) => onSearchChange(event.target.value)}
+                      placeholder="Cari key, nama, atau deskripsi..."
+                    />
+                  </span>
+                </label>
+                <label className="user-filter-field">
+                  <span className="user-label">Group</span>
+                  <select className="user-select" value={groupValue} onChange={(event) => onGroupChange(event.target.value)}>
+                    <option value="">Semua group</option>
+                    {groupOptions.map((group) => (
+                      <option key={group} value={group}>{getPermissionGroupLabel(group)}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="user-permission-list" role="list">
+                {permissions.length ? permissions.map((permission) => {
+                  const isRolePermission = rolePermissionKeys.has(permission.key)
+                  const isAllowed = allowPermissionKeys.has(permission.key)
+                  const isDenied = denyPermissionKeys.has(permission.key)
+                  const isEffective = effectivePermissionKeys.has(permission.key)
+                  const isSensitive = SENSITIVE_PERMISSIONS.has(permission.key)
+                  const grantLoading = actionLoading === `grant:${permission.key}`
+                  const denyLoading = actionLoading === `deny:${permission.key}`
+                  const resetLoading = actionLoading === `reset:${permission.key}`
+                  const hasOverride = isAllowed || isDenied
+
+                  return (
+                    <article className="user-permission-item" key={permission.key} role="listitem">
+                      <div className="user-permission-main">
+                        <div className="user-permission-title-row">
+                          <KeyRound aria-hidden="true" />
+                          <div>
+                            <h3>{permission.name}</h3>
+                            <code>{permission.key}</code>
+                          </div>
+                        </div>
+                        <p>{permission.description || 'Tidak ada deskripsi.'}</p>
+                        <div className="user-permission-tags">
+                          <span>{getPermissionGroupLabel(permission.group)}</span>
+                          {isRolePermission ? <span className="user-permission-tag-role">Role Default</span> : null}
+                          {isAllowed ? <span className="user-permission-tag-allow">ALLOW</span> : null}
+                          {isDenied ? <span className="user-permission-tag-deny">DENY</span> : null}
+                          {isEffective ? <span className="user-permission-tag-effective">Effective</span> : null}
+                          {isSensitive ? <span className="user-permission-tag-sensitive">Sensitif</span> : null}
+                        </div>
+                      </div>
+                      <div className="user-permission-actions">
+                        <button
+                          className="user-btn user-btn-primary"
+                          type="button"
+                          disabled={isAllowed || (isEffective && !isDenied) || Boolean(actionLoading)}
+                          onClick={() => onAction(permission.key, 'grant')}
+                        >
+                          {grantLoading ? <Loader2 aria-hidden="true" /> : <Check aria-hidden="true" />}
+                          Grant
+                        </button>
+                        <button
+                          className="user-btn user-btn-danger"
+                          type="button"
+                          disabled={isDenied || Boolean(actionLoading)}
+                          onClick={() => onAction(permission.key, 'deny')}
+                        >
+                          {denyLoading ? <Loader2 aria-hidden="true" /> : <Ban aria-hidden="true" />}
+                          Deny
+                        </button>
+                        <button
+                          className="user-btn user-btn-secondary"
+                          type="button"
+                          disabled={!hasOverride || Boolean(actionLoading)}
+                          onClick={() => onAction(permission.key, 'reset')}
+                        >
+                          {resetLoading ? <Loader2 aria-hidden="true" /> : <RotateCcw aria-hidden="true" />}
+                          Reset
+                        </button>
+                      </div>
+                    </article>
+                  )
+                }) : (
+                  <div className="user-permission-empty">
+                    <KeyRound aria-hidden="true" />
+                    <strong>Tidak ada permission ditemukan</strong>
+                    <span>Ubah kata kunci pencarian atau filter group.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PermissionKeyPanel({ title, keys = [], tone }) {
+  return (
+    <section className={`user-permission-panel user-permission-panel-${tone}`}>
+      <h3>{title}</h3>
+      {keys.length ? (
+        <div className="user-permission-chip-list">
+          {keys.map((key) => <code key={key}>{key}</code>)}
+        </div>
+      ) : (
+        <p>Belum ada data.</p>
+      )}
+    </section>
   )
 }
 

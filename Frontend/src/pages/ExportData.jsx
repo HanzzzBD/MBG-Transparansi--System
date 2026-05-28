@@ -119,6 +119,42 @@ function getStatus(record) {
   return record.status || 'processing'
 }
 
+function isValidDateInput(value) {
+  if (!value) return false
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+}
+
+function getFriendlyExportMessage(message, fallback = 'Export gagal diproses backend.') {
+  const raw = typeof message === 'string' ? message.trim() : ''
+  if (!raw) return fallback
+
+  const lower = raw.toLowerCase()
+  if (lower.includes('invalid export date filter') || lower.includes('invalid date') || lower.includes('tanggal export')) {
+    return 'Filter tanggal export tidak valid.'
+  }
+  if (lower.includes('tanggal awal export')) {
+    return 'Tanggal awal export tidak boleh lebih besar dari tanggal akhir.'
+  }
+  if (
+    raw.includes('\n') ||
+    lower.includes('prisma') ||
+    lower.includes('stack') ||
+    lower.includes(' at ') ||
+    lower.includes('validationerror') ||
+    lower.includes('typeerror')
+  ) {
+    return fallback
+  }
+
+  return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw
+}
+
+function getFriendlyExportError(error, fallback = 'Export gagal diproses backend.') {
+  return getFriendlyExportMessage(error?.message || error, fallback)
+}
+
 function normalizeExport(row) {
   const file = row.file || {}
   const filterParams = row.filterParams || row.filter_params || row.filters || {}
@@ -144,6 +180,7 @@ function normalizeExport(row) {
     expiresAt: row.expiresAt || row.expires_at || file.expiresAt || file.expires_at || addDays(createdAt, RETENTION_DAYS),
     fileUrl: row.fileUrl || row.file_url || file.fileUrl || file.file_url || '',
     errorMsg: row.errorMsg || row.error_msg || '',
+    displayErrorMsg: getFriendlyExportMessage(row.errorMsg || row.error_msg || '', ''),
     filterParams,
   }
 }
@@ -214,7 +251,7 @@ function ExportData({ userRole, userName, onLogout }) {
       setMaxRows(getConfiguredValue(result))
     } catch (configError) {
       if (!isAbortError(configError)) {
-        setError(configError.message || 'Konfigurasi export_max_rows gagal dimuat dari API.')
+        setError(getFriendlyExportError(configError, 'Konfigurasi export_max_rows gagal dimuat dari API.'))
       }
     }
   }, [])
@@ -232,7 +269,7 @@ function ExportData({ userRole, userName, onLogout }) {
     } catch (historyError) {
       if (!isAbortError(historyError)) {
         setHistory([])
-        setError(historyError.message || 'Riwayat export gagal dimuat dari API.')
+        setError(getFriendlyExportError(historyError, 'Riwayat export gagal dimuat dari API.'))
       }
     }
   }, [])
@@ -304,7 +341,7 @@ function ExportData({ userRole, userName, onLogout }) {
         await Promise.all([fetchMaxRows(controller.signal), fetchHistory(controller.signal)])
       } catch (fetchError) {
         if (!isAbortError(fetchError)) {
-          setError(fetchError.message || 'Data export gagal dimuat dari API.')
+          setError(getFriendlyExportError(fetchError, 'Data export gagal dimuat dari API.'))
           setHistory([])
         }
       } finally {
@@ -345,6 +382,9 @@ function ExportData({ userRole, userName, onLogout }) {
     if (!format) return 'Pilih format export.'
     if (!checkedData.length) return 'Pilih minimal 1 dataset.'
     if (!filters.dateFrom || !filters.dateTo) return 'Tanggal awal dan akhir wajib diisi.'
+    if (!isValidDateInput(filters.dateFrom) || !isValidDateInput(filters.dateTo)) {
+      return 'Filter tanggal export tidak valid.'
+    }
     if (filters.dateFrom > filters.dateTo) return 'Tanggal awal tidak boleh lebih besar dari tanggal akhir.'
     if (!maxRows) return 'Konfigurasi export_max_rows belum tersedia.'
     if (!filters.distributionStatuses.length && checkedData.includes('distributions')) {
@@ -414,7 +454,7 @@ function ExportData({ userRole, userName, onLogout }) {
         setProgress(0)
       }, 700)
     } catch (generateError) {
-      showToast(generateError.message || 'Export gagal dibuat dari API.', 'danger')
+      showToast(getFriendlyExportError(generateError, 'Export gagal dibuat dari API.'), 'danger')
       setIsGenerating(false)
       setProgress(0)
     }
@@ -435,7 +475,7 @@ function ExportData({ userRole, userName, onLogout }) {
       window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000)
       showToast('Mengunduh file export.', 'success')
     } catch (downloadError) {
-      showToast(downloadError.message || 'Download gagal.', 'danger')
+      showToast(getFriendlyExportError(downloadError, 'Download gagal.'), 'danger')
     } finally {
       setDownloadingId('')
     }
@@ -450,7 +490,7 @@ function ExportData({ userRole, userName, onLogout }) {
       pollExportStatus(updated.id)
       showToast('Export dikirim ulang ke queue.', 'success')
     } catch (retryError) {
-      showToast(retryError.message || 'Retry export gagal diproses backend.', 'danger')
+      showToast(getFriendlyExportError(retryError, 'Retry export gagal diproses backend.'), 'danger')
     } finally {
       setRetryingId('')
     }
@@ -685,7 +725,7 @@ function ExportData({ userRole, userName, onLogout }) {
                           : `Kedaluwarsa dalam ${Math.max(0, expiresIn)} hari`}
                       </p>
 
-                      {record.errorMsg ? <p className="export-expire-text">{record.errorMsg}</p> : null}
+                      {record.displayErrorMsg ? <p className="export-expire-text">{record.displayErrorMsg}</p> : null}
                     </div>
 
                     <div className="export-history-actions">

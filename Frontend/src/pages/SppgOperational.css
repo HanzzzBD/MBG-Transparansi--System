@@ -17,7 +17,7 @@
 .sppg-op-header,
 .sppg-op-card {
   border: 1px solid var(--sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--white);
   box-shadow: 0 16px 35px rgba(15, 76, 129, 0.08);
 }
@@ -174,7 +174,7 @@
   display: grid;
   gap: 6px;
   border: 1px solid #d9eef3;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--white);
   padding: 13px;
 }
@@ -198,7 +198,7 @@
 
 .sppg-op-kpi {
   border: 1px solid #d9eef3;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--light-gray);
   padding: 14px;
 }
@@ -222,7 +222,7 @@
   align-items: center;
   gap: 10px;
   border: 1px solid var(--sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--light-gray);
   color: var(--navy);
   font-size: 13px;
@@ -238,7 +238,7 @@
 
 .sppg-op-empty {
   border: 1px dashed var(--sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--light-gray);
   color: var(--text-muted);
   font-size: 13px;
@@ -267,6 +267,51 @@
 .sppg-op-badge-warning {
   background: rgba(146, 64, 14, 0.1);
   color: var(--warning);
+}
+
+.sppg-op-badge-danger {
+  background: rgba(155, 28, 28, 0.08);
+  color: var(--danger);
+}
+
+.sppg-op-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sppg-op-file-input {
+  height: auto;
+  min-height: 42px;
+  padding-top: 9px;
+}
+
+.sppg-op-photo-link,
+.sppg-op-muted-line {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 7px;
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.sppg-op-photo-link svg,
+.sppg-op-muted-line svg {
+  width: 15px;
+  height: 15px;
+}
+
+.sppg-op-validation-box {
+  display: grid;
+  gap: 10px;
+  border: 1px solid #d9eef3;
+  border-radius: var(--radius-lg);
+  background: var(--light-gray);
+  padding: 12px;
 }
 
 .sppg-op-section-head {
@@ -315,7 +360,7 @@
 .sppg-op-table-wrap {
   overflow-x: auto;
   border: 1px solid #d9eef3;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 
 .sppg-op-table {
@@ -367,7 +412,7 @@
   height: 28px;
   place-items: center;
   border: 1px solid var(--sky);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--white);
   color: var(--success);
   cursor: pointer;
@@ -400,7 +445,7 @@
 
 .sppg-op-toast {
   border: 1px solid var(--sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--white);
   color: var(--navy);
   font-size: 13px;
@@ -463,3 +508,4 @@
     grid-column: span 1;
   }
 }
+

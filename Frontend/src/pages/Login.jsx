@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertCircle,
+  ArrowLeft,
   BarChart3,
   CheckCircle2,
   Eye,
@@ -14,10 +15,15 @@ import {
   Soup,
 } from 'lucide-react'
 import { loginRequest } from '../services/api'
+import batik2Bg from '../assets/Batik2.png'
+import newLogo from '../assets/NewLogo.png'
 import './Login.css'
 
 const VALID_ROLES = new Set(['admin', 'pemerintah', 'sppg', 'sekolah', 'umum'])
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const SHOW_DEMO_LOGIN =
+  import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_SHOW_DEMO_LOGIN !== 'false')
 
 const DEMO_ACCOUNTS = [
   {
@@ -114,7 +120,7 @@ function Login({ onLoginSuccess }) {
         throw new Error('Akun ini tidak aktif. Hubungi administrator.')
       }
 
-      onLoginSuccess?.(result.user, result.accessToken)
+      await onLoginSuccess?.(result.user, result.accessToken)
 
       if (!onLoginSuccess) {
         navigate('/dashboard', { replace: true })
@@ -145,10 +151,14 @@ function Login({ onLoginSuccess }) {
 
   return (
     <main className="login-page">
-      <section className="login-brand-panel" aria-label="Informasi MBG Transparency System">
+      <section
+        className="login-brand-panel"
+        style={{ backgroundImage: `linear-gradient(135deg, rgba(7, 30, 73, 0.9), rgba(7, 30, 73, 0.74)), url(${batik2Bg})` }}
+        aria-label="Informasi MBG Transparency System"
+      >
         <div className="login-brand-content">
           <Link to="/" className="login-logo" aria-label="Kembali ke beranda MBG">
-            <span className="login-logo-box">MBG</span>
+            <img className="login-logo-image" src={newLogo} alt="Logo MBG" />
             <span>
               <span className="login-brand-title">MBG Transparency System</span>
               <span className="login-brand-desc">
@@ -203,8 +213,13 @@ function Login({ onLoginSuccess }) {
 
       <section className="login-form-panel">
         <div className="login-form-card login-fade-up">
+          <Link to="/" className="login-back-link" aria-label="Kembali ke landing">
+            <ArrowLeft aria-hidden="true" />
+            Kembali
+          </Link>
+
           <Link to="/" className="login-mobile-logo" aria-label="Kembali ke beranda MBG">
-            <span className="login-logo-box">MBG</span>
+            <img className="login-mobile-logo-image" src={newLogo} alt="Logo MBG" />
             <span>
               <span>MBG</span>
               <small>Transparency System</small>
@@ -275,9 +290,9 @@ function Login({ onLoginSuccess }) {
             </div>
 
             <div className="login-options">
-              <a className="login-forgot" href="#forgot-password">
+              <Link className="login-forgot" to="/forgot-password">
                 Lupa password?
-              </a>
+              </Link>
             </div>
 
             <button className="login-submit" type="submit" disabled={isLoading}>
@@ -286,7 +301,7 @@ function Login({ onLoginSuccess }) {
             </button>
           </form>
 
-          {import.meta.env.DEV ? (
+          {SHOW_DEMO_LOGIN ? (
             <>
               <div className="login-divider">
                 <span>atau masuk sebagai</span>
@@ -304,7 +319,7 @@ function Login({ onLoginSuccess }) {
                 ))}
               </div>
               <p className="login-demo-note">
-                TODO: sesuaikan seed user untuk Demo SPPG dan Demo Pemerintah jika akun belum tersedia di backend.
+                Akun demo hanya untuk QA lokal dan tidak ditampilkan pada build production kecuali flag demo diaktifkan.
               </p>
             </>
           ) : null}

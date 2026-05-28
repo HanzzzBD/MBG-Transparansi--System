@@ -383,7 +383,8 @@ const calculateProductionBatchCost = async ({ batchId, client = prisma }) => {
     rawMaterialCost +
     toNumber(batch.operationalCost) +
     toNumber(batch.packagingCost) +
-    toNumber(batch.distributionCost);
+    toNumber(batch.distributionCost) +
+    toNumber(batch.rentCost);
   const costPerPortion = batch.totalPortions > 0 ? totalCost / batch.totalPortions : 0;
 
   const updated = await client.productionBatch.update({
@@ -475,6 +476,7 @@ const createProductionBatch = async ({ payload, user, ipAddress }) => {
         operationalCost: payload.operationalCost ?? 0,
         packagingCost: payload.packagingCost ?? 0,
         distributionCost: payload.distributionCost ?? 0,
+        rentCost: payload.rentCost ?? 0,
         notes: payload.notes ?? null
       }
     });
@@ -518,6 +520,7 @@ const updateProductionBatch = async ({ id, payload, user, ipAddress }) => {
         ...(payload.operationalCost !== undefined ? { operationalCost: payload.operationalCost } : {}),
         ...(payload.packagingCost !== undefined ? { packagingCost: payload.packagingCost } : {}),
         ...(payload.distributionCost !== undefined ? { distributionCost: payload.distributionCost } : {}),
+        ...(payload.rentCost !== undefined ? { rentCost: payload.rentCost } : {}),
         ...(payload.notes !== undefined ? { notes: payload.notes } : {})
       }
     });
@@ -843,6 +846,10 @@ const getCostSummary = async ({ id, user }) => {
       packaging_cost: Number(batch.packagingCost),
       distributionCost: Number(batch.distributionCost),
       distribution_cost: Number(batch.distributionCost),
+      rentCost: Number(batch.rentCost),
+      rent_cost: Number(batch.rentCost),
+      rentCostPerPortion: batch.totalPortions > 0 ? Number((Number(batch.rentCost) / batch.totalPortions).toFixed(2)) : 0,
+      rent_cost_per_portion: batch.totalPortions > 0 ? Number((Number(batch.rentCost) / batch.totalPortions).toFixed(2)) : 0,
       totalCost: Number(batch.totalCost),
       total_cost: Number(batch.totalCost),
       totalPortions: batch.totalPortions,

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, RefreshCcw, Send } from 'lucide-react'
 import { createSchoolReport, getSchoolReports } from '../services/api.js'
+import useAuthStore from '../store/authStore.js'
 import './SppgOperational.css'
 
 const REPORT_CATEGORIES = [
@@ -38,12 +39,14 @@ function normalizeReport(item) {
 }
 
 function SchoolReports() {
+  const can = useAuthStore((state) => state.can)
   const [reports, setReports] = useState([])
   const [form, setForm] = useState(initialForm)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const canReportIssue = can('distribution.report_issue')
 
   const fetchReports = useCallback(async (signal) => {
     setLoading(true)
@@ -70,6 +73,10 @@ function SchoolReports() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    if (!canReportIssue) {
+      setError('Anda tidak memiliki akses untuk membuat laporan masalah.')
+      return
+    }
     if (form.message.trim().length < 20) {
       setError('Pesan laporan minimal 20 karakter.')
       return
@@ -112,6 +119,7 @@ function SchoolReports() {
       {error ? <div className="sppg-op-state sppg-op-error">{error}</div> : null}
 
       <div className="sppg-op-grid">
+        {canReportIssue ? (
         <section className="sppg-op-card">
           <h2>Form Laporan</h2>
           <form className="sppg-op-form" onSubmit={handleSubmit}>
@@ -139,6 +147,12 @@ function SchoolReports() {
             </button>
           </form>
         </section>
+        ) : (
+          <section className="sppg-op-card">
+            <h2>Form Laporan</h2>
+            <div className="sppg-op-state">Anda tidak memiliki akses untuk membuat laporan masalah.</div>
+          </section>
+        )}
 
         <section className="sppg-op-card">
           <h2>Riwayat Laporan</h2>

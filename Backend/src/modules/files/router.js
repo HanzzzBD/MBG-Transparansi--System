@@ -11,7 +11,7 @@ const router = express.Router();
 router.post(
   "/upload",
   authenticate,
-  authorize("sppg", "admin"),
+  authorize("sppg", "sekolah", "admin"),
   fileUploadLimiter,
   uploadSingleImage("file"),
   controller.uploadFile

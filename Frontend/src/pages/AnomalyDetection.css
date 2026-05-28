@@ -20,7 +20,7 @@
 .anomaly-card {
   background: var(--white);
   border: 1px solid var(--sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: 0 16px 35px rgba(15, 76, 129, 0.08);
 }
 
@@ -57,7 +57,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 10px 14px;
   font-weight: 900;
   cursor: pointer;
@@ -152,7 +152,7 @@
 
 .anomaly-field select {
   border: 1px solid var(--sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 11px 12px;
   color: var(--text-dark);
   background: var(--white);
@@ -225,7 +225,7 @@
   gap: 10px;
   margin-top: 16px;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-weight: 800;
 }
 
@@ -286,3 +286,4 @@
     grid-template-columns: 1fr;
   }
 }
+

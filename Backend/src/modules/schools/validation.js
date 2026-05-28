@@ -58,10 +58,24 @@ const updateSchoolSchema = z.object({
   query: z.object({}).optional().default({})
 });
 
+const updateMySchoolProfileSchema = z.object({
+  body: z
+    .object({
+      address: z.string().trim().max(500).optional().nullable(),
+      totalStudents: z.coerce.number().int().nonnegative().optional()
+    })
+    .refine((value) => Object.keys(value).length > 0, {
+      message: "At least one field must be provided."
+    }),
+  params: z.object({}).optional().default({}),
+  query: z.object({}).optional().default({})
+});
+
 module.exports = {
   createSchoolSchema,
   listDeletedSchoolsSchema,
   listSchoolsSchema,
   schoolIdParamsSchema,
+  updateMySchoolProfileSchema,
   updateSchoolSchema
 };

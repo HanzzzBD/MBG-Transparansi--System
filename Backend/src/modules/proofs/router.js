@@ -11,7 +11,7 @@ const router = express.Router();
 router.post(
   "/proofs",
   authenticate,
-  authorize("sppg", "admin"),
+  authorize("sppg", "sekolah", "admin"),
   validateRequest(createProofSchema),
   controller.createProof
 );

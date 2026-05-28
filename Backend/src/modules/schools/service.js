@@ -1,7 +1,7 @@
 const { getPrismaClient } = require("../../config/prisma");
 const AppError = require("../../utils/appError");
 const { createAuditLog } = require("../../utils/auditLog");
-const { assertSchoolOwnership } = require("../../utils/ownership");
+const { assertSchoolOwnership, requireSchoolScope } = require("../../utils/ownership");
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 const {
   buildRankedSearchCandidateWhere,
@@ -379,6 +379,16 @@ const updateSchool = async ({ id, payload, actorUserId, ipAddress }) => {
   };
 };
 
+const updateMySchoolProfile = async ({ payload, user, ipAddress }) => {
+  const schoolId = requireSchoolScope(user);
+  return updateSchool({
+    id: schoolId,
+    payload,
+    actorUserId: user.userId,
+    ipAddress
+  });
+};
+
 const deleteSchool = async ({ id, actorUserId, ipAddress }) => {
   const existing = await getActiveSchoolById(id);
 
@@ -471,5 +481,6 @@ module.exports = {
   listDeletedSchools,
   listSchools,
   restoreSchool,
+  updateMySchoolProfile,
   updateSchool
 };

@@ -70,7 +70,7 @@
 | Command/check | Result | Notes |
 |---|---|---|
 | `cmd /c npm --prefix Frontend test` | PASS | 19 tests, 7 suites, 0 fail. |
-| `cmd /c npm --prefix Frontend run build` | PASS with warning | Build sukses; Vite chunk warning `index` > 1000 kB. |
+| `cmd /c npm --prefix Frontend run build` | PASS | Superseded by pre-deployment polish: route-level lazy loading removed the previous Vite `index` > 1000 kB warning. |
 | `cmd /c npm --prefix Backend test` | PASS with warning | 33 tests, 6 suites, 0 fail; pg deprecation warning muncul pada beberapa tests. |
 | `Invoke-WebRequest http://localhost:4000/api/health` | PASS 200 | Backend local aktif. |
 | `Invoke-WebRequest http://localhost:4000/api/public/statistics` | PASS 200 | Public statistics endpoint tanpa login. |

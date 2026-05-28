@@ -10,6 +10,7 @@ const ISSUE_CATEGORIES = [
   { value: 'peralatan', label: 'Peralatan' },
   { value: 'lainnya', label: 'Lainnya' },
 ]
+const CRITICAL_ISSUE_CATEGORIES = new Set(['logistik', 'kekurangan_bahan', 'peralatan'])
 
 const initialForm = {
   category: 'logistik',
@@ -124,7 +125,11 @@ function SppgIssues() {
       })
       setIssues((current) => [normalizeIssue(data), ...current])
       setForm(initialForm)
-      setMessage('Laporan kendala berhasil dikirim.')
+      setMessage(
+        CRITICAL_ISSUE_CATEGORIES.has(data?.category)
+          ? 'Laporan kendala berhasil dikirim. Status SPPG otomatis ditandai Bermasalah.'
+          : 'Laporan kendala berhasil dikirim.',
+      )
     } catch (submitError) {
       setError(submitError.message || 'Laporan kendala gagal dikirim.')
     } finally {

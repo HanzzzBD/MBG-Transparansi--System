@@ -2,12 +2,13 @@ import { create } from 'zustand'
 
 function normalizeUser(userData) {
   if (!userData) return null
+  const role = String(userData.role || 'umum').toLowerCase()
   return {
     id: userData.id || userData.userId || userData.user_id || null,
     name: userData.name || userData.fullName || userData.email || 'Pengguna MBG',
     email: userData.email || '',
-    role: String(userData.role || 'umum').toLowerCase(),
     ...userData,
+    role: role === 'gov' ? 'pemerintah' : role,
   }
 }
 
@@ -19,23 +20,38 @@ function clearLegacySession() {
   })
 }
 
-const useAuthStore = create((set) => ({
+const normalizePermissions = (permissions) => (
+  Array.isArray(permissions)
+    ? permissions.map((permission) => String(permission)).filter(Boolean)
+    : []
+)
+
+const useAuthStore = create((set, get) => ({
   user: null,
   token: null,
+  permissions: [],
+  permissionsLoaded: false,
+  permissionsLoading: false,
   isAuthenticated: false,
   isRefreshingSession: false,
   isSessionChecked: false,
 
   login: (userData, token = null) => {
     const user = normalizeUser(userData)
+    const effectivePermissions = normalizePermissions(
+      userData?.effectivePermissions || userData?.permissions,
+    )
     clearLegacySession()
-    set({
+    set((state) => ({
       user,
       token: token || null,
+      permissions: effectivePermissions.length ? effectivePermissions : state.permissions,
+      permissionsLoaded: effectivePermissions.length ? true : state.permissionsLoaded,
+      permissionsLoading: false,
       isAuthenticated: Boolean(user && token),
       isRefreshingSession: false,
       isSessionChecked: true,
-    })
+    }))
   },
 
   logout: () => {
@@ -43,6 +59,9 @@ const useAuthStore = create((set) => ({
     set({
       user: null,
       token: null,
+      permissions: [],
+      permissionsLoaded: false,
+      permissionsLoading: false,
       isAuthenticated: false,
       isRefreshingSession: false,
       isSessionChecked: true,
@@ -64,10 +83,38 @@ const useAuthStore = create((set) => ({
     }))
   },
 
+  setPermissions: (permissions) => {
+    const effectivePermissions = normalizePermissions(permissions)
+    set((state) => ({
+      permissions: effectivePermissions,
+      permissionsLoaded: true,
+      permissionsLoading: false,
+      user: state.user
+        ? {
+            ...state.user,
+            effectivePermissions,
+            permissions: effectivePermissions,
+          }
+        : state.user,
+    }))
+  },
+
+  setPermissionsLoading: (permissionsLoading) => {
+    set({ permissionsLoading })
+  },
+
+  hasPermission: (permissionKey) => {
+    if (!permissionKey) return true
+    return get().permissions.includes(permissionKey)
+  },
+
+  can: (permissionKey) => get().hasPermission(permissionKey),
+
   startSessionCheck: () => {
     clearLegacySession()
     set({
       isRefreshingSession: true,
+      permissionsLoading: true,
     })
   },
 
@@ -75,6 +122,7 @@ const useAuthStore = create((set) => ({
     set({
       isRefreshingSession: false,
       isSessionChecked: true,
+      permissionsLoading: false,
     })
   },
 }))

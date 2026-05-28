@@ -7,6 +7,7 @@ import {
   getProductionBatchDetail,
   getProductionBatches,
 } from '../services/api'
+import useAuthStore from '../store/authStore.js'
 import './ProductionBatches.css'
 
 const TODAY = new Date().toISOString().slice(0, 10)
@@ -18,6 +19,7 @@ const initialBatchForm = {
   operationalCost: '0',
   packagingCost: '0',
   distributionCost: '0',
+  rentCost: '0',
   notes: '',
 }
 
@@ -55,6 +57,7 @@ function normalizeBatch(item) {
     operationalCost: safeNumber(item.operationalCost ?? item.operational_cost),
     packagingCost: safeNumber(item.packagingCost ?? item.packaging_cost),
     distributionCost: safeNumber(item.distributionCost ?? item.distribution_cost),
+    rentCost: safeNumber(item.rentCost ?? item.rent_cost),
     totalCost: safeNumber(item.totalCost ?? item.total_cost),
     costPerPortion: safeNumber(item.costPerPortion ?? item.cost_per_portion),
     items: Array.isArray(item.items) ? item.items : [],
@@ -71,6 +74,8 @@ function normalizeCostSummary(item) {
     operationalCost: safeNumber(item.operationalCost ?? item.operational_cost),
     packagingCost: safeNumber(item.packagingCost ?? item.packaging_cost),
     distributionCost: safeNumber(item.distributionCost ?? item.distribution_cost),
+    rentCost: safeNumber(item.rentCost ?? item.rent_cost),
+    rentCostPerPortion: safeNumber(item.rentCostPerPortion ?? item.rent_cost_per_portion),
     totalCost: safeNumber(item.totalCost ?? item.total_cost),
     totalPortions: safeNumber(item.totalPortions ?? item.total_portions),
     costPerPortion: safeNumber(item.costPerPortion ?? item.cost_per_portion),
@@ -91,6 +96,7 @@ function getErrorMessage(error, fallback) {
 }
 
 function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user }) {
+  const can = useAuthStore((state) => state.can)
   const [batches, setBatches] = useState([])
   const [selectedBatch, setSelectedBatch] = useState(null)
   const [costSummary, setCostSummary] = useState(null)
@@ -107,7 +113,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
   const [toast, setToast] = useState(null)
 
   const isAdmin = userRole === 'admin'
-  const canCreate = userRole === 'sppg' || isAdmin
+  const canCreate = can('production.create') && (userRole === 'sppg' || isAdmin)
   const activeBatch = selectedBatch || batches[0]
   const activeCostSummary = costSummary && String(costSummary.batchId) === String(activeBatch?.id) ? costSummary : null
 
@@ -253,6 +259,10 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
 
   const handleCreateBatch = async (event) => {
     event.preventDefault()
+    if (!canCreate) {
+      showToast('danger', 'Anda tidak memiliki akses untuk membuat production batch.')
+      return
+    }
     if (!validateBatchForm()) return
 
     setSubmitLoading('batch')
@@ -264,6 +274,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
         operationalCost: Number(batchForm.operationalCost || 0),
         packagingCost: Number(batchForm.packagingCost || 0),
         distributionCost: Number(batchForm.distributionCost || 0),
+        rentCost: Number(batchForm.rentCost || 0),
         notes: batchForm.notes || null,
       })
       const created = normalizeBatch(payload.data)
@@ -280,6 +291,10 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
 
   const handleAddItem = async (event) => {
     event.preventDefault()
+    if (!canCreate) {
+      showToast('danger', 'Anda tidak memiliki akses untuk menambahkan bahan baku.')
+      return
+    }
     if (!validateItemForm()) return
 
     setSubmitLoading('item')
@@ -380,6 +395,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
                   <CostItem label="Operasional" value={formatRupiah(activeCostSummary.operationalCost)} />
                   <CostItem label="Packaging" value={formatRupiah(activeCostSummary.packagingCost)} />
                   <CostItem label="Distribusi" value={formatRupiah(activeCostSummary.distributionCost)} />
+                  <CostItem label="Sewa" value={formatRupiah(activeCostSummary.rentCost)} />
                   <CostItem label="Total Cost" value={formatRupiah(activeCostSummary.totalCost)} highlight />
                   <CostItem label="Cost/Porsi" value={formatRupiah(activeCostSummary.costPerPortion)} highlight />
                 </div>
@@ -502,6 +518,11 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
               <label className="batch-field">
                 <span className="batch-label">Biaya Distribusi</span>
                 <input className="batch-input" name="distributionCost" type="number" min="0" value={batchForm.distributionCost} onChange={handleBatchFormChange} />
+              </label>
+
+              <label className="batch-field">
+                <span className="batch-label">Biaya Sewa</span>
+                <input className="batch-input" name="rentCost" type="number" min="0" value={batchForm.rentCost} onChange={handleBatchFormChange} />
               </label>
 
               <label className="batch-field batch-field-wide">

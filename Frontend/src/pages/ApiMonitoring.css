@@ -21,7 +21,7 @@
 .monitor-section {
   background: var(--white);
   border: 1px solid var(--sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   box-shadow: 0 16px 35px rgba(15, 76, 129, 0.08);
 }
 
@@ -60,7 +60,7 @@
   gap: 8px;
   align-self: flex-start;
   border: 1px solid var(--sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 12px 16px;
   color: var(--navy);
   background: #eef9fc;
@@ -75,7 +75,7 @@
   gap: 10px;
   margin-top: 16px;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   font-weight: 800;
 }
 
@@ -295,7 +295,7 @@
 .monitor-error-item,
 .monitor-empty,
 .monitor-toast {
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 12px;
 }
 
@@ -381,3 +381,4 @@
     flex-direction: column;
   }
 }
+

@@ -116,6 +116,10 @@ const createProof = async ({ payload, user, ipAddress }) => {
     assertSppgOwnership(user, distribution.sppgId);
   }
 
+  if (user.role === "sekolah") {
+    assertSchoolOwnership(user, distribution.schoolId);
+  }
+
   if (
     user.role !== "admin" &&
     Number(file.uploadedBy) !== Number(user.userId) &&

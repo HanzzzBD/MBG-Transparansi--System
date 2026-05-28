@@ -1,6 +1,6 @@
 const { z } = require("zod");
 
-const distributionStatusEnum = z.enum(["in_progress", "delivered", "failed"]);
+const distributionStatusEnum = z.enum(["draft", "pending", "in_progress", "sent", "delivered", "failed"]);
 
 const listDistributionsSchema = z.object({
   body: z.object({}).optional().default({}),
@@ -32,6 +32,7 @@ const createDistributionSchema = z.object({
   body: z.object({
     sppgId: z.coerce.number().int().positive().optional(),
     schoolId: z.coerce.number().int().positive(),
+    menuId: z.coerce.number().int().positive().optional().nullable(),
     productionBatchId: z.coerce.number().int().positive().optional().nullable(),
     portions: z.coerce.number().int().positive(),
     pricePerPortion: z.coerce.number().positive().optional(),
@@ -63,6 +64,7 @@ const distributionLockSchema = z.object({
 const overrideChangesSchema = z.object({
   sppgId: z.coerce.number().int().positive().optional(),
   schoolId: z.coerce.number().int().positive().optional(),
+  menuId: z.coerce.number().int().positive().optional().nullable(),
   productionBatchId: z.coerce.number().int().positive().optional().nullable(),
   portions: z.coerce.number().int().positive().optional(),
   pricePerPortion: z.coerce.number().positive().optional(),

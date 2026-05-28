@@ -7,6 +7,7 @@ import {
   isAbortError,
   unassignMySppgSchool,
 } from '../services/api.js'
+import useAuthStore from '../store/authStore.js'
 import './SppgOperational.css'
 
 const PAGE_SIZE = 10
@@ -24,6 +25,8 @@ function getTotal(result, fallback = 0) {
 }
 
 function SppgSchools() {
+  const can = useAuthStore((state) => state.can)
+  const canManageSchoolChannel = can('sppg.school_channel.manage')
   const [filters, setFilters] = useState({
     search: '',
     province: '',
@@ -142,6 +145,10 @@ function SppgSchools() {
 
   const handleAssign = async (ids) => {
     if (!ids.length) return
+    if (!canManageSchoolChannel) {
+      showNotice('Anda tidak memiliki akses untuk mengelola sekolah saluran.', 'danger')
+      return
+    }
     setActionLoading(`assign-${ids.join('-')}`)
 
     try {
@@ -159,6 +166,10 @@ function SppgSchools() {
   }
 
   const handleUnassign = async (assignmentId) => {
+    if (!canManageSchoolChannel) {
+      showNotice('Anda tidak memiliki akses untuk mengelola sekolah saluran.', 'danger')
+      return
+    }
     setActionLoading(`unassign-${assignmentId}`)
 
     try {
@@ -195,10 +206,12 @@ function SppgSchools() {
             <h2>Cari Sekolah Dapodik</h2>
             <p>{dapodikTotal.toLocaleString('id-ID')} sekolah sesuai filter</p>
           </div>
-          <button className="sppg-op-btn" type="button" disabled={!selectedIds.length || Boolean(actionLoading)} onClick={() => handleAssign(selectedIds)}>
+          {canManageSchoolChannel ? (
+            <button className="sppg-op-btn" type="button" disabled={!selectedIds.length || Boolean(actionLoading)} onClick={() => handleAssign(selectedIds)}>
             {actionLoading.startsWith('assign-') && selectedIds.length ? <Loader2 aria-hidden="true" /> : <Plus aria-hidden="true" />}
             Tambahkan Terpilih
-          </button>
+            </button>
+          ) : null}
         </div>
 
         <div className="sppg-op-filter-grid">
@@ -264,10 +277,14 @@ function SppgSchools() {
                       {!school.alreadyAssigned ? <span className="sppg-op-badge">Belum dipilih</span> : null}
                     </td>
                     <td>
-                      <button className="sppg-op-btn" type="button" disabled={school.alreadyAssigned || Boolean(actionLoading)} onClick={() => handleAssign([school.id])}>
-                        {actionLoading === `assign-${school.id}` ? <Loader2 aria-hidden="true" /> : <Plus aria-hidden="true" />}
-                        Tambahkan
-                      </button>
+                      {canManageSchoolChannel ? (
+                        <button className="sppg-op-btn" type="button" disabled={school.alreadyAssigned || Boolean(actionLoading)} onClick={() => handleAssign([school.id])}>
+                          {actionLoading === `assign-${school.id}` ? <Loader2 aria-hidden="true" /> : <Plus aria-hidden="true" />}
+                          Tambahkan
+                        </button>
+                      ) : (
+                        <span className="sppg-op-muted-line">Read only</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -303,10 +320,12 @@ function SppgSchools() {
                   <strong>{school.name}</strong>
                   <span>{formatLocation(school)} | NPSN {school.npsn || '-'}</span>
                 </div>
-                <button className="sppg-op-btn sppg-op-btn-danger" type="button" disabled={Boolean(actionLoading)} onClick={() => handleUnassign(school.assignmentId)}>
-                  {actionLoading === `unassign-${school.assignmentId}` ? <Loader2 aria-hidden="true" /> : <Trash2 aria-hidden="true" />}
-                  Nonaktifkan
-                </button>
+                {canManageSchoolChannel ? (
+                  <button className="sppg-op-btn sppg-op-btn-danger" type="button" disabled={Boolean(actionLoading)} onClick={() => handleUnassign(school.assignmentId)}>
+                    {actionLoading === `unassign-${school.assignmentId}` ? <Loader2 aria-hidden="true" /> : <Trash2 aria-hidden="true" />}
+                    Nonaktifkan
+                  </button>
+                ) : null}
               </article>
             ))}
           </div>

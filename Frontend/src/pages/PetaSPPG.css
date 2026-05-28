@@ -7,8 +7,9 @@
   --color-text-dark: #111928;
   --color-text-muted: #6b7280;
   --color-success: #057a55;
-  --color-warning: #92400e;
+  --color-warning: #c2410c;
   --color-danger: #9b1c1c;
+  --color-inactive: #6b7280;
   min-height: 100vh;
   background: var(--color-light-gray);
   color: var(--color-text-dark);
@@ -67,7 +68,7 @@
   max-width: 1440px;
   margin: 0 auto 14px;
   border: 1px solid var(--color-sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: rgba(255, 255, 255, 0.96);
   padding: 14px;
   box-shadow: 0 18px 42px rgba(15, 76, 129, 0.1);
@@ -254,8 +255,8 @@
 }
 
 .peta-marker-inactive {
-  background: var(--color-danger);
-  box-shadow: 0 0 0 7px rgba(155, 28, 28, 0.18), 0 12px 24px rgba(15, 76, 129, 0.24);
+  background: var(--color-inactive);
+  box-shadow: 0 0 0 7px rgba(107, 114, 128, 0.18), 0 12px 24px rgba(15, 76, 129, 0.24);
 }
 
 .peta-popup {
@@ -342,7 +343,7 @@
 }
 
 .peta-legend-inactive {
-  background: var(--color-danger);
+  background: var(--color-inactive);
 }
 
 .peta-side-panel {
@@ -518,7 +519,7 @@
   border-collapse: collapse;
   overflow: hidden;
   border: 1px solid var(--color-sky);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-white);
   font-size: 12px;
 }
@@ -560,7 +561,7 @@
   display: grid;
   gap: 18px;
   border: 1px solid var(--color-sky);
-  border-radius: 16px;
+  border-radius: var(--radius-xl);
   background: var(--color-white);
   padding: 16px;
   box-shadow: 0 16px 34px rgba(15, 76, 129, 0.08);
@@ -571,7 +572,7 @@
   display: grid;
   gap: 6px;
   border: 1px solid rgba(181, 224, 234, 0.7);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--color-light-gray);
   color: var(--color-text-muted);
   font-size: 12px;
@@ -772,8 +773,8 @@
 }
 
 .peta-status-inactive {
-  background: rgba(155, 28, 28, 0.18);
-  color: #ffd8d8;
+  background: rgba(107, 114, 128, 0.2);
+  color: #f3f4f6;
 }
 
 .peta-side-body .peta-status-active {
@@ -785,7 +786,7 @@
 }
 
 .peta-side-body .peta-status-inactive {
-  color: var(--color-danger);
+  color: var(--color-inactive);
 }
 
 @keyframes peta-fade-in {
@@ -844,7 +845,7 @@
   .peta-map-wrap {
     height: calc(100vh - 300px);
     min-height: 460px;
-    border-radius: 16px;
+    border-radius: var(--radius-xl);
   }
 
   .peta-legend {
@@ -905,3 +906,4 @@
     white-space: nowrap;
   }
 }
+

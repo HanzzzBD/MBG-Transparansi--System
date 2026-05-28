@@ -11,6 +11,7 @@ const {
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
 const { publicReportLimiter } = require("../../middlewares/rateLimiter");
+const { requirePermission } = require("../../middlewares/permissions");
 const { authorize } = require("../../middlewares/rbac");
 const { validateRequest } = require("../../middlewares/validateRequest");
 
@@ -54,6 +55,7 @@ router.post(
   "/school-reports",
   authenticate,
   authorize("sekolah", "admin"),
+  requirePermission("distribution.report_issue"),
   validateRequest(createSchoolReportSchema),
   controller.createSchoolReport
 );
@@ -61,6 +63,7 @@ router.get(
   "/school-reports",
   authenticate,
   authorize("sekolah", "sppg", "pemerintah", "admin"),
+  requirePermission("issue.view"),
   validateRequest(listSchoolReportsSchema),
   controller.listSchoolReports
 );

@@ -199,6 +199,14 @@ const DISTRIBUTION_SEARCH_RANK_FIELDS = [
   { field: "id", weight: 0.25 }
 ];
 
+const decorateDistributionStatus = (distribution) => distribution
+  ? {
+      ...distribution,
+      deliveryStatus: distribution.status,
+      confirmationStatus: distribution.validation?.status || "pending"
+    }
+  : distribution;
+
 const getActiveSppg = async (id) => {
   const sppg = await prisma.sppg.findFirst({
     where: {
@@ -232,6 +240,29 @@ const getActiveSchool = async (id) => {
   return school;
 };
 
+const getActiveMenu = async (id) => {
+  if (!id) return null;
+
+  const menu = await prisma.menu.findFirst({
+    where: {
+      id: Number(id),
+      deletedAt: null,
+      sppg: {
+        deletedAt: null
+      }
+    },
+    include: {
+      sppg: true
+    }
+  });
+
+  if (!menu) {
+    throw new AppError("Menu not found.", 404, "MENU_NOT_FOUND");
+  }
+
+  return menu;
+};
+
 const ensureActiveSchoolAssignment = async ({ sppgId, schoolId }) => {
   const assignment = await prisma.sppgSchoolAssignment.findFirst({
     where: {
@@ -260,6 +291,7 @@ const getDistributionById = async (id) => {
     include: {
       sppg: true,
       school: true,
+      menu: true,
       productionBatch: true,
       validation: true,
       proofs: {
@@ -332,7 +364,7 @@ const createDeliveredNotification = async ({ tx, distribution }) => {
     userIds: schoolUserIds,
     type: "distribution",
     title: "Distribusi Terkirim",
-    message: `Distribusi untuk sekolah ${distribution.school.name} telah berstatus delivered.`,
+    message: `Distribusi untuk sekolah ${distribution.school.name} telah berstatus terkirim.`,
     payload: {
       distributionId: distribution.id,
       schoolId: distribution.schoolId,
@@ -450,6 +482,7 @@ const listDistributions = async ({ query, user }) => {
     sppg: true,
     school: true,
     productionBatch: true,
+    menu: true,
     validation: true
   };
 
@@ -471,7 +504,7 @@ const listDistributions = async ({ query, user }) => {
     });
 
     return {
-      data: ranked.items,
+      data: ranked.items.map(decorateDistributionStatus),
       meta: {
         ...buildPaginationMeta({
           page: pagination.page,
@@ -495,7 +528,7 @@ const listDistributions = async ({ query, user }) => {
   ]);
 
   return {
-    data: items,
+    data: items.map(decorateDistributionStatus),
     meta: buildPaginationMeta({
       page: pagination.page,
       limit: pagination.limit,
@@ -543,7 +576,7 @@ const getDistributionDetail = async ({ id, user }) => {
   ensureDistributionAccess(user, distribution);
 
   return {
-    data: distribution
+    data: decorateDistributionStatus(distribution)
   };
 };
 
@@ -558,12 +591,37 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
     assertSppgOwnership(user, targetSppgId);
   }
 
-  const [sppg, school] = await Promise.all([getActiveSppg(targetSppgId), getActiveSchool(payload.schoolId)]);
+  if (user.role === "sppg" && !payload.menuId) {
+    throw new AppError("menuId is required for SPPG distribution input.", 400, "DISTRIBUTION_MENU_REQUIRED");
+  }
+
+  const [sppg, school, menu] = await Promise.all([
+    getActiveSppg(targetSppgId),
+    getActiveSchool(payload.schoolId),
+    payload.menuId ? getActiveMenu(payload.menuId) : Promise.resolve(null)
+  ]);
 
   await ensureActiveSchoolAssignment({ sppgId: sppg.id, schoolId: school.id });
 
-  const nextStatus = payload.status || "in_progress";
-  const shouldLock = nextStatus === "delivered";
+  if (menu && Number(menu.sppgId) !== Number(sppg.id)) {
+    throw new AppError("Menu does not belong to this SPPG.", 400, "MENU_SPPG_MISMATCH");
+  }
+
+  const nextStatus = payload.status || "pending";
+  const shouldLock = ["delivered", "sent"].includes(nextStatus);
+
+  if (shouldLock) {
+    if (!menu) {
+      throw new AppError("A verified menu is required before distribution can be sent.", 409, "DISTRIBUTION_MENU_REQUIRED");
+    }
+
+    if (menu.priceValidationStatus !== "VERIFIED") {
+      throw new AppError("Menu price must be verified before distribution can be sent.", 409, "MENU_PRICE_NOT_VERIFIED", {
+        menuId: menu.id,
+        priceValidationStatus: menu.priceValidationStatus
+      });
+    }
+  }
 
   const distribution = await prisma.$transaction(async (tx) => {
     const productionBatch = await productionBatchService.findBatchForDistribution({
@@ -591,11 +649,13 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
       data: {
         sppgId: sppg.id,
         schoolId: school.id,
+        menuId: menu?.id ?? null,
         productionBatchId: productionBatch?.id ?? null,
         portions: payload.portions,
         pricePerPortion,
         distributionDate: new Date(payload.distributionDate),
         status: nextStatus,
+        sentAt: shouldLock ? new Date() : null,
         failureReason: payload.failureReason ?? null,
         isLocked: shouldLock,
         unlockedUntil: null
@@ -603,6 +663,7 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
       include: {
         sppg: true,
         school: true,
+        menu: true,
         productionBatch: true,
         validation: true,
         proofs: true
@@ -671,6 +732,7 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
       include: {
         sppg: true,
         school: true,
+        menu: true,
         productionBatch: true,
         validation: true,
         proofs: {
@@ -691,7 +753,7 @@ const createDistribution = async ({ payload, user, ipAddress }) => {
   });
 
   return {
-    data: distribution
+    data: decorateDistributionStatus(distribution)
   };
 };
 
@@ -723,14 +785,42 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
     assertSppgOwnership(user, targetSppgId);
   }
 
-  const [sppg, school] = await Promise.all([getActiveSppg(targetSppgId), getActiveSchool(targetSchoolId)]);
+  const [sppg, school, menu] = await Promise.all([
+    getActiveSppg(targetSppgId),
+    getActiveSchool(targetSchoolId),
+    payload.menuId !== undefined
+      ? payload.menuId
+        ? getActiveMenu(payload.menuId)
+        : Promise.resolve(null)
+      : existing.menuId
+        ? getActiveMenu(existing.menuId)
+        : Promise.resolve(null)
+  ]);
 
   await ensureActiveSchoolAssignment({ sppgId: sppg.id, schoolId: school.id });
 
+  if (menu && Number(menu.sppgId) !== Number(sppg.id)) {
+    throw new AppError("Menu does not belong to this SPPG.", 400, "MENU_SPPG_MISMATCH");
+  }
+
   const nextStatus = payload.status ?? existing.status;
-  const becameDelivered = existing.status !== "delivered" && nextStatus === "delivered";
+  const becameDelivered = !["delivered", "sent"].includes(existing.status) && ["delivered", "sent"].includes(nextStatus);
   const nextIsLocked = becameDelivered ? true : existing.isLocked;
   const nextUnlockedUntil = becameDelivered ? null : existing.unlockedUntil;
+  const nextSentAt = becameDelivered ? new Date() : existing.sentAt;
+
+  if (becameDelivered) {
+    if (!menu) {
+      throw new AppError("A verified menu is required before distribution can be sent.", 409, "DISTRIBUTION_MENU_REQUIRED");
+    }
+
+    if (menu.priceValidationStatus !== "VERIFIED") {
+      throw new AppError("Menu price must be verified before distribution can be sent.", 409, "MENU_PRICE_NOT_VERIFIED", {
+        menuId: menu.id,
+        priceValidationStatus: menu.priceValidationStatus
+      });
+    }
+  }
 
   const distribution = await prisma.$transaction(async (tx) => {
     const productionBatch = await productionBatchService.findBatchForDistribution({
@@ -756,11 +846,13 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
       data: {
         ...(payload.sppgId !== undefined ? { sppgId: targetSppgId } : {}),
         ...(payload.schoolId !== undefined ? { schoolId: targetSchoolId } : {}),
+        ...(payload.menuId !== undefined ? { menuId: menu?.id ?? null } : {}),
         ...(payload.productionBatchId !== undefined ? { productionBatchId: productionBatch?.id ?? null } : {}),
         ...(payload.portions !== undefined ? { portions: payload.portions } : {}),
         ...(nextPricePerPortion !== undefined ? { pricePerPortion: nextPricePerPortion } : {}),
         ...(payload.distributionDate !== undefined ? { distributionDate: new Date(payload.distributionDate) } : {}),
         ...(payload.status !== undefined ? { status: payload.status } : {}),
+        sentAt: nextSentAt,
         ...(payload.failureReason !== undefined ? { failureReason: payload.failureReason } : {}),
         isLocked: nextIsLocked,
         unlockedUntil: nextUnlockedUntil
@@ -821,6 +913,7 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
       include: {
         sppg: true,
         school: true,
+        menu: true,
         productionBatch: true,
         validation: true,
         proofs: {
@@ -841,7 +934,102 @@ const updateDistribution = async ({ id, payload, user, ipAddress }) => {
   });
 
   return {
-    data: distribution
+    data: decorateDistributionStatus(distribution)
+  };
+};
+
+const markDistributionSent = async ({ id, user, ipAddress }) => {
+  const existing = await getDistributionById(id);
+  ensureDistributionAccess(user, existing);
+
+  if (!existing.menuId || !existing.menu) {
+    throw new AppError("Distribution must be linked to a daily menu before it can be sent.", 409, "DISTRIBUTION_MENU_REQUIRED");
+  }
+
+  if (existing.menu.deletedAt) {
+    throw new AppError("Linked daily menu is no longer active.", 409, "DISTRIBUTION_MENU_DELETED");
+  }
+
+  if (existing.menu.priceValidationStatus !== "VERIFIED") {
+    throw new AppError("Menu price must be verified before distribution can be sent.", 409, "MENU_PRICE_NOT_VERIFIED", {
+      menuId: existing.menuId,
+      priceValidationStatus: existing.menu.priceValidationStatus
+    });
+  }
+
+  if (["sent", "delivered"].includes(existing.status)) {
+    return {
+      data: decorateDistributionStatus(existing)
+    };
+  }
+
+  const distribution = await prisma.$transaction(async (tx) => {
+    const updated = await tx.distribution.update({
+      where: {
+        id: existing.id
+      },
+      data: {
+        status: "sent",
+        sentAt: new Date(),
+        isLocked: true,
+        unlockedUntil: null
+      },
+      include: {
+        sppg: true,
+        school: true,
+        menu: true,
+        productionBatch: true,
+        validation: true,
+        proofs: {
+          include: {
+            file: true,
+            uploader: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: user.userId,
+      action: "UPDATE",
+      tableName: "distributions",
+      recordId: updated.id,
+      oldData: existing,
+      newData: updated,
+      ipAddress
+    });
+
+    await createLockAuditIfNeeded({
+      tx,
+      userId: user.userId,
+      oldData: existing,
+      newData: updated,
+      ipAddress
+    });
+
+    await createDeliveredNotification({
+      tx,
+      distribution: updated
+    });
+
+    await createDistributionLockedNotification({
+      tx,
+      distribution: updated
+    });
+
+    return updated;
+  });
+
+  return {
+    data: decorateDistributionStatus(distribution)
   };
 };
 
@@ -850,5 +1038,6 @@ module.exports = {
   getDistributionDetail,
   getLockSummary,
   listDistributions,
+  markDistributionSent,
   updateDistribution
 };

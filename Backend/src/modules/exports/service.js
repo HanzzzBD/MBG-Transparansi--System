@@ -6,6 +6,7 @@ const { deleteStoredObject } = require("../../utils/storage");
 const { assertExportDatasetsAllowed } = require("./datasets");
 const { enqueueExportJob } = require("./runtime");
 const { cleanupExpiredExports } = require("./processor");
+const { assertValidExportDateFilters } = require("./validation");
 
 const prisma = getPrismaClient();
 const EXPORT_RETENTION_DAYS = 7;
@@ -129,6 +130,7 @@ const expireOldExports = async () => {
 const createExport = async ({ payload, user, ipAddress }) => {
   const filterParams = payload.filterParams || payload.filters || {};
   assertExportDatasetsAllowed({ filterParams, user });
+  assertValidExportDateFilters(filterParams);
 
   const exportRecord = await prisma.$transaction(async (tx) => {
     const created = await tx.export.create({
@@ -258,6 +260,10 @@ const retryExport = async ({ id, user, ipAddress }) => {
   if (!["failed", "expired"].includes(apiStatus)) {
     throw new AppError("Only failed or expired exports can be retried.", 409, "EXPORT_RETRY_NOT_ALLOWED");
   }
+
+  const filterParams = exportRecord.filterParams || {};
+  assertExportDatasetsAllowed({ filterParams, user });
+  assertValidExportDateFilters(filterParams);
 
   const updated = await prisma.$transaction(async (tx) => {
     const current = await tx.export.findUnique({

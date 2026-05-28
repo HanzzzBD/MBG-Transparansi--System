@@ -1,0 +1,2 @@
+ALTER TABLE "production_batches"
+  ADD COLUMN IF NOT EXISTS "rent_cost" NUMERIC(14, 2) NOT NULL DEFAULT 0;

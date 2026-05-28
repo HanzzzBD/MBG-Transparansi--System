@@ -28,6 +28,7 @@ import {
   YAxis,
 } from 'recharts'
 import { getSppgMapMarkers, getSppgOperationalDetail } from '../services/api'
+import { getDistributionValidationStatus } from '../utils/distributionStatus.js'
 import { matchesSearchTokens, rankBySearch } from '../utils/search.js'
 import './PetaSPPG.css'
 
@@ -62,8 +63,8 @@ const STATUS_LABELS = {
 
 const MARKER_COLORS = {
   active: '#057a55',
-  problem: '#92400e',
-  inactive: '#9b1c1c',
+  problem: '#c2410c',
+  inactive: '#6b7280',
 }
 
 const TABS = [
@@ -132,7 +133,7 @@ function normalizeSppg(item) {
     province: item.province || info.province || '-',
     city: item.city || info.city || '-',
     address: item.address || info.address || '-',
-    status: item.status || 'inactive',
+    status: item.status || 'active',
     isActive: Boolean(item.isActive ?? item.status === 'active'),
     capacity: Number(item.capacity) || Number(info.capacity) || 0,
     lat: coordinate.lat,
@@ -790,7 +791,7 @@ function PetaSPPG() {
                           <tr key={item.id}>
                             <td>{item.school?.name || '-'}</td>
                             <td>{formatNumber(item.portions)}</td>
-                            <td>{item.status || '-'}</td>
+                            <td>{getDistributionValidationStatus(item)}</td>
                             <td>{formatDate(item.distributionDate)}</td>
                           </tr>
                         ))

@@ -1,41 +1,46 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import Anggaran from './pages/Anggaran.jsx'
-import AdminSchools from './pages/AdminSchools.jsx'
-import AdminSppg from './pages/AdminSppg.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import Distribusi from './pages/Distribusi.jsx'
-import DapodikImport from './pages/DapodikImport.jsx'
-import Konfirmasi from './pages/Konfirmasi.jsx'
-import Landing from './pages/Landing.jsx'
-import LaporanMasyarakat from './pages/LaporanMasyarakat.jsx'
-import LockUnlock from './pages/LockUnlock.jsx'
-import Login from './pages/Login.jsx'
-import OverrideData from './pages/OverrideData.jsx'
-import PublicPetaSPPG from './pages/PublicPetaSPPG.jsx'
-import PublicStatistik from './pages/PublicStatistik.jsx'
-import ProductionBatches from './pages/ProductionBatches.jsx'
-import SchoolHistory from './pages/SchoolHistory.jsx'
-import SchoolProfile from './pages/SchoolProfile.jsx'
-import SchoolReports from './pages/SchoolReports.jsx'
-import SppgHistory from './pages/SppgHistory.jsx'
-import SppgIssues from './pages/SppgIssues.jsx'
-import SppgMenu from './pages/SppgMenu.jsx'
-import SppgProfile from './pages/SppgProfile.jsx'
-import SppgSchools from './pages/SppgSchools.jsx'
-import UserManagement from './pages/UserManagement.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
-import { checkSessionRequest, logoutRequest } from './services/api.js'
+import { checkSessionRequest, getMePermissions, logoutRequest } from './services/api.js'
 import useAuthStore from './store/authStore.js'
 
 let sessionCheckPromise = null
+const ENABLE_SETTINGS_PAGE =
+  import.meta.env.VITE_ENABLE_SETTINGS_PAGE === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_ENABLE_SETTINGS_PAGE !== 'false')
 
 const Analytics = lazy(() => import('./pages/Analytics.jsx'))
+const Anggaran = lazy(() => import('./pages/Anggaran.jsx'))
+const AdminSchools = lazy(() => import('./pages/AdminSchools.jsx'))
+const AdminSppg = lazy(() => import('./pages/AdminSppg.jsx'))
 const AnomalyDetection = lazy(() => import('./pages/AnomalyDetection.jsx'))
 const ApiMonitoring = lazy(() => import('./pages/ApiMonitoring.jsx'))
 const AuditLog = lazy(() => import('./pages/AuditLog.jsx'))
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
+const Distribusi = lazy(() => import('./pages/Distribusi.jsx'))
+const DapodikImport = lazy(() => import('./pages/DapodikImport.jsx'))
 const ExportData = lazy(() => import('./pages/ExportData.jsx'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'))
+const Konfirmasi = lazy(() => import('./pages/Konfirmasi.jsx'))
+const Landing = lazy(() => import('./pages/Landing.jsx'))
+const LaporanMasyarakat = lazy(() => import('./pages/LaporanMasyarakat.jsx'))
+const LockUnlock = lazy(() => import('./pages/LockUnlock.jsx'))
+const Login = lazy(() => import('./pages/Login.jsx'))
+const NotFound = lazy(() => import('./pages/NotFound.jsx'))
+const OverrideData = lazy(() => import('./pages/OverrideData.jsx'))
 const PetaSPPG = lazy(() => import('./pages/PetaSPPG.jsx'))
+const PublicPetaSPPG = lazy(() => import('./pages/PublicPetaSPPG.jsx'))
+const PublicStatistik = lazy(() => import('./pages/PublicStatistik.jsx'))
+const ProductionBatches = lazy(() => import('./pages/ProductionBatches.jsx'))
+const SchoolHistory = lazy(() => import('./pages/SchoolHistory.jsx'))
+const SchoolProfile = lazy(() => import('./pages/SchoolProfile.jsx'))
+const SchoolReports = lazy(() => import('./pages/SchoolReports.jsx'))
+const SppgHistory = lazy(() => import('./pages/SppgHistory.jsx'))
+const SppgIssues = lazy(() => import('./pages/SppgIssues.jsx'))
+const SppgMenu = lazy(() => import('./pages/SppgMenu.jsx'))
+const SppgProfile = lazy(() => import('./pages/SppgProfile.jsx'))
+const SppgSchools = lazy(() => import('./pages/SppgSchools.jsx'))
+const UserManagement = lazy(() => import('./pages/UserManagement.jsx'))
 
 const routeAccess = {
   '/dashboard': ['admin', 'pemerintah', 'sppg', 'sekolah'],
@@ -63,6 +68,103 @@ const routeAccess = {
   '/override': ['admin'],
   '/api-monitoring': ['admin'],
   '/dapodik': ['admin'],
+  '/settings': ['admin'],
+}
+
+const routePermissions = {
+  '/dashboard': {
+    admin: 'admin.dashboard.view',
+    pemerintah: 'admin.dashboard.view',
+  },
+  '/peta': {
+    admin: 'admin.map.view',
+    pemerintah: 'admin.map.view',
+  },
+  '/analytics': {
+    admin: 'admin.analytics.view',
+    pemerintah: 'admin.analytics.view',
+  },
+  '/anggaran': {
+    admin: 'admin.budget.view',
+    pemerintah: 'admin.budget.view',
+  },
+  '/laporan-masyarakat': {
+    admin: 'admin.public_reports.view',
+    pemerintah: 'admin.public_reports.view',
+  },
+  '/anomaly': {
+    admin: 'admin.anomaly.view',
+    pemerintah: 'admin.anomaly.view',
+  },
+  '/audit-log': {
+    admin: 'admin.audit_log.view',
+    pemerintah: 'admin.audit_log.view',
+  },
+  '/export': {
+    admin: 'admin.export.view',
+    pemerintah: 'admin.export.view',
+  },
+  '/admin/sppg': {
+    admin: ['admin.sppg.manage', 'admin.master_sppg.manage'],
+  },
+  '/admin/schools': {
+    admin: ['admin.school.manage', 'admin.master_school.manage'],
+  },
+  '/sppg': {
+    admin: ['admin.sppg.manage', 'admin.master_sppg.manage'],
+  },
+  '/sekolah': {
+    admin: ['admin.school.manage', 'admin.master_school.manage'],
+  },
+  '/dapodik': {
+    admin: 'admin.dapodik.manage',
+  },
+  '/users': {
+    admin: 'admin.users.manage',
+  },
+  '/lock-unlock': {
+    admin: 'admin.lock_unlock.manage',
+  },
+  '/override': {
+    admin: 'admin.override.manage',
+  },
+  '/api-monitoring': {
+    admin: 'admin.api_monitoring.view',
+  },
+  '/settings': {
+    admin: 'admin.settings.manage',
+  },
+  '/distribusi': {
+    admin: 'distribution.view',
+    sppg: 'distribution.view',
+  },
+  '/sekolah-saluran': {
+    sppg: 'sppg.school_channel.view',
+  },
+  '/production-batches': {
+    admin: 'production.view',
+    sppg: 'production.view',
+  },
+  '/input-menu': {
+    sppg: 'daily_menu.create',
+  },
+  '/laporan-kendala': {
+    sppg: 'issue.view',
+  },
+  '/riwayat': {
+    sppg: 'distribution.view',
+    sekolah: 'distribution.view',
+  },
+  '/validasi': {
+    sekolah: 'distribution.view',
+  },
+  '/laporan-sekolah': {
+    sekolah: 'issue.view',
+  },
+  '/profil': {
+    sppg: 'account.view',
+    sekolah: 'account.view',
+  },
 }
 
 const legacyRouteRedirects = [
@@ -88,7 +190,10 @@ const legacyRouteRedirects = [
   ['/dashboard/users', '/users'],
   ['/dashboard/master-data', '/admin/sppg'],
   ['/admin/master-data', '/admin/sppg'],
+  ['/sppg', '/admin/sppg'],
+  ['/sekolah', '/admin/schools'],
   ['/dashboard/lock-data', '/lock-unlock'],
+  ['/dashboard/settings', '/settings'],
   ['/dashboard/override', '/override'],
   ['/dashboard/api-monitoring', '/api-monitoring'],
   ['/admin/audit-logs', '/audit-log'],
@@ -109,7 +214,43 @@ function getUserName(user) {
 }
 
 function normalizeRole(role) {
-  return String(role || '').toLowerCase()
+  const normalized = String(role || '').toLowerCase()
+  return normalized === 'gov' ? 'pemerintah' : normalized
+}
+
+function normalizePermissionRequirement(requirement) {
+  if (!requirement) return []
+  return Array.isArray(requirement) ? requirement.filter(Boolean) : [requirement]
+}
+
+function hasAnyPermission(permissions, requirement) {
+  const requiredPermissions = normalizePermissionRequirement(requirement)
+  if (!requiredPermissions.length) return true
+  return requiredPermissions.some((permissionKey) => permissions.includes(permissionKey))
+}
+
+function getRouteRequiredPermissions(pathname, role) {
+  const matchedPath = Object.keys(routePermissions)
+    .sort((first, second) => second.length - first.length)
+    .find((path) => pathname === path || pathname.startsWith(`${path}/`))
+
+  if (!matchedPath) return []
+  return normalizePermissionRequirement(routePermissions[matchedPath]?.[role])
+}
+
+async function loadEffectivePermissions() {
+  const { setPermissions, setPermissionsLoading } = useAuthStore.getState()
+  setPermissionsLoading(true)
+
+  try {
+    const payload = await getMePermissions()
+    const data = payload?.data || payload || {}
+    setPermissions(data.effectivePermissions || data.permissions || [])
+  } catch {
+    setPermissions([])
+  } finally {
+    setPermissionsLoading(false)
+  }
 }
 
 function RouteFallback() {
@@ -120,10 +261,33 @@ function RouteFallback() {
   )
 }
 
+function AccessDenied({ requiredPermissions = [] }) {
+  return (
+    <section className="app-access-denied" aria-labelledby="access-denied-title">
+      <p className="app-access-denied-code">403</p>
+      <h1 id="access-denied-title">Akses Ditolak</h1>
+      <p>Anda tidak memiliki akses untuk membuka halaman ini.</p>
+      {requiredPermissions.length ? (
+        <small>Permission dibutuhkan: {requiredPermissions.join(', ')}</small>
+      ) : null}
+    </section>
+  )
+}
+
 function ProtectedRoute({ allowedRoles, children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, token, isAuthenticated, isRefreshingSession, isSessionChecked, logout } = useAuthStore()
+  const {
+    user,
+    token,
+    permissions,
+    permissionsLoaded,
+    permissionsLoading,
+    isAuthenticated,
+    isRefreshingSession,
+    isSessionChecked,
+    logout,
+  } = useAuthStore()
   const role = normalizeRole(user?.role)
   const authenticated = Boolean(isAuthenticated && user && token)
 
@@ -137,6 +301,13 @@ function ProtectedRoute({ allowedRoles, children }) {
 
   if (!allowedRoles?.includes(role)) {
     return <Navigate to="/dashboard" replace />
+  }
+
+  const requiredPermissions = getRouteRequiredPermissions(location.pathname, role)
+  const needsPermissionCheck = requiredPermissions.length > 0
+
+  if (needsPermissionCheck && (!permissionsLoaded || permissionsLoading)) {
+    return <RouteFallback />
   }
 
   const handleLogout = async () => {
@@ -159,6 +330,23 @@ function ProtectedRoute({ allowedRoles, children }) {
     token,
     user,
     onLogout: handleLogout,
+  }
+
+  const hasRoutePermission = hasAnyPermission(permissions, requiredPermissions)
+
+  if (!hasRoutePermission) {
+    return (
+      <DashboardLayout
+        userRole={routeProps.userRole}
+        userName={routeProps.userName}
+        userId={routeProps.userId}
+        currentPath={routeProps.currentPath}
+        notifCount={routeProps.notifCount}
+        onLogout={routeProps.onLogout}
+      >
+        <AccessDenied requiredPermissions={requiredPermissions} />
+      </DashboardLayout>
+    )
   }
 
   const page = typeof children === 'function' ? children(routeProps) : children
@@ -192,8 +380,9 @@ function LoginRoute() {
     return <Navigate to="/dashboard" replace />
   }
 
-  const handleLoginSuccess = (userData, accessToken) => {
+  const handleLoginSuccess = async (userData, accessToken) => {
     login(userData, accessToken)
+    await loadEffectivePermissions()
     navigate(location.state?.from || '/dashboard', { replace: true })
   }
 
@@ -206,16 +395,6 @@ function RoleAwareHistory(props) {
 
 function RoleAwareProfile(props) {
   return props.userRole === 'sekolah' ? <SchoolProfile {...props} /> : <SppgProfile {...props} />
-}
-
-function FallbackRoute() {
-  const { user, token, isAuthenticated, isSessionChecked } = useAuthStore()
-
-  if (!isSessionChecked) {
-    return <RouteFallback />
-  }
-
-  return <Navigate to={isAuthenticated && user && token ? '/dashboard' : '/'} replace />
 }
 
 function AppRoutes() {
@@ -243,6 +422,7 @@ function AppRoutes() {
 
         if (data.authenticated && data.user && data.accessToken) {
           login(data.user, data.accessToken)
+          await loadEffectivePermissions()
         } else {
           logout()
         }
@@ -265,9 +445,12 @@ function AppRoutes() {
   }, [finishSessionCheck, login, logout, startSessionCheck])
 
   return (
-    <Routes>
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<LoginRoute />} />
+      <Route path="/forgot-password" element={<ForgotPassword mode="request" />} />
+      <Route path="/reset-password" element={<ForgotPassword mode="reset" />} />
       <Route path="/peta-publik" element={<PublicPetaSPPG />} />
       <Route path="/statistik" element={<PublicStatistik />} />
       <Route path="/anggaran-publik" element={<PublicStatistik />} />
@@ -464,6 +647,23 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      {ENABLE_SETTINGS_PAGE ? (
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute allowedRoles={routeAccess['/settings']}>
+              {() => (
+                <section className="app-settings-page">
+                  <p className="app-settings-eyebrow">Admin</p>
+                  <h1>Pengaturan Sistem</h1>
+                  <p>Panel pengaturan backend config belum diaktifkan untuk production.</p>
+                </section>
+              )}
+            </ProtectedRoute>
+          }
+        />
+      ) : null}
+
       <Route
         path="/api-monitoring"
         element={
@@ -473,12 +673,15 @@ function AppRoutes() {
         }
       />
 
-      {legacyRouteRedirects.map(([from, to]) => (
-        <Route key={from} path={from} element={<Navigate to={to} replace />} />
-      ))}
+      {legacyRouteRedirects
+        .filter(([, to]) => ENABLE_SETTINGS_PAGE || to !== '/settings')
+        .map(([from, to]) => (
+          <Route key={from} path={from} element={<Navigate to={to} replace />} />
+        ))}
 
-      <Route path="*" element={<FallbackRoute />} />
-    </Routes>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   )
 }
 

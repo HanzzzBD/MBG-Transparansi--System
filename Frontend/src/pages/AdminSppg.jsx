@@ -11,6 +11,16 @@ import {
 import './MasterData.css'
 
 const PAGE_SIZE = 10
+const STATUS_OPTIONS = [
+  { value: 'active', label: 'Aktif' },
+  { value: 'inactive', label: 'Tidak Aktif' },
+  { value: 'problem', label: 'Bermasalah' },
+]
+const STATUS_LABELS = STATUS_OPTIONS.reduce((accumulator, option) => {
+  accumulator[option.value] = option.label
+  return accumulator
+}, {})
+
 const emptyForm = {
   name: '',
   province: '',
@@ -41,6 +51,10 @@ function normalizeSppg(item) {
     picPhone: item.picPhone ?? item.pic_phone ?? '',
     deletedAt: item.deletedAt ?? item.deleted_at ?? null,
   }
+}
+
+function getStatusLabel(status) {
+  return STATUS_LABELS[status] || 'Aktif'
 }
 
 function makePayload(form) {
@@ -207,9 +221,9 @@ export default function AdminSppg({ userRole }) {
             <span>Status</span>
             <select className="master-select" name="status" value={filters.status} onChange={handleFilterChange}>
               <option value="">Semua</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-              <option value="problem">Problem</option>
+              {STATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
             </select>
           </label>
           <label className="master-field">
@@ -250,7 +264,7 @@ export default function AdminSppg({ userRole }) {
                     <td><strong>{row.city || '-'}</strong><span className="master-muted">{row.province || '-'} {row.address ? `- ${row.address}` : ''}</span></td>
                     <td><strong>{Number(row.capacity || 0).toLocaleString('id-ID')}</strong><span className="master-muted">{row.workers || 0} pekerja</span></td>
                     <td><strong>{row.picName || '-'}</strong><span className="master-muted">{row.picPhone || '-'}</span></td>
-                    <td><span className={`master-status master-status-${row.status}`}>{row.status}</span></td>
+                    <td><span className={`master-status master-status-${row.status}`}>{getStatusLabel(row.status)}</span></td>
                     <td>
                       <div className="master-row-actions">
                         <button className="master-icon-btn" type="button" title="Detail" onClick={() => { setSelected(row); setModal('detail') }}><Eye aria-hidden="true" /></button>
@@ -301,11 +315,11 @@ export default function AdminSppg({ userRole }) {
                 </label>
               ))}
               <label className="master-field">
-                <span>status</span>
+                <span>Status Operasional</span>
                 <select className="master-select" value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value })}>
-                  <option value="active">active</option>
-                  <option value="inactive">inactive</option>
-                  <option value="problem">problem</option>
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
               </label>
               <label className="master-field"><span>pic_name</span><input className="master-input" value={form.picName} onChange={(event) => setForm({ ...form, picName: event.target.value })} /></label>
@@ -330,7 +344,7 @@ export default function AdminSppg({ userRole }) {
               {Object.entries(selected).map(([key, value]) => (
                 <div className="master-detail-item" key={key}>
                   <span className="master-label">{key}</span>
-                  <strong>{value === null || value === '' ? '-' : String(value)}</strong>
+                  <strong>{key === 'status' ? getStatusLabel(value) : value === null || value === '' ? '-' : String(value)}</strong>
                 </div>
               ))}
             </div>

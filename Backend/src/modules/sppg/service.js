@@ -17,6 +17,9 @@ const {
 } = require("../../utils/search");
 
 const prisma = getPrismaClient();
+const SPPG_STATUS_VALUES = new Set(["active", "inactive", "problem"]);
+
+const normalizeSppgStatus = (status) => (SPPG_STATUS_VALUES.has(status) ? status : "active");
 
 const toNumber = (value) => {
   const number = Number(value || 0);
@@ -344,7 +347,7 @@ const listMapMarkers = async ({ query = {} }) => {
     data: normalizeRows(rows).map((row) => ({
       id: row.id,
       name: row.name,
-      status: row.status,
+      status: normalizeSppgStatus(row.status),
       lat: toNumber(row.lat),
       lng: toNumber(row.lng),
       province: row.province,
@@ -1065,6 +1068,8 @@ const serializeDistribution = (distribution) => ({
   totalCost: toNumber(distribution.totalCost),
   distributionDate: distribution.distributionDate,
   status: distribution.status,
+  deliveryStatus: distribution.status,
+  confirmationStatus: distribution.validation?.status || "pending",
   failureReason: distribution.failureReason,
   school: distribution.school
     ? {
@@ -1374,8 +1379,8 @@ const getSppgOperationalDetail = async ({ id }) => {
       },
       province: sppg.province,
       city: sppg.city,
-      status: sppg.status,
-      isActive: sppg.status === "active",
+      status: normalizeSppgStatus(sppg.status),
+      isActive: normalizeSppgStatus(sppg.status) === "active",
       workers: sppg.workers,
       menuHariIni: serializeMenu(menuToday || productionBatchToday?.menu || null),
       productionBatchHariIni: serializeProductionBatch(productionBatchToday),
@@ -1478,6 +1483,26 @@ const updateSppg = async ({ id, payload, actorUserId, ipAddress }) => {
   };
 };
 
+const updateSppgStatus = async ({ id, status, actorUserId, ipAddress }) =>
+  updateSppg({
+    id,
+    payload: {
+      status
+    },
+    actorUserId,
+    ipAddress
+  });
+
+const updateMySppgProfile = async ({ payload, user, ipAddress }) => {
+  const sppgId = requireSppgScope(user);
+  return updateSppg({
+    id: sppgId,
+    payload,
+    actorUserId: user.userId,
+    ipAddress
+  });
+};
+
 const deleteSppg = async ({ id, actorUserId, ipAddress }) => {
   const existing = await getActiveSppgById(id);
 
@@ -1561,5 +1586,7 @@ module.exports = {
   listSppg,
   restoreSppg,
   unassignSchoolFromSppg,
+  updateMySppgProfile,
+  updateSppgStatus,
   updateSppg
 };

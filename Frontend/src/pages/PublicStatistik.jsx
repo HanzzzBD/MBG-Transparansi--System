@@ -23,10 +23,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import PublicNavbar from '../components/PublicNavbar.jsx'
+import usePublicMapPath from '../hooks/usePublicMapPath.js'
 import { apiRequest } from '../services/api.js'
-import useAuthStore from '../store/authStore.js'
-
-const INTERNAL_MAP_ROLES = new Set(['admin', 'pemerintah', 'gov', 'sppg', 'sekolah'])
+import batiksamar from '../assets/Batiksamar.png'
 
 async function requestJson(path, options = {}) {
   const payload = await apiRequest(path, options)
@@ -98,9 +98,7 @@ function StatCard({ title, value, helper, icon: Icon, tone = '#0071e4' }) {
 }
 
 function PublicStatistik() {
-  const { user, isAuthenticated } = useAuthStore()
-  const role = String(user?.role || '').toLowerCase()
-  const fullMapPath = isAuthenticated && INTERNAL_MAP_ROLES.has(role) ? '/peta' : '/peta-publik'
+  const fullMapPath = usePublicMapPath()
   const [filters, setFilters] = useState({
     province: '',
     city: '',
@@ -176,27 +174,10 @@ function PublicStatistik() {
 
   return (
     <div className="min-h-screen bg-[#f4f8fb] text-[#111928]">
-      <header className="border-b border-[#b5e0ea] bg-white">
-        <div className="mx-auto flex min-h-20 w-[min(1120px,calc(100%-32px))] flex-wrap items-center justify-between gap-4 py-3">
-          <Link to="/" className="flex items-center gap-3" aria-label="MBG Transparency System">
-            <span className="grid h-11 w-11 place-items-center rounded-lg bg-[#0071e4] text-sm font-black text-white">MBG</span>
-            <span>
-              <span className="block text-base font-black text-[#0f4c81]">MBG</span>
-              <span className="block text-xs font-bold text-[#6b7280]">Transparency System</span>
-            </span>
-          </Link>
-          <nav className="flex flex-wrap items-center gap-4 text-sm font-extrabold text-[#6b7280]" aria-label="Navigasi publik">
-            <Link className="hover:text-[#0071e4]" to="/">Beranda</Link>
-            <Link className="hover:text-[#0071e4]" to={fullMapPath}>Peta SPPG</Link>
-            <Link className="text-[#0071e4]" to="/statistik">Statistik</Link>
-            <a className="hover:text-[#0071e4]" href="#anggaran-publik">Transparansi Anggaran</a>
-            <Link className="rounded-lg bg-[#0071e4] px-4 py-2 text-white" to="/login">Login</Link>
-          </nav>
-        </div>
-      </header>
+      <PublicNavbar />
 
       <main>
-        <section className="bg-white">
+        <section className="bg-white bg-cover bg-center" style={{ backgroundImage: `url(${batiksamar})` }}>
           <div className="mx-auto grid w-[min(1120px,calc(100%-32px))] gap-8 py-12 lg:grid-cols-[1fr_340px] lg:items-end">
             <div>
               <p className="text-xs font-black uppercase tracking-[0.08em] text-[#0071e4]">Statistik Publik</p>

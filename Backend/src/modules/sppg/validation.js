@@ -163,6 +163,30 @@ const updateSppgSchema = z.object({
   query: z.object({}).optional().default({})
 });
 
+const updateSppgStatusSchema = z.object({
+  body: z.object({
+    status: sppgStatusEnum
+  }),
+  params: sppgIdParamsSchema.shape.params,
+  query: z.object({}).optional().default({})
+});
+
+const updateMySppgProfileSchema = z.object({
+  body: z
+    .object({
+      name: z.string().trim().min(1).max(255).optional(),
+      address: z.string().trim().max(500).optional().nullable(),
+      workers: z.coerce.number().int().nonnegative().optional().nullable(),
+      picName: z.string().trim().max(255).optional().nullable(),
+      picPhone: z.string().trim().max(50).optional().nullable()
+    })
+    .refine((value) => Object.keys(value).length > 0, {
+      message: "At least one field must be provided."
+    }),
+  params: z.object({}).optional().default({}),
+  query: z.object({}).optional().default({})
+});
+
 module.exports = {
   createSppgSchema,
   adminAssignSppgSchoolsSchema,
@@ -176,5 +200,7 @@ module.exports = {
   mapMarkersSchema,
   sppgIdParamsSchema,
   unassignMySchoolSchema,
+  updateMySppgProfileSchema,
+  updateSppgStatusSchema,
   updateSppgSchema
 };

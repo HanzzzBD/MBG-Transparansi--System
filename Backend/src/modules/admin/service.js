@@ -27,6 +27,36 @@ const prisma = getPrismaClient();
 
 const DISTRIBUTION_UNLOCK_WINDOW_MS = 60 * 60 * 1000;
 const DEFAULT_EXPORT_MAX_ROWS = 50000;
+const READABLE_SYSTEM_CONFIG_DEFAULTS = {
+  export_max_rows: {
+    value: DEFAULT_EXPORT_MAX_ROWS,
+    description: "Maximum rows allowed for generated export files."
+  },
+  banper_regular_amount: {
+    value: 13000,
+    description: "BGN regular Banper allocation per meal portion."
+  },
+  banper_special_amount: {
+    value: 15000,
+    description: "BGN special Banper allocation per meal portion."
+  },
+  raw_material_min_per_portion: {
+    value: 8000,
+    description: "BGN minimum raw material cost per meal portion."
+  },
+  raw_material_max_per_portion: {
+    value: 10000,
+    description: "BGN maximum raw material cost per meal portion."
+  },
+  operational_max_per_portion: {
+    value: 3000,
+    description: "BGN maximum operational cost per meal portion."
+  },
+  rent_max_per_portion: {
+    value: 2000,
+    description: "BGN maximum rent cost per meal portion."
+  }
+};
 const USER_ROLES = [
   {
     value: "admin",
@@ -36,7 +66,7 @@ const USER_ROLES = [
   {
     value: "pemerintah",
     label: "Pemerintah",
-    description: "Akses monitoring, analytics, audit operasional, dan laporan."
+    description: "Akses monitoring pemerintah, analytics, audit operasional, dan laporan."
   },
   {
     value: "sppg",
@@ -1214,7 +1244,8 @@ const listSystemConfigs = async ({ query }) => {
 };
 
 const getReadableSystemConfig = async ({ key }) => {
-  if (key !== "export_max_rows") {
+  const readableConfig = READABLE_SYSTEM_CONFIG_DEFAULTS[key];
+  if (!readableConfig) {
     throw new AppError("System config not found.", 404, "SYSTEM_CONFIG_NOT_FOUND");
   }
 
@@ -1225,8 +1256,8 @@ const getReadableSystemConfig = async ({ key }) => {
     update: {},
     create: {
       key,
-      value: DEFAULT_EXPORT_MAX_ROWS,
-      description: "Maximum rows allowed for generated export files."
+      value: readableConfig.value,
+      description: readableConfig.description
     }
   });
 

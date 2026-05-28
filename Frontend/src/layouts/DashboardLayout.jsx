@@ -15,9 +15,9 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  Loader2,
   Lock,
   LogOut,
-  Loader2,
   Map,
   Menu,
   MessageSquare,
@@ -34,6 +34,7 @@ import {
   X,
   Zap,
 } from 'lucide-react'
+import newLogo from '../assets/NewLogo.png'
 import {
   getGlobalSearch,
   getNotifications,
@@ -41,68 +42,82 @@ import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
 } from '../services/api.js'
+import useAuthStore from '../store/authStore.js'
 import './DashboardLayout.css'
 
 const ROLE_LABELS = {
   admin: 'Admin',
   pemerintah: 'Pemerintah',
+  gov: 'Pemerintah',
   sppg: 'SPPG',
   sekolah: 'Sekolah',
 }
-
-const ROLE_CLASSES = {
-  admin: 'dashboard-role-admin',
-  pemerintah: 'dashboard-role-pemerintah',
-  sppg: 'dashboard-role-sppg',
-  sekolah: 'dashboard-role-sekolah',
-}
+const ENABLE_SETTINGS_PAGE =
+  import.meta.env.VITE_ENABLE_SETTINGS_PAGE === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_ENABLE_SETTINGS_PAGE !== 'false')
 
 const dashboardMenu = {
   label: 'Dashboard',
   icon: LayoutDashboard,
   path: '/dashboard',
+  permissionByRole: {
+    admin: 'admin.dashboard.view',
+    pemerintah: 'admin.dashboard.view',
+  },
 }
 
 const sppgMenus = [
-  { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/input-menu' },
-  { label: 'Sekolah Saluran', icon: School, path: '/sekolah-saluran' },
-  { label: 'Input Porsi & Distribusi', icon: Package, path: '/distribusi' },
-  { label: 'Status Distribusi', icon: Truck, path: '/distribusi' },
-  { label: 'Lapor Kendala', icon: AlertTriangle, path: '/laporan-kendala' },
-  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat' },
-  { label: 'Profil SPPG', icon: Building2, path: '/profil' },
+  { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/input-menu', permission: 'daily_menu.create' },
+  { label: 'Sekolah Saluran', icon: School, path: '/sekolah-saluran', permission: 'sppg.school_channel.view' },
+  { label: 'Input Porsi & Distribusi', icon: Package, path: '/distribusi', permission: 'distribution.create' },
+  { label: 'Production Batch', icon: UtensilsCrossed, path: '/production-batches', permission: 'production.view' },
+  { label: 'Status Distribusi', icon: Truck, path: '/distribusi', permission: 'distribution.view' },
+  { label: 'Lapor Kendala', icon: AlertTriangle, path: '/laporan-kendala', permission: 'issue.view' },
+  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat', permission: 'distribution.view' },
+  { label: 'Profil SPPG', icon: Building2, path: '/profil', permission: 'account.view' },
 ]
 
 const sekolahMenus = [
-  { label: 'Konfirmasi Distribusi', icon: CheckSquare, path: '/validasi', badgeKey: 'notif' },
-  { label: 'Validasi Porsi & Kualitas', icon: ClipboardCheck, path: '/validasi' },
-  { label: 'Laporan Sekolah', icon: FileText, path: '/laporan-sekolah' },
-  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat' },
-  { label: 'Profil Sekolah', icon: School, path: '/profil' },
+  {
+    label: 'Konfirmasi Distribusi',
+    icon: CheckSquare,
+    path: '/validasi?mode=konfirmasi',
+    badgeKey: 'notif',
+    permission: 'distribution.view',
+    activeMatch: (currentPath) => getValidationMenuMode(currentPath) !== 'validasi' && getPathnameOnly(currentPath) === '/validasi',
+  },
+  {
+    label: 'Validasi Porsi & Kualitas',
+    icon: ClipboardCheck,
+    path: '/validasi?mode=validasi',
+    permission: 'distribution.view',
+    activeMatch: (currentPath) => getPathnameOnly(currentPath) === '/validasi' && getValidationMenuMode(currentPath) === 'validasi',
+  },
+  { label: 'Laporan Sekolah', icon: FileText, path: '/laporan-sekolah', permission: 'issue.view' },
+  { label: 'Riwayat Distribusi', icon: History, path: '/riwayat', permission: 'distribution.view' },
+  { label: 'Profil Sekolah', icon: School, path: '/profil', permission: 'account.view' },
 ]
 
 const pemerintahMenus = [
-  { label: 'Peta SPPG', icon: Map, path: '/peta' },
-  { label: 'Analitik Wilayah', icon: BarChart3, path: '/analytics' },
-  { label: 'Transparansi Anggaran', icon: Wallet, path: '/anggaran' },
-  { label: 'Laporan Masyarakat', icon: MessageSquare, path: '/laporan-masyarakat', badgeKey: 'notif' },
-  { label: 'Anomaly Detection', icon: Zap, path: '/anomaly' },
-  { label: 'Audit Log', icon: ClipboardList, path: '/audit-log' },
-  { label: 'Export Data', icon: Download, path: '/export' },
+  { label: 'Peta SPPG', icon: Map, path: '/peta', permission: 'admin.map.view' },
+  { label: 'Analitik Wilayah', icon: BarChart3, path: '/analytics', permission: 'admin.analytics.view' },
+  { label: 'Transparansi Anggaran', icon: Wallet, path: '/anggaran', permission: 'admin.budget.view' },
+  { label: 'Laporan Masyarakat', icon: MessageSquare, path: '/laporan-masyarakat', badgeKey: 'notif', permission: 'admin.public_reports.view' },
+  { label: 'Anomaly Detection', icon: Zap, path: '/anomaly', permission: 'admin.anomaly.view' },
+  { label: 'Audit Log', icon: ClipboardList, path: '/audit-log', permission: 'admin.audit_log.view' },
+  { label: 'Export Data', icon: Download, path: '/export', permission: 'admin.export.view' },
 ]
 
 const adminExtraMenus = [
-  { label: 'Master SPPG', icon: Building2, path: '/admin/sppg' },
-  { label: 'Master Sekolah', icon: School, path: '/admin/schools' },
-  { label: 'Import Dapodik', icon: Database, path: '/dapodik' },
-  { label: 'User & Role', icon: Users, path: '/users' },
-  { label: 'Lock / Unlock Data', icon: Lock, path: '/lock-unlock' },
-  { label: 'Override Data', icon: ShieldAlert, path: '/override' },
-  { label: 'API Monitoring', icon: Activity, path: '/api-monitoring' },
-  { label: 'Settings', icon: Settings, path: '/dashboard/settings' },
-]
-
-const DashboardLayoutContext = createContext(false)
+  { label: 'Master SPPG', icon: Building2, path: '/admin/sppg', permissions: ['admin.sppg.manage', 'admin.master_sppg.manage'] },
+  { label: 'Master Sekolah', icon: School, path: '/admin/schools', permissions: ['admin.school.manage', 'admin.master_school.manage'] },
+  { label: 'Import Dapodik', icon: Database, path: '/dapodik', permission: 'admin.dapodik.manage' },
+  { label: 'User & Role', icon: Users, path: '/users', permission: 'admin.users.manage' },
+  { label: 'Lock / Unlock Data', icon: Lock, path: '/lock-unlock', permission: 'admin.lock_unlock.manage' },
+  { label: 'Override Data', icon: ShieldAlert, path: '/override', permission: 'admin.override.manage' },
+  { label: 'API Monitoring', icon: Activity, path: '/api-monitoring', permission: 'admin.api_monitoring.view' },
+  { label: 'Settings', icon: Settings, path: '/settings', permission: 'admin.settings.manage', productionFlag: 'settings' },
+].filter((item) => item.productionFlag !== 'settings' || ENABLE_SETTINGS_PAGE)
 
 const SEARCH_GROUPS = [
   { key: 'sppg', label: 'SPPG', icon: Building2 },
@@ -119,6 +134,8 @@ const NOTIFICATION_TYPE_LABELS = {
 }
 
 const NOTIFICATION_CACHE_TTL_MS = 60_000
+const DashboardLayoutContext = createContext(false)
+
 const notificationCache = {
   cacheKey: '',
   timestamp: 0,
@@ -141,6 +158,7 @@ function hasSearchResults(results) {
 
 function formatDateTime(value) {
   if (!value) return ''
+
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
 
@@ -157,7 +175,7 @@ function getNotificationUrl(notification) {
   if (payload.validationId) return `/validasi?validationId=${payload.validationId}`
   if (payload.publicReportId || payload.reportId) return `/laporan-masyarakat?reportId=${payload.publicReportId || payload.reportId}`
   if (payload.schoolReportId) return `/laporan-sekolah?reportId=${payload.schoolReportId}`
-  if (payload.issueId) return `/dashboard/kendala?issueId=${payload.issueId}`
+  if (payload.issueId) return `/laporan-kendala?issueId=${payload.issueId}`
   if (payload.anomalyId) return `/anomaly?anomalyId=${payload.anomalyId}`
 
   return '/dashboard'
@@ -171,34 +189,123 @@ function normalizeNotification(notification) {
   }
 }
 
-function getRoleMenus(userRole) {
-  if (userRole === 'admin') return [dashboardMenu, ...pemerintahMenus, ...adminExtraMenus]
-  if (userRole === 'pemerintah') return [dashboardMenu, ...pemerintahMenus]
-  if (userRole === 'sekolah') return [dashboardMenu, ...sekolahMenus]
-  return [dashboardMenu, ...sppgMenus]
+function getMenusByLabel(source, labels) {
+  return labels.map((label) => source.find((item) => item.label === label)).filter(Boolean)
 }
 
-function isMenuActive(pathname, itemPath) {
+function getRoleMenuGroups(userRole) {
+  if (userRole === 'admin') {
+    return [
+      { label: null, items: [dashboardMenu] },
+      {
+        label: 'Monitoring & Analitik',
+        items: getMenusByLabel(pemerintahMenus, ['Peta SPPG', 'Analitik Wilayah', 'Anomaly Detection']),
+      },
+      {
+        label: 'Transparansi & Laporan',
+        items: getMenusByLabel(pemerintahMenus, ['Transparansi Anggaran', 'Laporan Masyarakat', 'Audit Log', 'Export Data']),
+      },
+      {
+        label: 'Master Data',
+        items: getMenusByLabel(adminExtraMenus, ['Master SPPG', 'Master Sekolah', 'Import Dapodik']),
+      },
+      {
+        label: 'Manajemen Sistem',
+        items: getMenusByLabel(adminExtraMenus, ['User & Role', 'Lock / Unlock Data', 'Override Data', 'API Monitoring', 'Settings']),
+      },
+    ]
+  }
+
+  if (userRole === 'pemerintah') {
+    return [
+      { label: null, items: [dashboardMenu] },
+      { label: 'Pemantauan Wilayah', items: getMenusByLabel(pemerintahMenus, ['Peta SPPG', 'Analitik Wilayah']) },
+      { label: 'Deteksi & Pengawasan', items: getMenusByLabel(pemerintahMenus, ['Anomaly Detection']) },
+      {
+        label: 'Transparansi & Laporan',
+        items: getMenusByLabel(pemerintahMenus, ['Transparansi Anggaran', 'Laporan Masyarakat', 'Audit Log', 'Export Data']),
+      },
+    ]
+  }
+
+  if (userRole === 'sekolah') {
+    return [
+      { label: null, items: [dashboardMenu] },
+      {
+        label: 'Penerimaan Makanan',
+        items: getMenusByLabel(sekolahMenus, ['Konfirmasi Distribusi', 'Validasi Porsi & Kualitas']),
+      },
+      {
+        label: 'Laporan & Riwayat',
+        items: getMenusByLabel(sekolahMenus, ['Laporan Sekolah', 'Riwayat Distribusi']),
+      },
+      { label: 'Profil', items: getMenusByLabel(sekolahMenus, ['Profil Sekolah']) },
+    ]
+  }
+
+  return [
+    { label: null, items: [dashboardMenu] },
+    {
+      label: 'Operasional Harian',
+      items: getMenusByLabel(sppgMenus, ['Input Menu Harian', 'Input Porsi & Distribusi', 'Production Batch']),
+    },
+    {
+      label: 'Distribusi',
+      items: getMenusByLabel(sppgMenus, ['Sekolah Saluran', 'Status Distribusi', 'Riwayat Distribusi']),
+    },
+    {
+      label: 'Laporan & Profil',
+      items: getMenusByLabel(sppgMenus, ['Lapor Kendala', 'Profil SPPG']),
+    },
+  ]
+}
+
+function flattenMenuGroups(menuGroups) {
+  return menuGroups.flatMap((group) => group.items)
+}
+
+function normalizePermissionRequirement(requirement) {
+  if (!requirement) return []
+  return Array.isArray(requirement) ? requirement.filter(Boolean) : [requirement]
+}
+
+function canAccessMenu(item, role, can, permissionsLoaded) {
+  if (!permissionsLoaded) return true
+
+  const roleRequirement = item.permissionByRole?.[role]
+  const requiredPermissions = normalizePermissionRequirement(roleRequirement || item.permissions || item.permission)
+  if (!requiredPermissions.length) return true
+
+  return requiredPermissions.some((permissionKey) => can(permissionKey))
+}
+
+function getPathnameOnly(fullPath) {
+  return String(fullPath || '').split(/[?#]/)[0]
+}
+
+function getValidationMenuMode(fullPath) {
+  const queryString = String(fullPath || '').split('?')[1]?.split('#')[0] || ''
+  return new URLSearchParams(queryString).get('mode')
+}
+
+function isMenuActive(pathname, item) {
+  const itemPath = item.path
+  if (item.activeMatch) return item.activeMatch(pathname)
+  const currentPathname = getPathnameOnly(pathname)
+  const itemPathname = getPathnameOnly(itemPath)
+
   if (itemPath === '/dashboard') return pathname === '/dashboard'
-  return pathname === itemPath || pathname.startsWith(`${itemPath}/`)
+  return currentPathname === itemPathname || currentPathname.startsWith(`${itemPathname}/`)
 }
 
-function getActiveMenu(menus, pathname) {
-  return [...menus]
+function getActiveMenu(menuGroups, pathname) {
+  return flattenMenuGroups(menuGroups)
     .sort((first, second) => second.path.length - first.path.length)
-    .find((menu) => isMenuActive(pathname, menu.path)) || dashboardMenu
+    .find((menu) => isMenuActive(pathname, menu)) || dashboardMenu
 }
 
 function getInitial(userName) {
   return (userName || 'U').trim().charAt(0).toUpperCase() || 'U'
-}
-
-function RoleBadge({ role }) {
-  return (
-    <span className={`dashboard-role-badge ${ROLE_CLASSES[role] || ''}`}>
-      {ROLE_LABELS[role] || role}
-    </span>
-  )
 }
 
 function MenuItem({ item, active, collapsed, notifCount, onClick }) {
@@ -222,20 +329,17 @@ function MenuItem({ item, active, collapsed, notifCount, onClick }) {
 }
 
 function SidebarContent({
-  menus,
+  menuGroups,
   currentPath,
   sidebarCollapsed,
-  userName,
-  userRole,
   notifCount,
-  onLogout,
   onMenuClick,
 }) {
   return (
     <>
       <div className="dashboard-logo-area">
         <Link to="/dashboard" className="dashboard-logo-link" onClick={onMenuClick}>
-          <span className="dashboard-logo-box">M</span>
+          <img className="dashboard-logo-image" src={newLogo} alt="Logo MBG" />
           <span className="dashboard-logo-text">
             <span className="dashboard-logo-title">MBG</span>
             <span className="dashboard-logo-subtitle">Transparency System</span>
@@ -244,31 +348,22 @@ function SidebarContent({
       </div>
 
       <nav className="dashboard-menu" aria-label="Menu dashboard">
-        {menus.map((item) => (
-          <MenuItem
-            key={item.path}
-            item={item}
-            active={isMenuActive(currentPath, item.path)}
-            collapsed={sidebarCollapsed}
-            notifCount={notifCount}
-            onClick={onMenuClick}
-          />
+        {menuGroups.map((group, groupIndex) => (
+          <div className="dashboard-menu-section" key={group.label || `primary-${groupIndex}`}>
+            {group.label ? <div className="dashboard-menu-section-label">{group.label}</div> : null}
+            {group.items.map((item) => (
+              <MenuItem
+                key={`${group.label || 'primary'}-${item.path}-${item.label}`}
+                item={item}
+                active={isMenuActive(currentPath, item)}
+                collapsed={sidebarCollapsed}
+                notifCount={notifCount}
+                onClick={onMenuClick}
+              />
+            ))}
+          </div>
         ))}
       </nav>
-
-      <div className="dashboard-sidebar-bottom">
-        <div className="dashboard-user-mini">
-          <span className="dashboard-avatar">{getInitial(userName)}</span>
-          <span className="dashboard-user-info">
-            <span className="dashboard-user-name">{userName || 'Pengguna MBG'}</span>
-            <RoleBadge role={userRole} />
-          </span>
-        </div>
-        <button className="dashboard-logout-btn" type="button" onClick={onLogout} title="Logout">
-          <LogOut aria-hidden="true" />
-          <span>Logout</span>
-        </button>
-      </div>
     </>
   )
 }
@@ -306,13 +401,25 @@ function DashboardLayout({
   const notifWrapRef = useRef(null)
   const userMenuRef = useRef(null)
   const isNestedLayout = useContext(DashboardLayoutContext)
+  const can = useAuthStore((state) => state.can)
+  const permissionsLoaded = useAuthStore((state) => state.permissionsLoaded)
   const normalizedRole = ROLE_LABELS[userRole] ? userRole : 'sppg'
-  const pathname = currentPath || location.pathname
+  const currentPathBase = currentPath || location.pathname
+  const pathname = `${currentPathBase}${currentPathBase.includes('?') ? '' : location.search}`
   const trimmedSearchQuery = searchQuery.trim()
   const notificationCacheKey = `${normalizedRole}:${userId || userName || 'anonymous'}`
 
-  const menus = useMemo(() => getRoleMenus(normalizedRole), [normalizedRole])
-  const activeMenu = useMemo(() => getActiveMenu(menus, pathname), [menus, pathname])
+  const menuGroups = useMemo(
+    () =>
+      getRoleMenuGroups(normalizedRole)
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => canAccessMenu(item, normalizedRole, can, permissionsLoaded)),
+        }))
+        .filter((group) => group.items.length > 0),
+    [can, normalizedRole, permissionsLoaded],
+  )
+  const activeMenu = useMemo(() => getActiveMenu(menuGroups, pathname), [menuGroups, pathname])
   const displayNotifCount = notificationState.unreadCount
 
   const loadNotifications = useCallback(async (signal, { force = false } = {}) => {
@@ -345,6 +452,7 @@ function DashboardLayout({
 
       const payload = await notificationRequest.promise
       if (signal?.aborted) return
+
       const items = Array.isArray(payload?.data) ? payload.data.map(normalizeNotification) : []
       const nextState = {
         items,
@@ -388,13 +496,7 @@ function DashboardLayout({
       }))
 
       try {
-        const payload = await getGlobalSearch(
-          {
-            q: trimmedSearchQuery,
-            limit: 5,
-          },
-          { signal: controller.signal },
-        )
+        const payload = await getGlobalSearch({ q: trimmedSearchQuery, limit: 5 }, { signal: controller.signal })
         setSearchState({
           results: {
             ...emptySearchResults(),
@@ -472,9 +574,7 @@ function DashboardLayout({
 
   const handleSearchResultClick = (result) => {
     clearSearch()
-    if (result.url) {
-      navigate(result.url)
-    }
+    if (result.url) navigate(result.url)
   }
 
   const handleNotificationClick = async (notification) => {
@@ -489,6 +589,7 @@ function DashboardLayout({
           item.id === notification.id ? { ...item, isRead: true, is_read: true } : item,
         ),
       }))
+
       try {
         await markNotificationAsRead(notification.id)
       } catch {
@@ -538,13 +639,10 @@ function DashboardLayout({
       <div className="dashboard-shell">
         <aside className={`dashboard-sidebar ${sidebarCollapsed ? 'dashboard-sidebar-collapsed' : ''}`}>
           <SidebarContent
-            menus={menus}
+            menuGroups={menuGroups}
             currentPath={pathname}
             sidebarCollapsed={sidebarCollapsed}
-            userName={userName}
-            userRole={normalizedRole}
             notifCount={displayNotifCount}
-            onLogout={handleLogout}
           />
         </aside>
 
@@ -559,13 +657,10 @@ function DashboardLayout({
 
         <aside className={`dashboard-sidebar-mobile ${mobileMenuOpen ? 'dashboard-sidebar-open' : ''}`}>
           <SidebarContent
-            menus={menus}
+            menuGroups={menuGroups}
             currentPath={pathname}
             sidebarCollapsed={false}
-            userName={userName}
-            userRole={normalizedRole}
             notifCount={displayNotifCount}
-            onLogout={handleLogout}
             onMenuClick={handleMobileMenuClick}
           />
         </aside>
@@ -607,14 +702,10 @@ function DashboardLayout({
                 aria-expanded={searchOpen}
                 onChange={handleSearchChange}
                 onFocus={() => {
-                  if (trimmedSearchQuery.length >= 2) {
-                    setSearchOpen(true)
-                  }
+                  if (trimmedSearchQuery.length >= 2) setSearchOpen(true)
                 }}
                 onKeyDown={(event) => {
-                  if (event.key === 'Escape') {
-                    setSearchOpen(false)
-                  }
+                  if (event.key === 'Escape') setSearchOpen(false)
                 }}
               />
               {searchQuery ? (
@@ -716,7 +807,9 @@ function DashboardLayout({
                     {!notificationState.loading && notificationState.error ? (
                       <div className="dashboard-dropdown-state dashboard-dropdown-state-error">
                         <span>{notificationState.error}</span>
-                        <button type="button" onClick={() => loadNotifications(undefined, { force: true })}>Coba lagi</button>
+                        <button type="button" onClick={() => loadNotifications(undefined, { force: true })}>
+                          Coba lagi
+                        </button>
                       </div>
                     ) : null}
 
