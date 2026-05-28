@@ -63,6 +63,7 @@ Initial status:
 | FIX-P1-007 | High | Negative security tests | Added automated invalid upload, spoofed image signature, oversized upload, XSS input, and search injection/scope tests. Upload now validates image magic bytes before storing files. Frontend test guards against `dangerouslySetInnerHTML` and unsafe search rendering. | `Backend npm test`: 88 pass / 0 fail; `Frontend npm test`: 29 pass / 0 fail. | Fixed |
 | FIX-P1-008 | Medium | Frontend bundle | Converted route pages to lazy imports and wrapped routes with Suspense, splitting map/chart/admin pages out of the initial bundle. | `Frontend npm run build` succeeds without previous >1000 kB chunk warning; main JS about 220 kB, chart/map chunks split separately. | Fixed |
 | FIX-P1-009 | High | Local storage and proof upload | Storage is now local-only, `/api/files/upload` and `/api/proofs` allow school users for distribution proof uploads with ownership checks, and frontend local `/storage/...` URLs resolve against the backend API origin. | `Backend npm test`: 91 pass / 0 fail; `Frontend npm test`: 30 pass / 0 fail; build succeeded. | Fixed |
+| FIX-P1-010 | Medium | Public map DKI marker UX | Dense/overlapping public SPPG markers are grouped into canvas count badges and marker click now opens the right-side public-safe detail panel directly instead of a blocking Leaflet popup. | `Frontend npm test`: 31 pass / 0 fail; `Frontend npm run build` succeeded; Playwright page render smoke passed, data fetch blocked only because local backend was not running. | Fixed |
 
 ## 3. Role Testing Summary
 

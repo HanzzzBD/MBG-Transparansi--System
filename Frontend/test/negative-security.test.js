@@ -59,4 +59,22 @@ describe('negative security frontend guardrails', () => {
     assert.match(appSource, /<Suspense fallback=\{<RouteFallback \/>\}>[\s\S]*<Routes>/)
     assert.doesNotMatch(appSource, /import Dashboard from '\.\/pages\/Dashboard\.jsx'/)
   })
+
+  it('keeps public map dense markers readable without blocking popups', async () => {
+    const mapSource = await readFile(resolve(srcRoot, 'pages/PublicPetaSPPG.jsx'), 'utf8')
+
+    assert.match(mapSource, /function getMarkerBucketSize/)
+    assert.match(mapSource, /function getClusterLabel/)
+    assert.match(mapSource, /onOpenDetailRef\.current\(selected\)/)
+    assert.doesNotMatch(mapSource, /L\.popup\(/)
+  })
+
+  it('renders public SPPG menu detail with safe image URLs and item list', async () => {
+    const mapSource = await readFile(resolve(srcRoot, 'pages/PublicPetaSPPG.jsx'), 'utf8')
+
+    assert.match(mapSource, /resolveFileUrl\(menuPhoto\.url \|\| menuPhoto\.fileUrl \|\| menuPhoto\.file_url \|\| ''\)/)
+    assert.match(mapSource, /className="public-map-menu-photo"/)
+    assert.match(mapSource, /menu\.items\.map/)
+    assert.match(mapSource, /formatCurrency\(menu\.manualPricePerPortion\)/)
+  })
 })

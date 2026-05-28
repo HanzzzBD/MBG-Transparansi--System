@@ -213,11 +213,23 @@ const getPublicSppgDetail = async ({ id }) => {
           }
         },
         select: {
+          id: true,
+          menuDate: true,
           menuName: true,
+          items: true,
+          manualPricePerPortion: true,
+          priceValidationStatus: true,
           calories: true,
           proteinG: true,
           carbsG: true,
-          fatG: true
+          fatG: true,
+          photoFile: {
+            select: {
+              fileUrl: true,
+              mimeType: true,
+              originalName: true
+            }
+          }
         },
         orderBy: [{ menuDate: "desc" }, { createdAt: "desc" }]
       }),

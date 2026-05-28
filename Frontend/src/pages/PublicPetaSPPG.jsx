@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { MapContainer, TileLayer, useMap } from 'react-leaflet'
 import {
   AlertTriangle,
-  ArrowLeft,
   BarChart3,
   Building2,
+  CalendarDays,
   CheckCircle2,
+  ImageOff,
   Loader2,
   MapPin,
   PackageCheck,
@@ -17,7 +17,7 @@ import {
   Utensils,
   X,
 } from 'lucide-react'
-import { apiRequest } from '../services/api'
+import { apiRequest, resolveFileUrl } from '../services/api'
 import PublicNavbar from '../components/PublicNavbar.jsx'
 import { matchesSearchTokens, rankBySearch } from '../utils/search.js'
 import './PublicPetaSPPG.css'
@@ -36,6 +36,12 @@ const STATUS_LABELS = {
   active: 'Aktif',
   problem: 'Bermasalah',
   inactive: 'Tidak Aktif',
+}
+
+const MENU_PRICE_STATUS_LABELS = {
+  VERIFIED: 'Harga terverifikasi',
+  MISMATCH: 'Harga perlu ditinjau',
+  PENDING_REVIEW: 'Menunggu validasi harga',
 }
 
 const STATUS_COLORS = {
@@ -70,8 +76,37 @@ function formatDate(value) {
   }).format(parsed)
 }
 
+function formatCurrency(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '-'
+  return new Intl.NumberFormat('id-ID', {
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+    style: 'currency',
+  }).format(Number(value))
+}
+
 function getStatusLabel(status) {
   return STATUS_LABELS[status] || status || '-'
+}
+
+function getMenuPriceStatusLabel(status) {
+  return MENU_PRICE_STATUS_LABELS[status] || status || ''
+}
+
+function normalizeMenuItems(items) {
+  if (!Array.isArray(items)) return []
+
+  return items
+    .map((item) => {
+      if (typeof item === 'string') return item.trim()
+      if (!item || typeof item !== 'object') return ''
+
+      const name = item.name || item.item || item.menu || item.commodityName || item.commodity_name || ''
+      const quantity = item.quantity || item.qty || ''
+      const unit = item.unit || ''
+      return [name, quantity && unit ? `${quantity} ${unit}` : quantity || unit].filter(Boolean).join(' - ').trim()
+    })
+    .filter(Boolean)
 }
 
 function normalizeMarker(item) {
@@ -97,6 +132,8 @@ function normalizeMarker(item) {
 
 function normalizeDetail(item) {
   if (!item) return null
+  const todayMenu = item.todayMenu || item.today_menu || null
+  const menuPhoto = todayMenu?.photo || todayMenu?.photo_file || null
 
   return {
     id: String(item.id),
@@ -108,7 +145,25 @@ function normalizeDetail(item) {
     capacity: Number(item.capacity) || 0,
     todayPortions: Number(item.todayPortions ?? item.today_portions) || 0,
     successRate: Number(item.successRate ?? item.success_rate) || 0,
-    todayMenu: item.todayMenu || item.today_menu || null,
+    todayMenu: todayMenu
+      ? {
+          id: todayMenu.id ? String(todayMenu.id) : '',
+          name: todayMenu.name || todayMenu.menuName || todayMenu.menu_name || '',
+          date: todayMenu.date || todayMenu.menuDate || todayMenu.menu_date || '',
+          items: normalizeMenuItems(todayMenu.items),
+          manualPricePerPortion:
+            todayMenu.manualPricePerPortion ?? todayMenu.manual_price_per_portion ?? null,
+          priceValidationStatus:
+            todayMenu.priceValidationStatus || todayMenu.price_validation_status || '',
+          photo: menuPhoto
+            ? {
+                url: resolveFileUrl(menuPhoto.url || menuPhoto.fileUrl || menuPhoto.file_url || ''),
+                alt: menuPhoto.originalName || menuPhoto.original_name || todayMenu.name || 'Foto menu harian',
+              }
+            : null,
+          nutrition: todayMenu.nutrition || null,
+        }
+      : null,
     recentDistributions: Array.isArray(item.recentDistributions || item.recent_distributions)
       ? (item.recentDistributions || item.recent_distributions).slice(0, 5).map((row) => ({
           schoolName: row.schoolName || row.school_name || '-',
@@ -144,30 +199,39 @@ function MapFitter({ markers }) {
   return null
 }
 
-function buildPopupContent(marker, onOpenDetail, map) {
-  const container = document.createElement('div')
-  container.className = 'public-map-popup'
+function getMarkerBucketSize(zoom) {
+  if (zoom >= 12) return 8
+  if (zoom >= 10) return 12
+  if (zoom >= 8) return 16
+  return 22
+}
 
-  const title = document.createElement('strong')
-  title.textContent = marker.name
+function getClusterLabel(count) {
+  if (count > 999) return '999+'
+  return String(count)
+}
 
-  const location = document.createElement('span')
-  location.textContent = [marker.city, marker.province].filter(Boolean).join(', ') || '-'
+function getRepresentativeMarker(markers, selectedId) {
+  return markers.find((marker) => marker.id === selectedId) || markers[0]
+}
 
-  const statusText = document.createElement('span')
-  statusText.textContent = `Status: ${getStatusLabel(marker.status)}`
+function drawRoundedRect(context, x, y, width, height, radius) {
+  if (typeof context.roundRect === 'function') {
+    context.roundRect(x, y, width, height, radius)
+    return
+  }
 
-  const button = document.createElement('button')
-  button.type = 'button'
-  button.textContent = 'Lihat detail'
-  L.DomEvent.on(button, 'click', (event) => {
-    L.DomEvent.stop(event)
-    map.closePopup()
-    onOpenDetail(marker)
-  })
-
-  container.append(title, location, statusText, button)
-  return container
+  const right = x + width
+  const bottom = y + height
+  context.moveTo(x + radius, y)
+  context.lineTo(right - radius, y)
+  context.quadraticCurveTo(right, y, right, y + radius)
+  context.lineTo(right, bottom - radius)
+  context.quadraticCurveTo(right, bottom, right - radius, bottom)
+  context.lineTo(x + radius, bottom)
+  context.quadraticCurveTo(x, bottom, x, bottom - radius)
+  context.lineTo(x, y + radius)
+  context.quadraticCurveTo(x, y, x + radius, y)
 }
 
 function CanvasMarkerLayer({ markers, onOpenDetail, selectedId }) {
@@ -214,6 +278,8 @@ function CanvasMarkerLayer({ markers, onOpenDetail, selectedId }) {
       const bounds = map.getBounds().pad(0.08)
       const zoom = map.getZoom()
       const radius = zoom >= 10 ? 6 : zoom >= 7 ? 5 : 4
+      const bucketSize = getMarkerBucketSize(zoom)
+      const buckets = new Map()
       const targets = []
 
       markersRef.current.forEach((marker) => {
@@ -223,21 +289,66 @@ function CanvasMarkerLayer({ markers, onOpenDetail, selectedId }) {
         const point = map.latLngToContainerPoint(latLng)
         if (point.x < -20 || point.y < -20 || point.x > size.x + 20 || point.y > size.y + 20) return
 
+        const bucketKey = `${Math.round(point.x / bucketSize)}:${Math.round(point.y / bucketSize)}`
+        const bucket = buckets.get(bucketKey)
+        if (bucket) {
+          bucket.markers.push(marker)
+          bucket.x += point.x
+          bucket.y += point.y
+          return
+        }
+
+        buckets.set(bucketKey, {
+          markers: [marker],
+          x: point.x,
+          y: point.y,
+        })
+      })
+
+      buckets.forEach((bucket) => {
+        const groupedMarkers = bucket.markers
+        const groupCount = groupedMarkers.length
+        const marker = getRepresentativeMarker(groupedMarkers, selectedIdRef.current)
+        const point = {
+          x: bucket.x / groupCount,
+          y: bucket.y / groupCount,
+        }
         const color = STATUS_COLORS[marker.status] || STATUS_COLORS.inactive
         const isSelected = marker.id === selectedIdRef.current
+        const drawRadius = groupCount > 1 ? radius + 2 : radius
 
         context.beginPath()
         context.fillStyle = color
         context.strokeStyle = '#ffffff'
-        context.arc(point.x, point.y, isSelected ? radius + 2 : radius, 0, Math.PI * 2)
+        context.arc(point.x, point.y, isSelected ? drawRadius + 2 : drawRadius, 0, Math.PI * 2)
         context.fill()
         context.stroke()
+
+        if (groupCount > 1) {
+          const label = getClusterLabel(groupCount)
+          const badgeWidth = Math.max(24, label.length * 8 + 14)
+          const badgeHeight = 18
+          const badgeX = point.x + drawRadius + 3
+          const badgeY = point.y - drawRadius - 12
+
+          context.beginPath()
+          context.fillStyle = '#ffffff'
+          context.strokeStyle = color
+          drawRoundedRect(context, badgeX, badgeY, badgeWidth, badgeHeight, 9)
+          context.fill()
+          context.stroke()
+          context.fillStyle = color
+          context.font = '700 11px ui-sans-serif, system-ui, sans-serif'
+          context.textAlign = 'center'
+          context.textBaseline = 'middle'
+          context.fillText(label, badgeX + badgeWidth / 2, badgeY + badgeHeight / 2)
+        }
 
         if (isSelected) {
           context.beginPath()
           context.strokeStyle = color
           context.lineWidth = 3
-          context.arc(point.x, point.y, radius + 7, 0, Math.PI * 2)
+          context.arc(point.x, point.y, drawRadius + 7, 0, Math.PI * 2)
           context.stroke()
           context.lineWidth = 2
         }
@@ -245,8 +356,9 @@ function CanvasMarkerLayer({ markers, onOpenDetail, selectedId }) {
         targets.push({
           x: point.x,
           y: point.y,
-          radius: Math.max(24, radius + 8),
+          radius: Math.max(26, drawRadius + 16),
           marker,
+          markers: groupedMarkers,
         })
       })
 
@@ -274,10 +386,8 @@ function CanvasMarkerLayer({ markers, onOpenDetail, selectedId }) {
 
       if (!selected) return
 
-      L.popup({ closeButton: true, minWidth: 220 })
-        .setLatLng([selected.lat, selected.lng])
-        .setContent(buildPopupContent(selected, onOpenDetailRef.current, map))
-        .openOn(map)
+      map.closePopup()
+      onOpenDetailRef.current(selected)
     },
     [map],
   )
@@ -462,10 +572,6 @@ function PublicPetaSPPG() {
       <div className="public-map-page">
         <header className="public-map-header">
           <div>
-            <Link className="public-map-back" to="/">
-              <ArrowLeft size={18} aria-hidden="true" />
-              Beranda
-            </Link>
             <h1>Peta Publik SPPG</h1>
             <p>Informasi dasar SPPG untuk transparansi publik tanpa login.</p>
           </div>
@@ -626,40 +732,107 @@ function PublicPetaSPPG() {
 }
 
 function PublicSppgDetail({ detail }) {
-  const nutrition = detail.todayMenu?.nutrition
+  const [activeTab, setActiveTab] = useState('summary')
+  const menu = detail.todayMenu
+  const nutrition = menu?.nutrition
+  const tabs = [
+    { id: 'summary', label: 'Data SPPG' },
+    { id: 'menu', label: 'Menu Harian' },
+    { id: 'distribution', label: 'Distribusi' },
+  ]
 
   return (
     <div className="public-map-detail-body">
-      <div className="public-map-status-line">
-        <span className={`public-map-status public-map-status-${detail.status}`}>{getStatusLabel(detail.status)}</span>
-        <span>{[detail.district, detail.city, detail.province].filter((item) => item && item !== '-').join(', ') || '-'}</span>
+      <div className="public-map-detail-tabs" role="tablist" aria-label="Detail SPPG">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            className={activeTab === tab.id ? 'public-map-detail-tab-active' : ''}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      <dl className="public-map-facts">
-        <InfoItem icon={Building2} label="Kapasitas" value={`${formatNumber(detail.capacity)} porsi`} />
-        <InfoItem icon={PackageCheck} label="Porsi Hari Ini" value={`${formatNumber(detail.todayPortions)} porsi`} />
-        <InfoItem icon={BarChart3} label="Success Rate" value={formatPercent(detail.successRate)} />
-        <InfoItem icon={CheckCircle2} label="Status" value={getStatusLabel(detail.status)} />
-      </dl>
+      {activeTab === 'summary' ? (
+        <section className="public-map-detail-panel" role="tabpanel">
+          <div className="public-map-status-line">
+            <span className={`public-map-status public-map-status-${detail.status}`}>{getStatusLabel(detail.status)}</span>
+            <span>{[detail.district, detail.city, detail.province].filter((item) => item && item !== '-').join(', ') || '-'}</span>
+          </div>
 
-      <section className="public-map-section">
+          <dl className="public-map-facts">
+            <InfoItem icon={Building2} label="Kapasitas" value={`${formatNumber(detail.capacity)} porsi`} />
+            <InfoItem icon={PackageCheck} label="Porsi Hari Ini" value={`${formatNumber(detail.todayPortions)} porsi`} />
+            <InfoItem icon={BarChart3} label="Success Rate" value={formatPercent(detail.successRate)} />
+            <InfoItem icon={CheckCircle2} label="Status" value={getStatusLabel(detail.status)} />
+          </dl>
+        </section>
+      ) : null}
+
+      {activeTab === 'menu' ? (
+      <section className="public-map-section public-map-detail-panel" role="tabpanel">
         <h3>
           <Utensils size={18} aria-hidden="true" />
           Menu Hari Ini
         </h3>
-        <p className="public-map-menu-name">{detail.todayMenu?.name || 'Belum ada menu tersedia.'}</p>
 
-        {nutrition ? (
-          <div className="public-map-nutrition">
-            <span>{formatNumber(nutrition.calories)} kkal</span>
-            <span>Protein {formatNumber(nutrition.protein)}g</span>
-            <span>Karbo {formatNumber(nutrition.carbohydrate)}g</span>
-            <span>Lemak {formatNumber(nutrition.fat)}g</span>
+        {menu ? (
+          <div className="public-map-menu-card">
+            {menu.photo?.url ? (
+              <a className="public-map-menu-photo-link" href={menu.photo.url} target="_blank" rel="noreferrer" aria-label="Buka foto menu ukuran penuh">
+                <img className="public-map-menu-photo" src={menu.photo.url} alt={menu.photo.alt || `Foto ${menu.name}`} loading="lazy" />
+              </a>
+            ) : (
+              <div className="public-map-menu-photo-empty" role="status">
+                <ImageOff size={22} aria-hidden="true" />
+                Foto menu belum tersedia
+              </div>
+            )}
+
+            <div className="public-map-menu-meta">
+              <p className="public-map-menu-name">{menu.name || 'Menu tanpa nama'}</p>
+              <span>
+                <CalendarDays size={15} aria-hidden="true" />
+                {formatDate(menu.date)}
+              </span>
+              {menu.manualPricePerPortion !== null && menu.manualPricePerPortion !== undefined ? (
+                <span>{formatCurrency(menu.manualPricePerPortion)} per porsi</span>
+              ) : null}
+              {menu.priceValidationStatus ? <span>{getMenuPriceStatusLabel(menu.priceValidationStatus)}</span> : null}
+            </div>
+
+            {menu.items.length ? (
+              <div className="public-map-menu-items">
+                {menu.items.map((item, index) => (
+                  <span key={`${item}-${index}`}>{item}</span>
+                ))}
+              </div>
+            ) : (
+              <p className="public-map-muted">Komponen menu belum tersedia.</p>
+            )}
+
+            {nutrition ? (
+              <div className="public-map-nutrition">
+                <span>{formatNumber(nutrition.calories)} kkal</span>
+                <span>Protein {formatNumber(nutrition.protein)}g</span>
+                <span>Karbo {formatNumber(nutrition.carbohydrate)}g</span>
+                <span>Lemak {formatNumber(nutrition.fat)}g</span>
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        ) : (
+          <p className="public-map-muted">Belum ada menu tersedia.</p>
+        )}
       </section>
+      ) : null}
 
-      <section className="public-map-section">
+      {activeTab === 'distribution' ? (
+      <section className="public-map-section public-map-detail-panel" role="tabpanel">
         <h3>
           <PackageCheck size={18} aria-hidden="true" />
           Distribusi Terbaru
@@ -684,6 +857,7 @@ function PublicSppgDetail({ detail }) {
           <p className="public-map-muted">Belum ada distribusi terbaru.</p>
         )}
       </section>
+      ) : null}
     </div>
   )
 }

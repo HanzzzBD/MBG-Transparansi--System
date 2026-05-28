@@ -38,6 +38,9 @@ describe('PR 4 SPPG operational flow frontend', () => {
     assert.match(appSource, /'\/profil': \['sppg', 'sekolah'\]/)
     assert.match(appSource, /\['\/dashboard\/menu-harian', '\/input-menu'\]/)
     assert.match(appSource, /\['\/dashboard\/kendala', '\/laporan-kendala'\]/)
+    assert.match(layoutSource, /label: 'Distribusi'[\s\S]*path: '\/distribusi'/)
+    assert.doesNotMatch(layoutSource, /Input Porsi & Distribusi/)
+    assert.doesNotMatch(layoutSource, /Status Distribusi/)
   })
 
   it('uses explicit frontend API helpers for SPPG assigned schools, threshold, menu, and issues', async () => {
