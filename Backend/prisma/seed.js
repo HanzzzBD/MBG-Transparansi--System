@@ -13,6 +13,36 @@ const DEFAULT_SYSTEM_CONFIGS = [
     key: "export_max_rows",
     value: 50000,
     description: "Maximum rows allowed for generated export files."
+  },
+  {
+    key: "banper_regular_amount",
+    value: 13000,
+    description: "BGN regular Banper allocation per meal portion."
+  },
+  {
+    key: "banper_special_amount",
+    value: 15000,
+    description: "BGN special Banper allocation per meal portion."
+  },
+  {
+    key: "raw_material_min_per_portion",
+    value: 8000,
+    description: "BGN minimum raw material cost per meal portion."
+  },
+  {
+    key: "raw_material_max_per_portion",
+    value: 10000,
+    description: "BGN maximum raw material cost per meal portion."
+  },
+  {
+    key: "operational_max_per_portion",
+    value: 3000,
+    description: "BGN maximum operational cost per meal portion."
+  },
+  {
+    key: "rent_max_per_portion",
+    value: 2000,
+    description: "BGN maximum rent cost per meal portion."
   }
 ];
 
@@ -206,25 +236,25 @@ const DEFAULT_PERMISSIONS = [
   {
     key: "production.view",
     name: "View Production",
-    group: "daily_menu",
+    group: "production",
     description: "View production batch and portion data."
   },
   {
     key: "production.create",
     name: "Create Production",
-    group: "daily_menu",
+    group: "production",
     description: "Input production batch and portion data."
   },
   {
     key: "production.update",
     name: "Update Production",
-    group: "daily_menu",
+    group: "production",
     description: "Update production batch and portion data."
   },
   {
     key: "production.delete",
     name: "Delete Production",
-    group: "daily_menu",
+    group: "production",
     description: "Delete production batch data."
   },
   {
@@ -385,6 +415,7 @@ const PEMERINTAH_PERMISSION_KEYS = [
   "admin.export.view",
   "audit.view",
   "distribution.view",
+  "production.view",
   "issue.view"
 ];
 const SPPG_PERMISSION_KEYS = [
@@ -393,6 +424,9 @@ const SPPG_PERMISSION_KEYS = [
   "daily_menu.view",
   "daily_menu.create",
   "daily_menu.update",
+  "production.view",
+  "production.create",
+  "production.update",
   "distribution.view",
   "distribution.create",
   "sppg.school_channel.view",

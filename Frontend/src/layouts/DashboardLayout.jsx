@@ -75,6 +75,7 @@ const sppgMenus = [
   { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/input-menu', permission: 'daily_menu.create' },
   { label: 'Sekolah Saluran', icon: School, path: '/sekolah-saluran', permission: 'sppg.school_channel.view' },
   { label: 'Input Porsi & Distribusi', icon: Package, path: '/distribusi', permission: 'distribution.create' },
+  { label: 'Production Batch', icon: UtensilsCrossed, path: '/production-batches', permission: 'production.view' },
   { label: 'Status Distribusi', icon: Truck, path: '/distribusi', permission: 'distribution.view' },
   { label: 'Lapor Kendala', icon: AlertTriangle, path: '/laporan-kendala', permission: 'issue.view' },
   { label: 'Riwayat Distribusi', icon: History, path: '/riwayat', permission: 'distribution.view' },

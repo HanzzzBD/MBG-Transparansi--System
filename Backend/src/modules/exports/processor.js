@@ -307,6 +307,7 @@ const serializeProductionBatchRow = ({ batch, mode }) => {
     operational_cost: toNumber(batch.operationalCost),
     packaging_cost: toNumber(batch.packagingCost),
     distribution_cost: toNumber(batch.distributionCost),
+    rent_cost: toNumber(batch.rentCost),
     notes: batch.notes ?? null
   };
 };

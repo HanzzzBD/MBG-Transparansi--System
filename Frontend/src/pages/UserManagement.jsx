@@ -55,13 +55,14 @@ const ROLE_COLORS = {
 const PERMISSION_GROUP_LABELS = {
   admin: 'Admin',
   daily_menu: 'Daily Menu',
+  production: 'Production',
   distribution: 'Distribution',
   issue: 'Issue',
   audit: 'Audit',
   user: 'User',
   permission: 'Permission',
 }
-const PERMISSION_GROUP_ORDER = ['admin', 'daily_menu', 'distribution', 'issue', 'audit', 'user', 'permission']
+const PERMISSION_GROUP_ORDER = ['admin', 'daily_menu', 'production', 'distribution', 'issue', 'audit', 'user', 'permission']
 const SENSITIVE_PERMISSIONS = new Set([
   'permission.grant',
   'permission.revoke',
@@ -86,6 +87,7 @@ const ROLE_GRANTABLE_PERMISSION_KEYS = {
     'audit.view',
     'audit.export',
     'distribution.view',
+    'production.view',
     'issue.view',
     'account.view',
     'account.update',
@@ -96,6 +98,10 @@ const ROLE_GRANTABLE_PERMISSION_KEYS = {
     'daily_menu.update',
     'daily_menu.price.validate',
     'daily_menu.price.override',
+    'production.view',
+    'production.create',
+    'production.update',
+    'production.delete',
     'distribution.view',
     'distribution.create',
     'distribution.mark_sent',

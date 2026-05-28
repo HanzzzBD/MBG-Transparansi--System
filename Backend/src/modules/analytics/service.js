@@ -472,14 +472,16 @@ const getBudgetSummary = async ({ filters }) => {
         rawMaterialCost: true,
         operationalCost: true,
         packagingCost: true,
-        distributionCost: true
+        distributionCost: true,
+        rentCost: true
       },
       _avg: {
         costPerPortion: true,
         rawMaterialCost: true,
         operationalCost: true,
         packagingCost: true,
-        distributionCost: true
+        distributionCost: true,
+        rentCost: true
       }
     }),
     prisma.productionBatch.count({
@@ -509,12 +511,14 @@ const getBudgetSummary = async ({ filters }) => {
       total_operational_cost: Number(batchAgg._sum.operationalCost || 0),
       total_packaging_cost: Number(batchAgg._sum.packagingCost || 0),
       total_distribution_cost: Number(batchAgg._sum.distributionCost || 0),
+      total_rent_cost: Number(batchAgg._sum.rentCost || 0),
       avg_cost_per_portion: Number(batchAgg._avg.costPerPortion || 0),
       avg_price_per_portion: Number(batchAgg._avg.costPerPortion || 0),
       avg_raw_material_cost: Number(batchAgg._avg.rawMaterialCost || 0),
       avg_operational_cost: Number(batchAgg._avg.operationalCost || 0),
       avg_packaging_cost: Number(batchAgg._avg.packagingCost || 0),
       avg_distribution_cost: Number(batchAgg._avg.distributionCost || 0),
+      avg_rent_cost: Number(batchAgg._avg.rentCost || 0),
       price_anomaly_count: priceAnomalyCount,
       raw_material_anomaly_count: rawMaterialAnomalyCount,
       savings_vs_target: 0,

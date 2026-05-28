@@ -374,6 +374,18 @@ router.get(
 );
 
 router.get(
+  "/system-configs/:key",
+  authenticate,
+  authorize("pemerintah", "admin"),
+  asyncHandler(async (req, res) => {
+    const result = await adminService.getReadableSystemConfig({
+      key: req.params.key
+    });
+    sendSuccess(res, result);
+  })
+);
+
+router.get(
   "/monitoring/summary",
   authenticate,
   authorize("admin"),

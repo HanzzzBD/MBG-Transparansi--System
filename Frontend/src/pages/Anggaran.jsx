@@ -33,11 +33,55 @@ import './Anggaran.css'
 
 const EMPTY_BUDGET_SUMMARY = {
   totalBudgetUsed: 0,
+  totalPortions: 0,
   avgPricePerPortion: 0,
   anomalyCount: 0,
   rawMaterialAnomalyCount: 0,
   avgRawMaterialCost: 0,
   savingVsTarget: 0,
+  dataSource: 'Belum ada data',
+  hasProductionBatchCosting: false,
+  hasLegacyDistributionBudget: false,
+  note: '',
+}
+
+const BGN_CONFIG_KEYS = {
+  banperRegularAmount: 'banper_regular_amount',
+  banperSpecialAmount: 'banper_special_amount',
+  rawMaterialMinPerPortion: 'raw_material_min_per_portion',
+  rawMaterialMaxPerPortion: 'raw_material_max_per_portion',
+  operationalMaxPerPortion: 'operational_max_per_portion',
+  rentMaxPerPortion: 'rent_max_per_portion',
+}
+
+const EMPTY_BGN_INDICATORS = {
+  banperRegularAmount: 0,
+  banperSpecialAmount: 0,
+  rawMaterialMinPerPortion: 0,
+  rawMaterialMaxPerPortion: 0,
+  operationalMaxPerPortion: 0,
+  rentMaxPerPortion: 0,
+  loaded: false,
+}
+
+const EMPTY_BGN_COMPONENT_STATUS = {
+  available: false,
+  batchCount: 0,
+  totalPortions: 0,
+  rawMaterialCost: 0,
+  operationalCost: 0,
+  packagingCost: 0,
+  distributionCost: 0,
+  rentCost: 0,
+  totalCost: 0,
+  rawMaterialCostPerPortion: null,
+  operationalCostPerPortion: null,
+  totalCostPerPortion: null,
+  rentCostPerPortion: null,
+  rawMaterialStatus: 'unavailable',
+  operationalStatus: 'unavailable',
+  banperStatus: 'unavailable',
+  rentStatus: 'unavailable',
 }
 
 function formatRupiah(value) {
@@ -105,17 +149,120 @@ function normalizeProvincePrices(budgetByProvince, thresholds) {
       avgHarga: Number(row.avgHarga ?? row.avg_price_per_portion ?? row.avgReferencePrice) || 0,
       thresholdMin: Number(row.thresholdMin ?? row.minPrice ?? threshold.thresholdMin) || 0,
       thresholdMax: Number(row.thresholdMax ?? row.maxPrice ?? threshold.thresholdMax) || 0,
+      totalBudget: Number(row.totalBudget ?? row.total_budget ?? row.totalBudgetUsed) || 0,
+      totalPortions: Number(row.totalPortions ?? row.total_portions) || 0,
+      totalDistributions: Number(row.totalDistributions ?? row.total_distributions) || 0,
       source: row.source || null,
       generatedAt: row.generatedAt || row.generated_at || null,
     }
   })
 }
 
+function buildLegacyProvinceMap(rows) {
+  if (!Array.isArray(rows)) return {}
+  return rows.reduce((map, row) => {
+    const key = String(row.province || '').toLowerCase()
+    if (!key) return map
+    map[key] = row
+    return map
+  }, {})
+}
+
+function mergeLegacyProvinceBudget(provinceRows, legacyByProvince) {
+  const legacyMap = buildLegacyProvinceMap(legacyByProvince)
+  const mergedRows = provinceRows.map((row) => {
+    const legacyRow = legacyMap[String(row.province || '').toLowerCase()]
+    if (!legacyRow) return row
+
+    return {
+      ...row,
+      minHarga: Number(row.minHarga) || Number(legacyRow.min_price_per_portion) || 0,
+      maxHarga: Number(row.maxHarga) || Number(legacyRow.max_price_per_portion) || 0,
+      avgHarga: Number(row.avgHarga) || Number(legacyRow.avg_price_per_portion) || 0,
+      totalBudget: Number(row.totalBudget) || Number(legacyRow.total_budget) || 0,
+      totalPortions: Number(row.totalPortions) || Number(legacyRow.total_portions) || 0,
+      totalDistributions: Number(row.totalDistributions) || Number(legacyRow.total_distributions) || 0,
+    }
+  })
+
+  const existingKeys = new Set(mergedRows.map((row) => String(row.province || '').toLowerCase()))
+  const legacyOnlyRows = Array.isArray(legacyByProvince)
+    ? legacyByProvince
+        .filter((row) => !existingKeys.has(String(row.province || '').toLowerCase()))
+        .map((row) => ({
+          province: row.province || '-',
+          minHarga: Number(row.min_price_per_portion) || 0,
+          maxHarga: Number(row.max_price_per_portion) || 0,
+          avgHarga: Number(row.avg_price_per_portion) || 0,
+          thresholdMin: 0,
+          thresholdMax: 0,
+          totalBudget: Number(row.total_budget) || 0,
+          totalPortions: Number(row.total_portions) || 0,
+          totalDistributions: Number(row.total_distributions) || 0,
+          source: null,
+          generatedAt: null,
+        }))
+    : []
+
+  return [...mergedRows, ...legacyOnlyRows]
+}
+
+function buildUnifiedBudgetSummary(summaryData = {}, legacyBudget = {}, anomalies = []) {
+  const legacySummary = legacyBudget?.summary || {}
+  const productionTotalBudget = Number(summaryData.total_budget_used ?? summaryData.totalBudgetUsed) || 0
+  const productionTotalPortions = Number(summaryData.total_portions ?? summaryData.totalPortions) || 0
+  const productionAvgPrice = Number(
+    summaryData.avg_cost_per_portion ?? summaryData.avg_price_per_portion ?? summaryData.avgPricePerPortion,
+  ) || 0
+  const productionBatchCount = Number(summaryData.total_batches ?? summaryData.totalBatches) || 0
+
+  const legacyTotalBudget = Number(legacySummary.total_budget ?? legacySummary.totalBudget) || 0
+  const legacyTotalPortions = Number(legacySummary.total_portions ?? legacySummary.totalPortions) || 0
+  const legacyAvgPrice = Number(legacySummary.avg_price_per_portion ?? legacySummary.avgPricePerPortion) || 0
+
+  const hasProductionBatchCosting = productionBatchCount > 0 || productionTotalBudget > 0 || productionTotalPortions > 0
+  const hasLegacyDistributionBudget = legacyTotalBudget > 0 || legacyTotalPortions > 0
+  const usedLegacyTotal = productionTotalBudget <= 0 && legacyTotalBudget > 0
+  const usedLegacyPortions = productionTotalPortions <= 0 && legacyTotalPortions > 0
+  const usedLegacyAverage = productionAvgPrice <= 0 && legacyAvgPrice > 0
+
+  const totalBudgetUsed = usedLegacyTotal ? legacyTotalBudget : productionTotalBudget
+  const totalPortions = usedLegacyPortions ? legacyTotalPortions : productionTotalPortions
+  const avgPricePerPortion = usedLegacyAverage
+    ? legacyAvgPrice
+    : productionAvgPrice || (totalPortions ? totalBudgetUsed / totalPortions : 0)
+
+  let dataSource = 'Belum ada data'
+  if (hasProductionBatchCosting && (usedLegacyTotal || usedLegacyPortions || usedLegacyAverage)) {
+    dataSource = 'Mixed'
+  } else if (hasProductionBatchCosting) {
+    dataSource = 'Production Batch'
+  } else if (hasLegacyDistributionBudget) {
+    dataSource = 'Distribusi Legacy'
+  }
+
+  return {
+    totalBudgetUsed,
+    totalPortions,
+    avgPricePerPortion,
+    anomalyCount: Number(summaryData.price_anomaly_count) || anomalies.filter((row) => !row.isResolved).length,
+    rawMaterialAnomalyCount: Number(summaryData.raw_material_anomaly_count) || 0,
+    avgRawMaterialCost: Number(summaryData.avg_raw_material_cost) || 0,
+    savingVsTarget: Number(summaryData.savings_vs_target) || 0,
+    dataSource,
+    hasProductionBatchCosting,
+    hasLegacyDistributionBudget,
+    note: !hasProductionBatchCosting && hasLegacyDistributionBudget
+      ? 'Costing production batch belum tersedia, total realisasi menggunakan data distribusi.'
+      : '',
+  }
+}
+
 function normalizeSpending(byProvince) {
   if (!Array.isArray(byProvince) || !byProvince.length) return []
   return byProvince.slice(0, 10).map((row) => ({
     province: row.province || '-',
-    totalSpending: Number(row.total_budget ?? row.totalBudget ?? row.totalBudgetUsed ?? 0),
+    totalSpending: Number(row.totalBudget ?? row.total_budget ?? row.totalBudgetUsed ?? 0),
   }))
 }
 
@@ -140,6 +287,20 @@ function normalizeAnomaly(item, thresholdSource = {}) {
   }
 }
 
+function normalizeProductionBatch(item) {
+  return {
+    id: item.id,
+    rawMaterialCost: Number(item.rawMaterialCost ?? item.raw_material_cost) || 0,
+    operationalCost: Number(item.operationalCost ?? item.operational_cost) || 0,
+    packagingCost: Number(item.packagingCost ?? item.packaging_cost) || 0,
+    distributionCost: Number(item.distributionCost ?? item.distribution_cost) || 0,
+    rentCost: Number(item.rentCost ?? item.rent_cost) || 0,
+    totalCost: Number(item.totalCost ?? item.total_cost) || 0,
+    costPerPortion: Number(item.costPerPortion ?? item.cost_per_portion) || 0,
+    totalPortions: Number(item.totalPortions ?? item.total_portions) || 0,
+  }
+}
+
 function buildThresholdMapFromProvincePrices(rows) {
   return rows.reduce((map, row) => {
     map[String(row.province || '').toLowerCase()] = {
@@ -148,6 +309,126 @@ function buildThresholdMapFromProvincePrices(rows) {
     }
     return map
   }, {})
+}
+
+function getSystemConfigValue(result) {
+  const value =
+    result?.data?.value ??
+    result?.data?.config?.value ??
+    result?.config?.value ??
+    result?.value
+
+  return Number(value) || 0
+}
+
+async function fetchBgnBudgetIndicators(signal) {
+  const entries = Object.entries(BGN_CONFIG_KEYS)
+  const results = await Promise.allSettled(
+    entries.map(([, key]) => requestJson(`/system-configs/${key}`, { signal })),
+  )
+  const failedResult = results.find((result) => result.status === 'rejected')
+  if (failedResult) throw failedResult.reason
+
+  return entries.reduce((config, [field], index) => ({
+    ...config,
+    [field]: results[index].status === 'fulfilled' ? getSystemConfigValue(results[index].value) : 0,
+  }), { ...EMPTY_BGN_INDICATORS, loaded: true })
+}
+
+function extractProductionBatchRows(result) {
+  const rows = Array.isArray(result?.data)
+    ? result.data
+    : Array.isArray(result?.data?.items)
+      ? result.data.items
+      : Array.isArray(result?.items)
+        ? result.items
+        : []
+
+  return rows.map(normalizeProductionBatch)
+}
+
+function getRawMaterialStatus(value, indicators) {
+  if (value === null || !indicators.loaded) return 'unavailable'
+  if (value < indicators.rawMaterialMinPerPortion) return 'below_min'
+  if (value > indicators.rawMaterialMaxPerPortion) return 'above_max'
+  return 'normal'
+}
+
+function getOperationalStatus(value, indicators) {
+  if (value === null || !indicators.loaded) return 'unavailable'
+  return value > indicators.operationalMaxPerPortion ? 'over_limit' : 'normal'
+}
+
+function getBanperStatus(value, indicators) {
+  if (value === null || !indicators.loaded) return 'unavailable'
+  if (value <= indicators.banperRegularAmount) return 'within_13000'
+  if (value <= indicators.banperSpecialAmount) return 'within_15000'
+  return 'over_banper'
+}
+
+function buildBgnComponentStatus(batches, indicators) {
+  const costingBatches = Array.isArray(batches)
+    ? batches.filter((batch) => Number(batch.totalPortions) > 0)
+    : []
+
+  if (!costingBatches.length) return EMPTY_BGN_COMPONENT_STATUS
+
+  const totals = costingBatches.reduce((summary, batch) => ({
+    batchCount: summary.batchCount + 1,
+    totalPortions: summary.totalPortions + batch.totalPortions,
+    rawMaterialCost: summary.rawMaterialCost + batch.rawMaterialCost,
+    operationalCost: summary.operationalCost + batch.operationalCost,
+    packagingCost: summary.packagingCost + batch.packagingCost,
+    distributionCost: summary.distributionCost + batch.distributionCost,
+    rentCost: summary.rentCost + batch.rentCost,
+    totalCost: summary.totalCost + batch.totalCost,
+  }), {
+    batchCount: 0,
+    totalPortions: 0,
+    rawMaterialCost: 0,
+    operationalCost: 0,
+    packagingCost: 0,
+    distributionCost: 0,
+    rentCost: 0,
+    totalCost: 0,
+  })
+
+  const rawMaterialCostPerPortion = totals.rawMaterialCost / totals.totalPortions
+  const operationalCostPerPortion = totals.operationalCost / totals.totalPortions
+  const totalCostPerPortion = totals.totalCost / totals.totalPortions
+  const rentCostPerPortion = totals.rentCost / totals.totalPortions
+
+  return {
+    ...totals,
+    available: true,
+    rawMaterialCostPerPortion,
+    operationalCostPerPortion,
+    totalCostPerPortion,
+    rentCostPerPortion,
+    rawMaterialStatus: getRawMaterialStatus(rawMaterialCostPerPortion, indicators),
+    operationalStatus: getOperationalStatus(operationalCostPerPortion, indicators),
+    banperStatus: getBanperStatus(totalCostPerPortion, indicators),
+    rentStatus: getRentStatus(rentCostPerPortion, indicators),
+  }
+}
+
+function getRentStatus(value, indicators) {
+  if (value === null || !indicators.loaded) return 'unavailable'
+  return value > indicators.rentMaxPerPortion ? 'over_limit' : 'normal'
+}
+
+function getBgnStatusLabel(status) {
+  const labels = {
+    below_min: 'Di bawah minimum',
+    normal: 'Normal',
+    above_max: 'Di atas maksimum',
+    over_limit: 'Melebihi batas',
+    within_13000: 'Dalam Banper 13k',
+    within_15000: 'Dalam Banper 15k',
+    over_banper: 'Melebihi Banper',
+    unavailable: 'Belum tersedia',
+  }
+  return labels[status] || 'Belum tersedia'
 }
 
 function getAnomalyFilteredRows(rows, anomalyFilter) {
@@ -167,6 +448,8 @@ function Anggaran({ userRole, userName, onLogout }) {
   const resolvedRole = userRole || 'pemerintah'
   const displayName = userName || 'Pengguna MBG'
   const [budgetSummary, setBudgetSummary] = useState(EMPTY_BUDGET_SUMMARY)
+  const [bgnIndicators, setBgnIndicators] = useState(EMPTY_BGN_INDICATORS)
+  const [bgnComponentStatus, setBgnComponentStatus] = useState(EMPTY_BGN_COMPONENT_STATUS)
   const [provincePrices, setProvincePrices] = useState([])
   const [spendingData, setSpendingData] = useState([])
   const [anomalyRows, setAnomalyRows] = useState([])
@@ -193,20 +476,36 @@ function Anggaran({ userRole, userName, onLogout }) {
       setError('')
 
       try {
-        const [summaryResult, provinceResult, anomalyResult, legacyBudgetResult] = await Promise.allSettled([
+        const [
+          summaryResult,
+          provinceResult,
+          anomalyResult,
+          legacyBudgetResult,
+          bgnIndicatorsResult,
+          productionBatchResult,
+        ] = await Promise.allSettled([
           requestJson('/analytics/budget-summary', { signal }),
           requestJson('/analytics/price-per-province', { signal }),
           requestJson('/analytics/price-anomalies', { signal, params: { limit: 50 } }),
           requestJson('/analytics/budget', { signal }),
+          fetchBgnBudgetIndicators(signal),
+          requestJson('/production-batches', { signal, params: { limit: 100 } }),
         ])
 
-        const summaryData = summaryResult.status === 'fulfilled' ? summaryResult.value.data : {}
+        const summaryData = summaryResult.status === 'fulfilled' ? summaryResult.value.data || {} : {}
         const provinceApiRows = provinceResult.status === 'fulfilled' ? provinceResult.value.data : []
-        const legacyBudget = legacyBudgetResult.status === 'fulfilled' ? legacyBudgetResult.value.data : {}
-        const provinceRows = normalizeProvincePrices(
+        const legacyBudget = legacyBudgetResult.status === 'fulfilled' ? legacyBudgetResult.value.data || {} : {}
+        const nextBgnIndicators = bgnIndicatorsResult.status === 'fulfilled'
+          ? bgnIndicatorsResult.value
+          : EMPTY_BGN_INDICATORS
+        const productionBatches = productionBatchResult.status === 'fulfilled'
+          ? extractProductionBatchRows(productionBatchResult.value)
+          : []
+        const normalizedProvinceRows = normalizeProvincePrices(
           Array.isArray(provinceApiRows) && provinceApiRows.length ? provinceApiRows : legacyBudget.byProvince,
           normalizeThresholds(provinceApiRows),
         )
+        const provinceRows = mergeLegacyProvinceBudget(normalizedProvinceRows, legacyBudget.byProvince)
         const thresholds = buildThresholdMapFromProvincePrices(provinceRows)
         const anomalyApiRows =
           anomalyResult.status === 'fulfilled' && Array.isArray(anomalyResult.value.data)
@@ -216,23 +515,14 @@ function Anggaran({ userRole, userName, onLogout }) {
               : []
         const anomalies = anomalyApiRows.map((item) => normalizeAnomaly(item, thresholds))
 
-        const totalBudget = Number(summaryData.total_budget_used ?? legacyBudget.summary?.total_budget) || 0
-        const totalPortions = Number(summaryData.total_portions ?? legacyBudget.summary?.total_portions) || 0
-        const avgPrice = Number(summaryData.avg_price_per_portion ?? legacyBudget.summary?.avg_price_per_portion) || (totalPortions ? totalBudget / totalPortions : 0)
-
-        setBudgetSummary({
-          totalBudgetUsed: totalBudget,
-          avgPricePerPortion: avgPrice,
-          anomalyCount: Number(summaryData.price_anomaly_count) || anomalies.filter((row) => !row.isResolved).length,
-          rawMaterialAnomalyCount: Number(summaryData.raw_material_anomaly_count) || 0,
-          avgRawMaterialCost: Number(summaryData.avg_raw_material_cost) || 0,
-          savingVsTarget: Number(summaryData.savings_vs_target) || 0,
-        })
+        setBudgetSummary(buildUnifiedBudgetSummary(summaryData, legacyBudget, anomalies))
+        setBgnIndicators(nextBgnIndicators)
+        setBgnComponentStatus(buildBgnComponentStatus(productionBatches, nextBgnIndicators))
         setProvincePrices(provinceRows)
         setSpendingData(normalizeSpending(provinceRows))
         setAnomalyRows(anomalies)
 
-        const hasNonAbortPartialFailure = [summaryResult, provinceResult, anomalyResult].some((result) => (
+        const hasNonAbortPartialFailure = [summaryResult, provinceResult, anomalyResult, bgnIndicatorsResult, productionBatchResult].some((result) => (
           result.status === 'rejected' && !isAbortError(result.reason)
         ))
         if (hasNonAbortPartialFailure) {
@@ -241,6 +531,8 @@ function Anggaran({ userRole, userName, onLogout }) {
       } catch (fetchError) {
         if (!isAbortError(fetchError)) {
           setBudgetSummary(EMPTY_BUDGET_SUMMARY)
+          setBgnIndicators(EMPTY_BGN_INDICATORS)
+          setBgnComponentStatus(EMPTY_BGN_COMPONENT_STATUS)
           setProvincePrices([])
           setSpendingData([])
           setAnomalyRows([])
@@ -339,6 +631,64 @@ function Anggaran({ userRole, userName, onLogout }) {
     { title: 'Raw Material Anomaly', value: new Intl.NumberFormat('id-ID').format(budgetSummary.rawMaterialAnomalyCount), color: '#92400e', icon: AlertTriangle },
   ]
 
+  const bgnReferenceItems = [
+    {
+      title: 'Tarif Banper',
+      value: `${formatRupiah(bgnIndicators.banperRegularAmount)} / ${formatRupiah(bgnIndicators.banperSpecialAmount)}`,
+      meta: 'Reguler / khusus per porsi',
+    },
+    {
+      title: 'Biaya Bahan Pangan',
+      value: `${formatRupiah(bgnIndicators.rawMaterialMinPerPortion)} - ${formatRupiah(bgnIndicators.rawMaterialMaxPerPortion)}`,
+      meta: 'Rentang acuan per porsi',
+    },
+    {
+      title: 'Biaya Operasional',
+      value: `Maks. ${formatRupiah(bgnIndicators.operationalMaxPerPortion)}`,
+      meta: 'Batas operasional per porsi',
+    },
+    {
+      title: 'Biaya Sewa',
+      value: `Maks. ${formatRupiah(bgnIndicators.rentMaxPerPortion)}`,
+      meta: 'Batas sewa per porsi',
+    },
+  ]
+
+  const bgnStatusItems = [
+    {
+      title: 'Status Bahan Pangan',
+      value: bgnComponentStatus.available ? formatRupiah(bgnComponentStatus.rawMaterialCostPerPortion) : 'Belum tersedia',
+      status: bgnComponentStatus.rawMaterialStatus,
+      meta: bgnComponentStatus.available
+        ? `Acuan ${formatRupiah(bgnIndicators.rawMaterialMinPerPortion)} - ${formatRupiah(bgnIndicators.rawMaterialMaxPerPortion)} per porsi`
+        : 'Menunggu data ProductionBatch',
+    },
+    {
+      title: 'Status Operasional',
+      value: bgnComponentStatus.available ? formatRupiah(bgnComponentStatus.operationalCostPerPortion) : 'Belum tersedia',
+      status: bgnComponentStatus.operationalStatus,
+      meta: bgnComponentStatus.available
+        ? `Batas ${formatRupiah(bgnIndicators.operationalMaxPerPortion)} per porsi`
+        : 'Menunggu data ProductionBatch',
+    },
+    {
+      title: 'Status Banper',
+      value: bgnComponentStatus.available ? formatRupiah(bgnComponentStatus.totalCostPerPortion) : 'Belum tersedia',
+      status: bgnComponentStatus.banperStatus,
+      meta: bgnComponentStatus.available
+        ? `Banper ${formatRupiah(bgnIndicators.banperRegularAmount)} / ${formatRupiah(bgnIndicators.banperSpecialAmount)} per porsi`
+        : 'Menunggu data ProductionBatch',
+    },
+    {
+      title: 'Status Biaya Sewa',
+      value: bgnComponentStatus.available ? formatRupiah(bgnComponentStatus.rentCostPerPortion) : 'Belum tersedia',
+      status: bgnComponentStatus.rentStatus,
+      meta: bgnComponentStatus.available
+        ? `Batas ${formatRupiah(bgnIndicators.rentMaxPerPortion)} per porsi`
+        : 'Menunggu data ProductionBatch',
+    },
+  ]
+
   return (
     <DashboardLayout
       userRole={isAdmin ? 'admin' : 'pemerintah'}
@@ -373,6 +723,20 @@ function Anggaran({ userRole, userName, onLogout }) {
           </div>
         ) : null}
 
+        {!loading ? (
+          <section className="anggaran-source-strip" aria-label="Sumber data anggaran">
+            <div>
+              <span>Sumber Data</span>
+              <strong>{budgetSummary.dataSource}</strong>
+            </div>
+            <div>
+              <span>Total Porsi</span>
+              <strong>{new Intl.NumberFormat('id-ID').format(budgetSummary.totalPortions)}</strong>
+            </div>
+            {budgetSummary.note ? <p>{budgetSummary.note}</p> : null}
+          </section>
+        ) : null}
+
         <section className="anggaran-section">
           <div className="anggaran-kpi-grid">
             {kpis.map((kpi) => {
@@ -387,6 +751,67 @@ function Anggaran({ userRole, userName, onLogout }) {
                 </article>
               )
             })}
+          </div>
+        </section>
+
+        <section className="anggaran-section anggaran-bgn-reference" aria-labelledby="anggaran-bgn-title">
+          <div className="anggaran-section-header">
+            <div>
+              <h2 id="anggaran-bgn-title" className="anggaran-section-title">Referensi Indikator BGN</h2>
+              <p className="anggaran-section-note">Nilai diambil dari system-configs dan siap dipakai untuk status anggaran berikutnya.</p>
+            </div>
+          </div>
+          {bgnIndicators.loaded ? (
+            <div className="anggaran-bgn-grid">
+              {bgnReferenceItems.map((item) => (
+                <article key={item.title} className="anggaran-bgn-item">
+                  <p>{item.title}</p>
+                  <strong>{item.value}</strong>
+                  <span>{item.meta}</span>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="anggaran-empty-note">Konfigurasi indikator BGN belum tersedia dari backend.</p>
+          )}
+        </section>
+
+        <section className="anggaran-section anggaran-bgn-status" aria-labelledby="anggaran-bgn-status-title">
+          <div className="anggaran-section-header">
+            <div>
+              <h2 id="anggaran-bgn-status-title" className="anggaran-section-title">Status Komponen Anggaran BGN</h2>
+              <p className="anggaran-section-note">
+                Status dihitung dari costing ProductionBatch. Jika batch kosong, status tidak memakai fallback distribusi.
+              </p>
+            </div>
+          </div>
+          <div className="anggaran-bgn-status-summary">
+            <div>
+              <span>Batch Costing</span>
+              <strong>{bgnComponentStatus.available ? new Intl.NumberFormat('id-ID').format(bgnComponentStatus.batchCount) : 'Belum tersedia'}</strong>
+            </div>
+            <div>
+              <span>Porsi Costing</span>
+              <strong>{bgnComponentStatus.available ? new Intl.NumberFormat('id-ID').format(bgnComponentStatus.totalPortions) : 'Belum tersedia'}</strong>
+            </div>
+            <div>
+              <span>Total Costing</span>
+              <strong>{bgnComponentStatus.available ? formatRupiah(bgnComponentStatus.totalCost) : 'Belum tersedia'}</strong>
+            </div>
+          </div>
+          <div className="anggaran-bgn-status-grid">
+            {bgnStatusItems.map((item) => (
+              <article key={item.title} className="anggaran-bgn-status-item">
+                <div>
+                  <p>{item.title}</p>
+                  <span className={`anggaran-bgn-badge anggaran-bgn-badge-${item.status}`}>
+                    {getBgnStatusLabel(item.status)}
+                  </span>
+                </div>
+                <strong>{item.value}</strong>
+                <small>{item.meta}</small>
+              </article>
+            ))}
           </div>
         </section>
 

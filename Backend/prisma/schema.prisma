@@ -553,6 +553,7 @@ model ProductionBatch {
   operationalCost  Decimal               @default(0) @map("operational_cost") @db.Decimal(14, 2)
   packagingCost    Decimal               @default(0) @map("packaging_cost") @db.Decimal(14, 2)
   distributionCost Decimal               @default(0) @map("distribution_cost") @db.Decimal(14, 2)
+  rentCost         Decimal               @default(0) @map("rent_cost") @db.Decimal(14, 2)
   totalCost        Decimal               @default(0) @map("total_cost") @db.Decimal(14, 2)
   costPerPortion   Decimal               @default(0) @map("cost_per_portion") @db.Decimal(10, 2)
   notes            String?
