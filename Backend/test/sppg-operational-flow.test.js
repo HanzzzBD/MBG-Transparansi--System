@@ -16,6 +16,7 @@ const state = {
   server: null,
   baseUrl: "",
   sppg: {},
+  menus: {},
   schools: {},
   dapodikSchools: {},
   assignments: {},
@@ -171,6 +172,18 @@ async function setupData() {
     }
   });
 
+  state.menus.a = await prisma.menu.create({
+    data: {
+      sppgId: state.sppg.a.id,
+      menuDate: new Date("2026-05-26"),
+      menuName: `${prefix} Verified Menu A`,
+      items: ["Nasi", "Telur", "Sayur"],
+      manualPricePerPortion: "12000.00",
+      priceValidationStatus: "VERIFIED",
+      priceValidatedAt: new Date()
+    }
+  });
+
   const users = await Promise.all([
     prisma.user.create({
       data: {
@@ -255,6 +268,7 @@ async function cleanupData() {
   const dapodikSchoolIds = Object.values(state.dapodikSchools).map((school) => school?.id).filter(Boolean);
   const sppgIds = Object.values(state.sppg).map((sppg) => sppg?.id).filter(Boolean);
   const thresholdIds = Object.values(state.thresholds).map((threshold) => threshold?.id).filter(Boolean);
+  const menuIds = Object.values(state.menus).map((menu) => menu?.id).filter(Boolean);
 
   await prisma.priceThreshold.deleteMany({
     where: {
@@ -317,6 +331,13 @@ async function cleanupData() {
           }
         }
       ]
+    }
+  });
+  await prisma.menu.deleteMany({
+    where: {
+      id: {
+        in: menuIds.length ? menuIds : [-1]
+      }
     }
   });
   await prisma.sppgSchoolAssignment.deleteMany({
@@ -660,6 +681,7 @@ describe("PR 4 SPPG operational flow", () => {
       token: state.tokens.sppgA,
       body: {
         schoolId: state.schools.b.id,
+        menuId: state.menus.a.id,
         portions: 40,
         pricePerPortion: 12000,
         distributionDate: "2026-05-26"
@@ -670,6 +692,7 @@ describe("PR 4 SPPG operational flow", () => {
       token: state.tokens.sppgA,
       body: {
         schoolId: state.schools.a.id,
+        menuId: state.menus.a.id,
         portions: 40,
         pricePerPortion: 12000,
         distributionDate: "2026-05-26"

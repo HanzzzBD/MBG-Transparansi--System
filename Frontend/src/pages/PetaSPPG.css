@@ -7,8 +7,9 @@
   --color-text-dark: #111928;
   --color-text-muted: #6b7280;
   --color-success: #057a55;
-  --color-warning: #92400e;
+  --color-warning: #c2410c;
   --color-danger: #9b1c1c;
+  --color-inactive: #6b7280;
   min-height: 100vh;
   background: var(--color-light-gray);
   color: var(--color-text-dark);
@@ -254,8 +255,8 @@
 }
 
 .peta-marker-inactive {
-  background: var(--color-danger);
-  box-shadow: 0 0 0 7px rgba(155, 28, 28, 0.18), 0 12px 24px rgba(15, 76, 129, 0.24);
+  background: var(--color-inactive);
+  box-shadow: 0 0 0 7px rgba(107, 114, 128, 0.18), 0 12px 24px rgba(15, 76, 129, 0.24);
 }
 
 .peta-popup {
@@ -342,7 +343,7 @@
 }
 
 .peta-legend-inactive {
-  background: var(--color-danger);
+  background: var(--color-inactive);
 }
 
 .peta-side-panel {
@@ -772,8 +773,8 @@
 }
 
 .peta-status-inactive {
-  background: rgba(155, 28, 28, 0.18);
-  color: #ffd8d8;
+  background: rgba(107, 114, 128, 0.2);
+  color: #f3f4f6;
 }
 
 .peta-side-body .peta-status-active {
@@ -785,7 +786,7 @@
 }
 
 .peta-side-body .peta-status-inactive {
-  color: var(--color-danger);
+  color: var(--color-inactive);
 }
 
 @keyframes peta-fade-in {

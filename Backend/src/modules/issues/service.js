@@ -5,6 +5,9 @@ const { assertSppgOwnership, requireSppgScope } = require("../../utils/ownership
 const { buildPaginationMeta, parsePagination } = require("../../utils/pagination");
 
 const prisma = getPrismaClient();
+const CRITICAL_ISSUE_CATEGORIES = new Set(["kekurangan_bahan", "peralatan", "logistik"]);
+
+const isCriticalIssueCategory = (category) => CRITICAL_ISSUE_CATEGORIES.has(category);
 
 const buildIssueWhere = ({ query = {}, user }) => {
   const baseWhere = {
@@ -34,9 +37,6 @@ const getActiveSppg = async (id) => {
     where: {
       id: Number(id),
       deletedAt: null
-    },
-    select: {
-      id: true
     }
   });
 
@@ -45,6 +45,94 @@ const getActiveSppg = async (id) => {
   }
 
   return sppg;
+};
+
+const hasOpenCriticalIssue = async ({ tx, sppgId, excludeIssueId }) => {
+  const count = await tx.issue.count({
+    where: {
+      sppgId: Number(sppgId),
+      deletedAt: null,
+      status: {
+        in: ["open", "in_progress"]
+      },
+      category: {
+        in: Array.from(CRITICAL_ISSUE_CATEGORIES)
+      },
+      ...(excludeIssueId ? { id: { not: Number(excludeIssueId) } } : {})
+    }
+  });
+
+  return count > 0;
+};
+
+const markSppgProblemForCriticalIssue = async ({ tx, sppg, issue, userId, ipAddress }) => {
+  if (!isCriticalIssueCategory(issue.category)) {
+    return sppg;
+  }
+
+  if (sppg.status === "problem") {
+    return sppg;
+  }
+
+  const updated = await tx.sppg.update({
+    where: {
+      id: sppg.id
+    },
+    data: {
+      status: "problem"
+    }
+  });
+
+  await createAuditLog({
+    prisma: tx,
+    userId,
+    action: "UPDATE",
+    tableName: "sppg",
+    recordId: updated.id,
+    oldData: sppg,
+    newData: updated,
+    ipAddress
+  });
+
+  return updated;
+};
+
+const restoreSppgAfterResolvedCriticalIssue = async ({ tx, issue, userId, ipAddress }) => {
+  if (issue.status !== "resolved" || !isCriticalIssueCategory(issue.category) || issue.sppg?.status !== "problem") {
+    return issue.sppg;
+  }
+
+  const stillHasOpenCriticalIssue = await hasOpenCriticalIssue({
+    tx,
+    sppgId: issue.sppgId,
+    excludeIssueId: issue.id
+  });
+
+  if (stillHasOpenCriticalIssue) {
+    return issue.sppg;
+  }
+
+  const updatedSppg = await tx.sppg.update({
+    where: {
+      id: issue.sppgId
+    },
+    data: {
+      status: "active"
+    }
+  });
+
+  await createAuditLog({
+    prisma: tx,
+    userId,
+    action: "UPDATE",
+    tableName: "sppg",
+    recordId: updatedSppg.id,
+    oldData: issue.sppg,
+    newData: updatedSppg,
+    ipAddress
+  });
+
+  return updatedSppg;
 };
 
 const getActiveIssueById = async (id) => {
@@ -114,7 +202,7 @@ const createIssue = async ({ payload, user, ipAddress }) => {
     assertSppgOwnership(user, targetSppgId);
   }
 
-  await getActiveSppg(targetSppgId);
+  const targetSppg = await getActiveSppg(targetSppgId);
 
   const issue = await prisma.$transaction(async (tx) => {
     const created = await tx.issue.create({
@@ -129,6 +217,14 @@ const createIssue = async ({ payload, user, ipAddress }) => {
       }
     });
 
+    const updatedSppg = await markSppgProblemForCriticalIssue({
+      tx,
+      sppg: targetSppg,
+      issue: created,
+      userId: user.userId,
+      ipAddress
+    });
+
     await createAuditLog({
       prisma: tx,
       userId: user.userId,
@@ -139,7 +235,10 @@ const createIssue = async ({ payload, user, ipAddress }) => {
       ipAddress
     });
 
-    return created;
+    return {
+      ...created,
+      sppg: updatedSppg
+    };
   });
 
   return {
@@ -174,7 +273,17 @@ const updateIssueStatus = async ({ id, status, user, ipAddress }) => {
       ipAddress
     });
 
-    return updated;
+    const updatedSppg = await restoreSppgAfterResolvedCriticalIssue({
+      tx,
+      issue: updated,
+      userId: user.userId,
+      ipAddress
+    });
+
+    return {
+      ...updated,
+      sppg: updatedSppg || updated.sppg
+    };
   });
 
   return {
@@ -184,6 +293,7 @@ const updateIssueStatus = async ({ id, status, user, ipAddress }) => {
 
 module.exports = {
   createIssue,
+  isCriticalIssueCategory,
   listIssues,
   updateIssueStatus
 };

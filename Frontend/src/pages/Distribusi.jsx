@@ -20,6 +20,7 @@ import {
   getMyRegionPriceThreshold,
   isAbortError,
   markDistributionSent,
+  resolveFileUrl,
 } from '../services/api'
 import {
   getDeliveryStatusLabel,
@@ -98,7 +99,7 @@ function normalizeDistribution(item) {
     time: item.time || formatTime(item.distributionDate || item.createdAt),
     failureReason: item.failureReason || item.failure_reason || '',
     hasProof: item.hasProof ?? proofList.length > 0,
-    proofUrl: item.proofUrl || proofList[0]?.file?.fileUrl || '',
+    proofUrl: resolveFileUrl(item.proofUrl || proofList[0]?.file?.fileUrl || ''),
   }
 }
 

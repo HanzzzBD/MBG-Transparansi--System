@@ -26,7 +26,7 @@
 - P2: Audit log old_data/new_data belum diuji lengkap untuk semua entity/action yang diminta. Test PR6 membuktikan SPPG create/update/delete/restore dan distribution lock/unlock, tetapi belum eksplisit untuk Schools restore lifecycle, user restore, dan override old/new.
 - P2: Restore user backend route ada, tetapi UI restore user belum terverifikasi dalam re-audit ini.
 - P2: Browser E2E untuk `/sekolah-saluran` belum dijalankan; backend isolated test sudah PASS untuk search Dapodik, assign, duplicate skip, conflict SPPG lain, unassign audit, dan create distribution guard.
-- P3: Build frontend sukses tetapi Vite memberi chunk-size warning untuk bundle utama lebih dari 1000 kB.
+- P3: Superseded/fixed later: build frontend sukses tanpa warning bundle utama lebih dari 1000 kB setelah route-level lazy loading.
 - P3: Browser MCP re-smoke fix cleanup belum bisa dijalankan karena profil Playwright lokal locked oleh instance lain.
 
 ## 3. Yang Blocked
@@ -96,4 +96,4 @@
 - P2: Sembunyikan AbortError/abort signal dari UI user-facing.
 - P2: Jalankan browser re-smoke untuk membuktikan hasil cleanup secara visual setelah MCP Playwright tersedia.
 - P2: Tambahkan Playwright E2E isolated untuk upload proof browser dan public report valid-submit dengan test Turnstile env.
-- P3: Kurangi bundle utama lewat code splitting tambahan jika chunk-size warning ingin ditutup.
+- P3: Superseded/fixed later: bundle utama sudah dikurangi lewat route-level code splitting.

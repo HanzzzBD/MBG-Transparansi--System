@@ -411,12 +411,57 @@
 
 .public-map-status-problem {
   background: #fef3c7;
-  color: #92400e;
+  color: #c2410c;
 }
 
 .public-map-status-inactive {
-  background: #fee2e2;
-  color: #9b1c1c;
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
+.public-map-legend {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #d7e7ee;
+  border-radius: 14px;
+  bottom: 18px;
+  box-shadow: 0 18px 42px rgba(15, 76, 129, 0.14);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  left: 18px;
+  padding: 10px 12px;
+  position: absolute;
+  z-index: 700;
+}
+
+.public-map-legend span {
+  align-items: center;
+  color: #111928;
+  display: inline-flex;
+  font-size: 0.78rem;
+  font-weight: 900;
+  gap: 7px;
+}
+
+.public-map-legend-dot {
+  border-radius: 999px;
+  box-shadow: 0 0 0 3px rgba(15, 76, 129, 0.08);
+  display: inline-block;
+  height: 11px;
+  width: 11px;
+}
+
+.public-map-legend-active {
+  background: #057a55;
+}
+
+.public-map-legend-problem {
+  background: #c2410c;
+}
+
+.public-map-legend-inactive {
+  background: #6b7280;
 }
 
 .public-map-facts {

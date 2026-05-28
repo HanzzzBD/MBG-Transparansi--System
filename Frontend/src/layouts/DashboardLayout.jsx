@@ -52,6 +52,9 @@ const ROLE_LABELS = {
   sppg: 'SPPG',
   sekolah: 'Sekolah',
 }
+const ENABLE_SETTINGS_PAGE =
+  import.meta.env.VITE_ENABLE_SETTINGS_PAGE === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_ENABLE_SETTINGS_PAGE !== 'false')
 
 const dashboardMenu = {
   label: 'Dashboard',
@@ -113,8 +116,8 @@ const adminExtraMenus = [
   { label: 'Lock / Unlock Data', icon: Lock, path: '/lock-unlock', permission: 'admin.lock_unlock.manage' },
   { label: 'Override Data', icon: ShieldAlert, path: '/override', permission: 'admin.override.manage' },
   { label: 'API Monitoring', icon: Activity, path: '/api-monitoring', permission: 'admin.api_monitoring.view' },
-  { label: 'Settings', icon: Settings, path: '/settings', permission: 'admin.settings.manage' },
-]
+  { label: 'Settings', icon: Settings, path: '/settings', permission: 'admin.settings.manage', productionFlag: 'settings' },
+].filter((item) => item.productionFlag !== 'settings' || ENABLE_SETTINGS_PAGE)
 
 const SEARCH_GROUPS = [
   { key: 'sppg', label: 'SPPG', icon: Building2 },

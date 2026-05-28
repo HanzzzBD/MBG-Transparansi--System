@@ -108,6 +108,18 @@ const DEFAULT_PERMISSIONS = [
     description: "Access and manage SPPG administration pages."
   },
   {
+    key: "sppg.status.read",
+    name: "Read SPPG Operational Status",
+    group: "sppg",
+    description: "Read SPPG operational status for lists, details, and geospatial markers."
+  },
+  {
+    key: "sppg.status.update",
+    name: "Update SPPG Operational Status",
+    group: "sppg",
+    description: "Update SPPG operational status with audit trail."
+  },
+  {
     key: "admin.master_school.manage",
     name: "Manage Master School",
     group: "admin",
@@ -413,6 +425,7 @@ const PEMERINTAH_PERMISSION_KEYS = [
   "admin.anomaly.view",
   "admin.audit_log.view",
   "admin.export.view",
+  "sppg.status.read",
   "audit.view",
   "distribution.view",
   "production.view",
@@ -431,6 +444,7 @@ const SPPG_PERMISSION_KEYS = [
   "distribution.create",
   "sppg.school_channel.view",
   "sppg.school_channel.manage",
+  "sppg.status.read",
   "issue.view"
 ];
 const SPPG_SUPERVISOR_PERMISSION_KEYS = [
@@ -444,6 +458,7 @@ const SEKOLAH_PERMISSION_KEYS = [
   "distribution.view",
   "distribution.confirm",
   "distribution.report_issue",
+  "sppg.status.read",
   "issue.view"
 ];
 

@@ -9,7 +9,7 @@
 - Test command:
   - `npm.cmd --prefix Frontend test` PASS, 24 tests.
   - `npm.cmd --prefix Frontend run lint` PASS.
-  - `npm.cmd --prefix Frontend run build` PASS with existing Vite chunk-size warning.
+  - Superseded by later pre-deployment polish: `npm.cmd --prefix Frontend run build` PASS without the previous Vite chunk-size warning after route-level lazy loading.
   - `npm.cmd --prefix Backend test` PASS, 33 tests.
 - Build result: PASS.
 - Browser smoke: not rerun because MCP Playwright profile was locked by another local instance.
@@ -35,7 +35,7 @@
 |---|---|---|---|
 | Manual Playwright smoke | BLOCKED | MCP browser profile locked by another local instance | Rerun smoke with isolated/free Playwright profile |
 | Public report valid submit | READY, not rerun | Requires Turnstile test env active in both frontend and backend | Use `docs/captcha-test-strategy.md` and rerun browser E2E |
-| Vite chunk-size warning | REMAINING | Existing bundle warning, outside endpoint/UX cleanup scope | Add further route/component code splitting in separate PR |
+| Vite chunk-size warning | FIXED LATER | Route-level lazy loading split page/chart/map chunks; build no longer reports the previous >1000 kB warning. | Keep monitoring bundle growth |
 
 ## Endpoint Verification
 

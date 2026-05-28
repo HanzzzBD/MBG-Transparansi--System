@@ -163,6 +163,14 @@ const updateSppgSchema = z.object({
   query: z.object({}).optional().default({})
 });
 
+const updateSppgStatusSchema = z.object({
+  body: z.object({
+    status: sppgStatusEnum
+  }),
+  params: sppgIdParamsSchema.shape.params,
+  query: z.object({}).optional().default({})
+});
+
 const updateMySppgProfileSchema = z.object({
   body: z
     .object({
@@ -193,5 +201,6 @@ module.exports = {
   sppgIdParamsSchema,
   unassignMySchoolSchema,
   updateMySppgProfileSchema,
+  updateSppgStatusSchema,
   updateSppgSchema
 };

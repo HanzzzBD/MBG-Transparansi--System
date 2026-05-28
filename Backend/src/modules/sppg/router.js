@@ -15,6 +15,7 @@ const {
   sppgIdParamsSchema,
   unassignMySchoolSchema,
   updateMySppgProfileSchema,
+  updateSppgStatusSchema,
   updateSppgSchema
 } = require("./validation");
 const { authenticate } = require("../../middlewares/auth");
@@ -24,7 +25,13 @@ const { validateRequest } = require("../../middlewares/validateRequest");
 
 const router = express.Router();
 
-router.get("/", validateRequest(listSppgSchema), controller.listSppg);
+router.get(
+  "/",
+  authenticate,
+  authorize("admin", "pemerintah", "sppg", "sekolah"),
+  validateRequest(listSppgSchema),
+  controller.listSppg
+);
 router.get(
   "/deleted",
   authenticate,
@@ -36,6 +43,7 @@ router.get(
   "/map-markers",
   authenticate,
   authorize("admin", "pemerintah", "sppg", "sekolah"),
+  requirePermission("sppg.status.read"),
   validateRequest(mapMarkersSchema),
   controller.listMapMarkers
 );
@@ -104,6 +112,7 @@ router.get(
   "/:id/detail",
   authenticate,
   authorize("admin", "pemerintah", "sppg", "sekolah"),
+  requirePermission("sppg.status.read"),
   validateRequest(sppgIdParamsSchema),
   controller.getSppgOperationalDetail
 );
@@ -111,11 +120,27 @@ router.get(
   "/:id",
   authenticate,
   authorize("sppg", "pemerintah", "admin"),
+  requirePermission("sppg.status.read"),
   validateRequest(sppgIdParamsSchema),
   controller.getSppgDetail
 );
 router.post("/", authenticate, authorize("admin"), validateRequest(createSppgSchema), controller.createSppg);
-router.put("/:id", authenticate, authorize("admin"), validateRequest(updateSppgSchema), controller.updateSppg);
+router.patch(
+  "/:id/status",
+  authenticate,
+  authorize("admin"),
+  requirePermission("sppg.status.update"),
+  validateRequest(updateSppgStatusSchema),
+  controller.updateSppgStatus
+);
+router.put(
+  "/:id",
+  authenticate,
+  authorize("admin"),
+  requirePermission("sppg.status.update"),
+  validateRequest(updateSppgSchema),
+  controller.updateSppg
+);
 router.patch("/:id/restore", authenticate, authorize("admin"), validateRequest(sppgIdParamsSchema), controller.restoreSppg);
 router.delete("/:id", authenticate, authorize("admin"), validateRequest(sppgIdParamsSchema), controller.deleteSppg);
 

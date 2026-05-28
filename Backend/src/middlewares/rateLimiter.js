@@ -11,6 +11,7 @@ const redisClient = getRedisClient();
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * MINUTE_MS;
 const FIFTEEN_MINUTES_MS = 15 * MINUTE_MS;
+const TWENTY_MINUTES_MS = 20 * MINUTE_MS;
 
 const normalizeEmailForRateLimit = (value) =>
   typeof value === "string" && value.trim() ? value.trim().toLowerCase() : null;
@@ -104,8 +105,8 @@ const authenticatedGetLimiter = createLimiter({
 
 const loginIpLimiter = createLimiter({
   prefix: "rl:login-ip:",
-  windowMs: FIFTEEN_MINUTES_MS,
-  limit: 5,
+  windowMs: TWENTY_MINUTES_MS,
+  limit: 10,
   requestPropertyName: "loginIpRateLimit",
   keyGenerator: (req) => getIpRateLimitKey(req),
   message: "Too many login attempts from this IP. Please try again later.",
@@ -125,6 +126,34 @@ const loginEmailLimiter = createLimiter({
   code: "LOGIN_EMAIL_RATE_LIMIT_EXCEEDED"
 });
 
+const resetRateLimitKey = async (limiter, key) => {
+  if (typeof limiter.resetKey !== "function") {
+    return;
+  }
+
+  await Promise.resolve(limiter.resetKey(key));
+};
+
+const resetLoginRateLimit = async ({ ipAddress, email }) => {
+  const resetTasks = [];
+
+  if (ipAddress) {
+    resetTasks.push(resetRateLimitKey(loginIpLimiter, `ip:${ipKeyGenerator(ipAddress)}`));
+  }
+
+  const normalizedEmail = normalizeEmailForRateLimit(email);
+  if (normalizedEmail) {
+    resetTasks.push(resetRateLimitKey(loginEmailLimiter, `email:${normalizedEmail}`));
+  }
+
+  await Promise.all(resetTasks);
+
+  return {
+    ipReset: Boolean(ipAddress),
+    emailReset: Boolean(normalizedEmail)
+  };
+};
+
 const publicReportLimiter = createLimiter({
   prefix: "rl:public-report:",
   windowMs: HOUR_MS,
@@ -133,6 +162,16 @@ const publicReportLimiter = createLimiter({
   keyGenerator: (req) => getIpRateLimitKey(req),
   message: "Public report rate limit exceeded. Please try again later.",
   code: "PUBLIC_REPORT_RATE_LIMIT_EXCEEDED"
+});
+
+const passwordResetLimiter = createLimiter({
+  prefix: "rl:password-reset:",
+  windowMs: HOUR_MS,
+  limit: 5,
+  requestPropertyName: "passwordResetRateLimit",
+  keyGenerator: (req) => getIpRateLimitKey(req),
+  message: "Password reset request limit exceeded. Please try again later.",
+  code: "PASSWORD_RESET_RATE_LIMIT_EXCEEDED"
 });
 
 const publicSppgLimiter = createLimiter({
@@ -183,7 +222,9 @@ module.exports = {
   exportLimiter,
   fileUploadLimiter,
   loginLimiter: [loginIpLimiter, loginEmailLimiter],
+  resetLoginRateLimit,
   publicLimiter: publicGetLimiter,
+  passwordResetLimiter,
   publicReportLimiter,
   publicSppgLimiter
 };

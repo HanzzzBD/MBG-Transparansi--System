@@ -16,6 +16,7 @@ const state = {
   baseUrl: "",
   sppg: null,
   school: null,
+  menu: null,
   users: {},
   distributions: {},
   validations: {}
@@ -124,6 +125,7 @@ async function createDistribution(label) {
     data: {
       sppgId: state.sppg.id,
       schoolId: state.school.id,
+      menuId: state.menu.id,
       portions: 25,
       pricePerPortion: 12000,
       distributionDate: new Date("2026-05-28"),
@@ -181,6 +183,17 @@ describe("real backend flows are protected by permissions", () => {
         sppgId: state.sppg.id,
         schoolId: state.school.id,
         status: "active"
+      }
+    });
+    state.menu = await prisma.menu.create({
+      data: {
+        sppgId: state.sppg.id,
+        menuDate: new Date("2026-05-28"),
+        menuName: `${state.prefix} Verified Menu`,
+        items: ["Nasi", "Ayam", "Sayur"],
+        manualPricePerPortion: "12000.00",
+        priceValidationStatus: "VERIFIED",
+        priceValidatedAt: new Date()
       }
     });
 
@@ -279,6 +292,11 @@ describe("real backend flows are protected by permissions", () => {
         id: {
           in: distributionIds.length ? distributionIds : [-1]
         }
+      }
+    });
+    await prisma.menu.deleteMany({
+      where: {
+        id: state.menu?.id || -1
       }
     });
     await prisma.sppgSchoolAssignment.deleteMany({

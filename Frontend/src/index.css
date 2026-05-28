@@ -321,14 +321,16 @@
 }
 
 .app-access-denied,
-.app-settings-page {
+.app-settings-page,
+.app-not-found {
   max-width: 760px;
   margin: 0 auto;
   padding: 32px;
   color: #0f172a;
 }
 
-.app-access-denied {
+.app-access-denied,
+.app-not-found {
   min-height: 320px;
   display: grid;
   align-content: center;
@@ -336,7 +338,8 @@
 }
 
 .app-access-denied-code,
-.app-settings-eyebrow {
+.app-settings-eyebrow,
+.app-not-found-code {
   margin: 0;
   color: #0071e4;
   font-size: 0.85rem;
@@ -346,7 +349,8 @@
 }
 
 .app-access-denied h1,
-.app-settings-page h1 {
+.app-settings-page h1,
+.app-not-found h1 {
   margin: 0;
   color: #0f4c81;
   font-size: 2rem;
@@ -354,7 +358,8 @@
 }
 
 .app-access-denied p,
-.app-settings-page p {
+.app-settings-page p,
+.app-not-found p {
   margin: 0;
   color: #64748b;
   font-weight: 600;
@@ -364,6 +369,45 @@
   color: #94a3b8;
   font-weight: 700;
   overflow-wrap: anywhere;
+}
+
+.app-not-found-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.app-not-found-primary,
+.app-not-found-secondary {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  padding: 0 16px;
+  border: 1px solid #cbd5e1;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.app-not-found-primary {
+  background: #0071e4;
+  border-color: #0071e4;
+  color: #ffffff;
+}
+
+.app-not-found-secondary {
+  background: #ffffff;
+  color: #0f4c81;
+  cursor: pointer;
+}
+
+.app-not-found-primary svg,
+.app-not-found-secondary svg {
+  width: 18px;
+  height: 18px;
 }
 
 /* === REDUCED MOTION === */

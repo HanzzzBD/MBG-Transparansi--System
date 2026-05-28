@@ -17,6 +17,9 @@ const {
 } = require("../../utils/search");
 
 const prisma = getPrismaClient();
+const SPPG_STATUS_VALUES = new Set(["active", "inactive", "problem"]);
+
+const normalizeSppgStatus = (status) => (SPPG_STATUS_VALUES.has(status) ? status : "active");
 
 const toNumber = (value) => {
   const number = Number(value || 0);
@@ -344,7 +347,7 @@ const listMapMarkers = async ({ query = {} }) => {
     data: normalizeRows(rows).map((row) => ({
       id: row.id,
       name: row.name,
-      status: row.status,
+      status: normalizeSppgStatus(row.status),
       lat: toNumber(row.lat),
       lng: toNumber(row.lng),
       province: row.province,
@@ -1376,8 +1379,8 @@ const getSppgOperationalDetail = async ({ id }) => {
       },
       province: sppg.province,
       city: sppg.city,
-      status: sppg.status,
-      isActive: sppg.status === "active",
+      status: normalizeSppgStatus(sppg.status),
+      isActive: normalizeSppgStatus(sppg.status) === "active",
       workers: sppg.workers,
       menuHariIni: serializeMenu(menuToday || productionBatchToday?.menu || null),
       productionBatchHariIni: serializeProductionBatch(productionBatchToday),
@@ -1480,6 +1483,16 @@ const updateSppg = async ({ id, payload, actorUserId, ipAddress }) => {
   };
 };
 
+const updateSppgStatus = async ({ id, status, actorUserId, ipAddress }) =>
+  updateSppg({
+    id,
+    payload: {
+      status
+    },
+    actorUserId,
+    ipAddress
+  });
+
 const updateMySppgProfile = async ({ payload, user, ipAddress }) => {
   const sppgId = requireSppgScope(user);
   return updateSppg({
@@ -1574,5 +1587,6 @@ module.exports = {
   restoreSppg,
   unassignSchoolFromSppg,
   updateMySppgProfile,
+  updateSppgStatus,
   updateSppg
 };

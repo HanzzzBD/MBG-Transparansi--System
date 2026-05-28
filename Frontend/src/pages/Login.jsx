@@ -21,6 +21,9 @@ import './Login.css'
 
 const VALID_ROLES = new Set(['admin', 'pemerintah', 'sppg', 'sekolah', 'umum'])
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const SHOW_DEMO_LOGIN =
+  import.meta.env.VITE_SHOW_DEMO_LOGIN === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_SHOW_DEMO_LOGIN !== 'false')
 
 const DEMO_ACCOUNTS = [
   {
@@ -287,9 +290,9 @@ function Login({ onLoginSuccess }) {
             </div>
 
             <div className="login-options">
-              <a className="login-forgot" href="#forgot-password">
+              <Link className="login-forgot" to="/forgot-password">
                 Lupa password?
-              </a>
+              </Link>
             </div>
 
             <button className="login-submit" type="submit" disabled={isLoading}>
@@ -298,7 +301,7 @@ function Login({ onLoginSuccess }) {
             </button>
           </form>
 
-          {import.meta.env.DEV ? (
+          {SHOW_DEMO_LOGIN ? (
             <>
               <div className="login-divider">
                 <span>atau masuk sebagai</span>
@@ -316,7 +319,7 @@ function Login({ onLoginSuccess }) {
                 ))}
               </div>
               <p className="login-demo-note">
-                TODO: sesuaikan seed user untuk Demo SPPG dan Demo Pemerintah jika akun belum tersedia di backend.
+                Akun demo hanya untuk QA lokal dan tidak ditampilkan pada build production kecuali flag demo diaktifkan.
               </p>
             </>
           ) : null}

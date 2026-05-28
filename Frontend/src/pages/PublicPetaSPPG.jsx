@@ -40,8 +40,8 @@ const STATUS_LABELS = {
 
 const STATUS_COLORS = {
   active: '#057a55',
-  problem: '#a16207',
-  inactive: '#9b1c1c',
+  problem: '#c2410c',
+  inactive: '#6b7280',
 }
 
 async function requestJson(path, options = {}) {
@@ -88,7 +88,7 @@ function normalizeMarker(item) {
     province: item.province || '',
     city: item.city || '',
     district: item.district || '',
-    status: item.status || 'inactive',
+    status: item.status || 'active',
     capacity: Number(item.capacity) || 0,
     lat,
     lng,
@@ -104,7 +104,7 @@ function normalizeDetail(item) {
     province: item.province || '-',
     city: item.city || '-',
     district: item.district || '-',
-    status: item.status || 'inactive',
+    status: item.status || 'active',
     capacity: Number(item.capacity) || 0,
     todayPortions: Number(item.todayPortions ?? item.today_portions) || 0,
     successRate: Number(item.successRate ?? item.success_rate) || 0,
@@ -572,6 +572,15 @@ function PublicPetaSPPG() {
               Tidak ada marker SPPG yang cocok.
             </div>
           ) : null}
+
+          <div className="public-map-legend" aria-label="Legenda status SPPG">
+            {Object.entries(STATUS_LABELS).map(([value, label]) => (
+              <span key={value}>
+                <i className={`public-map-legend-dot public-map-legend-${value}`} aria-hidden="true" />
+                {label}
+              </span>
+            ))}
+          </div>
         </section>
 
         <aside className={`public-map-detail ${detailState.open ? 'public-map-detail-open' : ''}`} aria-label="Detail SPPG publik">

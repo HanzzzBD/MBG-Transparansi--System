@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, ImageIcon, Loader2, RefreshCcw, Save, ShieldCheck, XCircle } from 'lucide-react'
-import { createMenu, getMenus, uploadFile, validateMenuPrice } from '../services/api.js'
+import { createMenu, getMenus, resolveFileUrl, uploadFile, validateMenuPrice } from '../services/api.js'
 import useAuthStore from '../store/authStore.js'
 import './SppgOperational.css'
 
@@ -51,7 +51,7 @@ function normalizeMenu(item) {
     menuDate: item.menuDate || item.menu_date,
     menuName: item.menuName || item.menu_name || '-',
     items: normalizeItems(item.items),
-    photoUrl: photoFile?.fileUrl || photoFile?.file_url || '',
+    photoUrl: resolveFileUrl(photoFile?.fileUrl || photoFile?.file_url || ''),
     manualPricePerPortion: item.manualPricePerPortion ?? item.manual_price_per_portion ?? null,
     priceValidationStatus: item.priceValidationStatus || item.price_validation_status || 'PENDING_REVIEW',
     priceValidationNotes: item.priceValidationNotes || item.price_validation_notes || '',

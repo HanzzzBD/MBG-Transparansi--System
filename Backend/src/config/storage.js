@@ -4,7 +4,7 @@ const { env } = require("./env");
 const localStorageRoot = path.resolve(process.cwd(), "storage");
 
 const storageConfig = {
-  provider: env.R2_BUCKET_NAME ? "r2" : "local",
+  provider: "local",
   localStorageRoot,
   localUploadDir: path.resolve(localStorageRoot, "uploads"),
   localExportDir: path.resolve(localStorageRoot, "exports"),

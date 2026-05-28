@@ -1,6 +1,7 @@
 const { getPrismaClient } = require("../../config/prisma");
 const AppError = require("../../utils/appError");
 const { createAuditLog } = require("../../utils/auditLog");
+const { validateImageSignature } = require("./upload");
 const {
   buildFileUrl,
   createStoredName,
@@ -14,6 +15,8 @@ const uploadFile = async ({ file, user, ipAddress }) => {
   if (!file) {
     throw new AppError("A file is required.", 400, "FILE_REQUIRED");
   }
+
+  validateImageSignature(file);
 
   const extension = getFileExtensionFromMimeType(file.mimetype);
   const storedName = createStoredName({

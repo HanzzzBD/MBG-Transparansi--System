@@ -1,41 +1,46 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import Anggaran from './pages/Anggaran.jsx'
-import AdminSchools from './pages/AdminSchools.jsx'
-import AdminSppg from './pages/AdminSppg.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import Distribusi from './pages/Distribusi.jsx'
-import DapodikImport from './pages/DapodikImport.jsx'
-import Konfirmasi from './pages/Konfirmasi.jsx'
-import Landing from './pages/Landing.jsx'
-import LaporanMasyarakat from './pages/LaporanMasyarakat.jsx'
-import LockUnlock from './pages/LockUnlock.jsx'
-import Login from './pages/Login.jsx'
-import OverrideData from './pages/OverrideData.jsx'
-import PublicPetaSPPG from './pages/PublicPetaSPPG.jsx'
-import PublicStatistik from './pages/PublicStatistik.jsx'
-import ProductionBatches from './pages/ProductionBatches.jsx'
-import SchoolHistory from './pages/SchoolHistory.jsx'
-import SchoolProfile from './pages/SchoolProfile.jsx'
-import SchoolReports from './pages/SchoolReports.jsx'
-import SppgHistory from './pages/SppgHistory.jsx'
-import SppgIssues from './pages/SppgIssues.jsx'
-import SppgMenu from './pages/SppgMenu.jsx'
-import SppgProfile from './pages/SppgProfile.jsx'
-import SppgSchools from './pages/SppgSchools.jsx'
-import UserManagement from './pages/UserManagement.jsx'
 import DashboardLayout from './layouts/DashboardLayout.jsx'
 import { checkSessionRequest, getMePermissions, logoutRequest } from './services/api.js'
 import useAuthStore from './store/authStore.js'
 
 let sessionCheckPromise = null
+const ENABLE_SETTINGS_PAGE =
+  import.meta.env.VITE_ENABLE_SETTINGS_PAGE === 'true' ||
+  (import.meta.env.DEV && import.meta.env.VITE_ENABLE_SETTINGS_PAGE !== 'false')
 
 const Analytics = lazy(() => import('./pages/Analytics.jsx'))
+const Anggaran = lazy(() => import('./pages/Anggaran.jsx'))
+const AdminSchools = lazy(() => import('./pages/AdminSchools.jsx'))
+const AdminSppg = lazy(() => import('./pages/AdminSppg.jsx'))
 const AnomalyDetection = lazy(() => import('./pages/AnomalyDetection.jsx'))
 const ApiMonitoring = lazy(() => import('./pages/ApiMonitoring.jsx'))
 const AuditLog = lazy(() => import('./pages/AuditLog.jsx'))
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
+const Distribusi = lazy(() => import('./pages/Distribusi.jsx'))
+const DapodikImport = lazy(() => import('./pages/DapodikImport.jsx'))
 const ExportData = lazy(() => import('./pages/ExportData.jsx'))
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'))
+const Konfirmasi = lazy(() => import('./pages/Konfirmasi.jsx'))
+const Landing = lazy(() => import('./pages/Landing.jsx'))
+const LaporanMasyarakat = lazy(() => import('./pages/LaporanMasyarakat.jsx'))
+const LockUnlock = lazy(() => import('./pages/LockUnlock.jsx'))
+const Login = lazy(() => import('./pages/Login.jsx'))
+const NotFound = lazy(() => import('./pages/NotFound.jsx'))
+const OverrideData = lazy(() => import('./pages/OverrideData.jsx'))
 const PetaSPPG = lazy(() => import('./pages/PetaSPPG.jsx'))
+const PublicPetaSPPG = lazy(() => import('./pages/PublicPetaSPPG.jsx'))
+const PublicStatistik = lazy(() => import('./pages/PublicStatistik.jsx'))
+const ProductionBatches = lazy(() => import('./pages/ProductionBatches.jsx'))
+const SchoolHistory = lazy(() => import('./pages/SchoolHistory.jsx'))
+const SchoolProfile = lazy(() => import('./pages/SchoolProfile.jsx'))
+const SchoolReports = lazy(() => import('./pages/SchoolReports.jsx'))
+const SppgHistory = lazy(() => import('./pages/SppgHistory.jsx'))
+const SppgIssues = lazy(() => import('./pages/SppgIssues.jsx'))
+const SppgMenu = lazy(() => import('./pages/SppgMenu.jsx'))
+const SppgProfile = lazy(() => import('./pages/SppgProfile.jsx'))
+const SppgSchools = lazy(() => import('./pages/SppgSchools.jsx'))
+const UserManagement = lazy(() => import('./pages/UserManagement.jsx'))
 
 const routeAccess = {
   '/dashboard': ['admin', 'pemerintah', 'sppg', 'sekolah'],
@@ -392,16 +397,6 @@ function RoleAwareProfile(props) {
   return props.userRole === 'sekolah' ? <SchoolProfile {...props} /> : <SppgProfile {...props} />
 }
 
-function FallbackRoute() {
-  const { user, token, isAuthenticated, isSessionChecked } = useAuthStore()
-
-  if (!isSessionChecked) {
-    return <RouteFallback />
-  }
-
-  return <Navigate to={isAuthenticated && user && token ? '/dashboard' : '/'} replace />
-}
-
 function AppRoutes() {
   const { finishSessionCheck, login, logout, startSessionCheck } = useAuthStore()
 
@@ -450,9 +445,12 @@ function AppRoutes() {
   }, [finishSessionCheck, login, logout, startSessionCheck])
 
   return (
-    <Routes>
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<LoginRoute />} />
+      <Route path="/forgot-password" element={<ForgotPassword mode="request" />} />
+      <Route path="/reset-password" element={<ForgotPassword mode="reset" />} />
       <Route path="/peta-publik" element={<PublicPetaSPPG />} />
       <Route path="/statistik" element={<PublicStatistik />} />
       <Route path="/anggaran-publik" element={<PublicStatistik />} />
@@ -649,20 +647,22 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute allowedRoles={routeAccess['/settings']}>
-            {() => (
-              <section className="app-settings-page">
-                <p className="app-settings-eyebrow">Admin</p>
-                <h1>Pengaturan Sistem</h1>
-                <p>Belum ada panel pengaturan aktif.</p>
-              </section>
-            )}
-          </ProtectedRoute>
-        }
-      />
+      {ENABLE_SETTINGS_PAGE ? (
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute allowedRoles={routeAccess['/settings']}>
+              {() => (
+                <section className="app-settings-page">
+                  <p className="app-settings-eyebrow">Admin</p>
+                  <h1>Pengaturan Sistem</h1>
+                  <p>Panel pengaturan backend config belum diaktifkan untuk production.</p>
+                </section>
+              )}
+            </ProtectedRoute>
+          }
+        />
+      ) : null}
 
       <Route
         path="/api-monitoring"
@@ -673,12 +673,15 @@ function AppRoutes() {
         }
       />
 
-      {legacyRouteRedirects.map(([from, to]) => (
-        <Route key={from} path={from} element={<Navigate to={to} replace />} />
-      ))}
+      {legacyRouteRedirects
+        .filter(([, to]) => ENABLE_SETTINGS_PAGE || to !== '/settings')
+        .map(([from, to]) => (
+          <Route key={from} path={from} element={<Navigate to={to} replace />} />
+        ))}
 
-      <Route path="*" element={<FallbackRoute />} />
-    </Routes>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </Suspense>
   )
 }
 

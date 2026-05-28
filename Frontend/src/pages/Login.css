@@ -169,6 +169,14 @@
     var(--color-light-gray);
 }
 
+.login-page-simple {
+  grid-template-columns: 1fr;
+}
+
+.login-form-panel-centered {
+  min-height: 100vh;
+}
+
 .login-form-card {
   width: min(460px, 100%);
   border: 1px solid rgba(181, 224, 234, 0.95);
@@ -485,26 +493,55 @@
   line-height: 1.6;
 }
 
-.login-error {
+.login-error,
+.login-success {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  border: 1px solid rgba(155, 28, 28, 0.28);
   border-radius: var(--radius-lg);
-  background: rgba(155, 28, 28, 0.06);
   margin-top: 22px;
   padding: 12px 14px;
-  color: var(--color-danger);
   font-size: 14px;
   font-weight: 800;
   line-height: 1.55;
 }
 
-.login-error svg {
+.login-error {
+  border: 1px solid rgba(155, 28, 28, 0.28);
+  background: rgba(155, 28, 28, 0.06);
+  color: var(--color-danger);
+}
+
+.login-success {
+  border: 1px solid rgba(5, 122, 85, 0.28);
+  background: rgba(5, 122, 85, 0.07);
+  color: var(--color-success);
+}
+
+.login-error svg,
+.login-success svg {
   width: 19px;
   height: 19px;
   flex: 0 0 auto;
   margin-top: 1px;
+}
+
+.login-reset-dev-note {
+  display: grid;
+  gap: 6px;
+  border: 1px dashed rgba(0, 113, 228, 0.34);
+  border-radius: 10px;
+  background: rgba(0, 113, 228, 0.06);
+  margin-top: 18px;
+  padding: 12px;
+  color: var(--color-navy);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.login-reset-dev-note a {
+  color: var(--color-primary);
+  overflow-wrap: anywhere;
 }
 
 .login-fade-up {

@@ -63,8 +63,8 @@ const STATUS_LABELS = {
 
 const MARKER_COLORS = {
   active: '#057a55',
-  problem: '#92400e',
-  inactive: '#9b1c1c',
+  problem: '#c2410c',
+  inactive: '#6b7280',
 }
 
 const TABS = [
@@ -133,7 +133,7 @@ function normalizeSppg(item) {
     province: item.province || info.province || '-',
     city: item.city || info.city || '-',
     address: item.address || info.address || '-',
-    status: item.status || 'inactive',
+    status: item.status || 'active',
     isActive: Boolean(item.isActive ?? item.status === 'active'),
     capacity: Number(item.capacity) || Number(info.capacity) || 0,
     lat: coordinate.lat,

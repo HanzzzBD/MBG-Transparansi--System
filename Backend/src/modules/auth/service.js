@@ -1,5 +1,7 @@
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 
+const { env } = require("../../config/env");
 const { getPrismaClient } = require("../../config/prisma");
 const AppError = require("../../utils/appError");
 const { createAuditLog } = require("../../utils/auditLog");
@@ -15,6 +17,10 @@ const prisma = getPrismaClient();
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
+const PASSWORD_RESET_TOKEN_BYTES = 32;
+const PASSWORD_RESET_WINDOW_MS = 30 * 60 * 1000;
+const PASSWORD_RESET_GENERIC_MESSAGE =
+  "Jika email terdaftar, instruksi reset password akan dikirim.";
 
 const userPublicSelect = {
   id: true,
@@ -44,6 +50,7 @@ const userAuthSelect = {
 };
 
 const normalizeEmail = (email) => email.trim().toLowerCase();
+const hashPasswordResetToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
 
 const serializeUser = (user) => ({
   id: user.id,
@@ -439,10 +446,147 @@ const getMe = async ({ userId }) => {
   };
 };
 
+const requestPasswordReset = async ({ email, ipAddress, userAgent }) => {
+  const normalizedEmail = normalizeEmail(email);
+  const user = await prisma.user.findFirst({
+    where: {
+      email: normalizedEmail,
+      isActive: true,
+      deletedAt: null
+    },
+    select: {
+      id: true,
+      email: true
+    }
+  });
+
+  const response = {
+    message: PASSWORD_RESET_GENERIC_MESSAGE
+  };
+
+  if (!user) {
+    return response;
+  }
+
+  const token = crypto.randomBytes(PASSWORD_RESET_TOKEN_BYTES).toString("hex");
+  const tokenHash = hashPasswordResetToken(token);
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_WINDOW_MS);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.passwordResetToken.updateMany({
+      where: {
+        userId: user.id,
+        usedAt: null
+      },
+      data: {
+        usedAt: new Date()
+      }
+    });
+
+    await tx.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+        ipAddress,
+        userAgent
+      }
+    });
+  });
+
+  if (env.NODE_ENV !== "production") {
+    return {
+      ...response,
+      resetToken: token,
+      resetUrl: `${env.CLIENT_URL.split(",")[0].replace(/\/+$/, "")}/reset-password?token=${token}`,
+      expiresAt
+    };
+  }
+
+  return response;
+};
+
+const resetPassword = async ({ token, password, ipAddress }) => {
+  const tokenHash = hashPasswordResetToken(token);
+  const resetToken = await prisma.passwordResetToken.findUnique({
+    where: {
+      tokenHash
+    },
+    include: {
+      user: {
+        select: userPublicSelect
+      }
+    }
+  });
+
+  if (!resetToken || resetToken.usedAt || resetToken.expiresAt <= new Date() || !resetToken.user) {
+    throw new AppError("Reset token is invalid or expired.", 400, "PASSWORD_RESET_TOKEN_INVALID");
+  }
+
+  if (!resetToken.user.isActive || resetToken.user.deletedAt) {
+    throw new AppError("This account is inactive.", 403, "ACCOUNT_INACTIVE");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+  await prisma.$transaction(async (tx) => {
+    const updatedUser = await tx.user.update({
+      where: {
+        id: resetToken.userId
+      },
+      data: {
+        password: hashedPassword
+      },
+      select: userPublicSelect
+    });
+
+    await tx.passwordResetToken.update({
+      where: {
+        id: resetToken.id
+      },
+      data: {
+        usedAt: new Date()
+      }
+    });
+
+    await tx.userSession.updateMany({
+      where: {
+        userId: resetToken.userId,
+        isRevoked: false
+      },
+      data: {
+        isRevoked: true
+      }
+    });
+
+    await createAuditLog({
+      prisma: tx,
+      userId: resetToken.userId,
+      action: "UPDATE",
+      tableName: "users",
+      recordId: resetToken.userId,
+      oldData: {
+        passwordResetTokenId: resetToken.id
+      },
+      newData: {
+        user: updatedUser,
+        passwordResetAt: new Date()
+      },
+      ipAddress
+    });
+  });
+
+  return {
+    message: "Password berhasil direset. Silakan login dengan password baru."
+  };
+};
+
 module.exports = {
   getMe,
   login,
   logout,
   refresh,
-  register
+  register,
+  requestPasswordReset,
+  resetPassword
 };

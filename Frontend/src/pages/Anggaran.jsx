@@ -28,7 +28,12 @@ import {
   YAxis,
 } from 'recharts'
 import DashboardLayout from '../layouts/DashboardLayout.jsx'
-import { apiRequest as requestJson, isAbortError } from '../services/api'
+import {
+  apiRequest as requestJson,
+  createExport,
+  isAbortError,
+  resolveAnomaly as resolveAnomalyLog,
+} from '../services/api'
 import './Anggaran.css'
 
 const EMPTY_BUDGET_SUMMARY = {
@@ -43,6 +48,13 @@ const EMPTY_BUDGET_SUMMARY = {
   hasProductionBatchCosting: false,
   hasLegacyDistributionBudget: false,
   note: '',
+}
+
+const EMPTY_DATA_TIMESTAMPS = {
+  budget: null,
+  sp2kp: null,
+  anomaly: null,
+  productionBatch: null,
 }
 
 const BGN_CONFIG_KEYS = {
@@ -84,6 +96,23 @@ const EMPTY_BGN_COMPONENT_STATUS = {
   rentStatus: 'unavailable',
 }
 
+const ANOMALY_TYPE_LABELS = {
+  PRICE_ANOMALY: 'Harga Porsi',
+  RAW_MATERIAL_PRICE_ANOMALY: 'Bahan Pangan',
+}
+
+const BUDGET_EXPORT_DATASETS = [
+  'budget_by_region',
+  'production_batches',
+  'food_prices',
+  'anomalies',
+]
+
+const BUDGET_EXPORT_ANOMALY_TYPES = [
+  'PRICE_ANOMALY',
+  'RAW_MATERIAL_PRICE_ANOMALY',
+]
+
 function formatRupiah(value) {
   const number = Number(value) || 0
   if (Math.abs(number) >= 1000000000) {
@@ -101,6 +130,32 @@ function formatTanggal(date) {
     month: 'long',
     year: 'numeric',
   }).format(new Date(date))
+}
+
+function formatTanggalWaktu(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return new Intl.DateTimeFormat('id-ID', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
+}
+
+function normalizeTimestamp(value) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toISOString()
+}
+
+function getLatestTimestamp(values) {
+  const timestamps = values.map(normalizeTimestamp).filter(Boolean)
+  if (!timestamps.length) return null
+  return timestamps.sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0]
 }
 
 function getPriceStatus(row) {
@@ -154,6 +209,8 @@ function normalizeProvincePrices(budgetByProvince, thresholds) {
       totalDistributions: Number(row.totalDistributions ?? row.total_distributions) || 0,
       source: row.source || null,
       generatedAt: row.generatedAt || row.generated_at || null,
+      createdAt: row.createdAt || row.created_at || null,
+      updatedAt: row.updatedAt || row.updated_at || null,
     }
   })
 }
@@ -201,6 +258,8 @@ function mergeLegacyProvinceBudget(provinceRows, legacyByProvince) {
           totalDistributions: Number(row.total_distributions) || 0,
           source: null,
           generatedAt: null,
+          createdAt: row.created_at || row.createdAt || null,
+          updatedAt: row.updated_at || row.updatedAt || null,
         }))
     : []
 
@@ -245,8 +304,8 @@ function buildUnifiedBudgetSummary(summaryData = {}, legacyBudget = {}, anomalie
     totalBudgetUsed,
     totalPortions,
     avgPricePerPortion,
-    anomalyCount: Number(summaryData.price_anomaly_count) || anomalies.filter((row) => !row.isResolved).length,
-    rawMaterialAnomalyCount: Number(summaryData.raw_material_anomaly_count) || 0,
+    anomalyCount: anomalies.filter((row) => row.anomalyType === 'PRICE_ANOMALY' && !row.isResolved).length || Number(summaryData.price_anomaly_count) || 0,
+    rawMaterialAnomalyCount: anomalies.filter((row) => row.anomalyType === 'RAW_MATERIAL_PRICE_ANOMALY' && !row.isResolved).length,
     avgRawMaterialCost: Number(summaryData.avg_raw_material_cost) || 0,
     savingVsTarget: Number(summaryData.savings_vs_target) || 0,
     dataSource,
@@ -266,23 +325,51 @@ function normalizeSpending(byProvince) {
   }))
 }
 
+function getAnomalyTypeLabel(type) {
+  return ANOMALY_TYPE_LABELS[type] || type || 'Anomali'
+}
+
+function formatReferenceRange(row) {
+  if (row.referencePrice) return formatRupiah(row.referencePrice)
+  if (row.thresholdMin || row.thresholdMax) return `${formatRupiah(row.thresholdMin)} - ${formatRupiah(row.thresholdMax)}`
+  return '-'
+}
+
 function normalizeAnomaly(item, thresholdSource = {}) {
+  const anomalyType = item.anomalyType || item.anomaly_type || 'PRICE_ANOMALY'
   const distribution = item.distribution || {}
-  const sppg = distribution.sppg || {}
+  const distributionSppg = distribution.sppg || {}
   const school = distribution.school || {}
-  const price = Number(distribution.pricePerPortion ?? distribution.price_per_portion ?? 0)
-  const province = sppg.province || item.province || '-'
-  const threshold = thresholdSource[province.toLowerCase()] || { thresholdMin: 0, thresholdMax: 0 }
+  const batch = item.productionBatch || item.production_batch || {}
+  const batchSppg = batch.sppg || {}
+  const batchItem = item.productionBatchItem || item.production_batch_item || {}
+  const metadata = item.metadata || {}
+  const province = distributionSppg.province || batchSppg.province || metadata.province || item.province || '-'
+  const threshold = thresholdSource[String(province || '').toLowerCase()] || { thresholdMin: 0, thresholdMax: 0 }
+  const distributionPrice = Number(distribution.pricePerPortion ?? distribution.price_per_portion ?? 0)
+  const rawActualPrice = Number(metadata.input_price ?? batchItem.unitPrice ?? batchItem.unit_price ?? 0)
+  const rawReferencePrice = Number(metadata.market_price ?? batchItem.marketReferencePrice ?? batchItem.market_reference_price ?? 0)
+  const actualPrice = anomalyType === 'RAW_MATERIAL_PRICE_ANOMALY' ? rawActualPrice : distributionPrice
+  const referencePrice = anomalyType === 'RAW_MATERIAL_PRICE_ANOMALY' ? rawReferencePrice : 0
+  const itemName = anomalyType === 'RAW_MATERIAL_PRICE_ANOMALY'
+    ? metadata.commodity_name || batchItem.commodityName || batchItem.commodity_name || '-'
+    : school.name || item.school_name || '-'
 
   return {
     id: item.id,
-    sppg: sppg.name || item.sppg_name || '-',
-    school: school.name || item.school_name || '-',
+    anomalyType,
+    anomalyTypeLabel: getAnomalyTypeLabel(anomalyType),
+    sppg: distributionSppg.name || batchSppg.name || item.sppg_name || '-',
+    itemName,
     province,
-    pricePerPortion: price,
-    thresholdMin: threshold.thresholdMin,
-    thresholdMax: threshold.thresholdMax,
+    actualPrice,
+    referencePrice,
+    thresholdMin: anomalyType === 'PRICE_ANOMALY' ? threshold.thresholdMin : 0,
+    thresholdMax: anomalyType === 'PRICE_ANOMALY' ? threshold.thresholdMax : 0,
+    differencePercent: Number(metadata.selisih_percent ?? batchItem.priceDifferencePercent ?? batchItem.price_difference_percent ?? 0) || 0,
+    description: item.description || '-',
     date: item.createdAt || item.created_at,
+    updatedAt: item.updatedAt || item.updated_at || null,
     isResolved: Boolean(item.isResolved ?? item.is_resolved),
   }
 }
@@ -298,6 +385,8 @@ function normalizeProductionBatch(item) {
     totalCost: Number(item.totalCost ?? item.total_cost) || 0,
     costPerPortion: Number(item.costPerPortion ?? item.cost_per_portion) || 0,
     totalPortions: Number(item.totalPortions ?? item.total_portions) || 0,
+    createdAt: item.createdAt ?? item.created_at ?? null,
+    updatedAt: item.updatedAt ?? item.updated_at ?? null,
   }
 }
 
@@ -345,6 +434,13 @@ function extractProductionBatchRows(result) {
         : []
 
   return rows.map(normalizeProductionBatch)
+}
+
+function extractAnomalyRows(result) {
+  if (Array.isArray(result?.data)) return result.data
+  if (Array.isArray(result?.data?.items)) return result.data.items
+  if (Array.isArray(result?.items)) return result.items
+  return []
 }
 
 function getRawMaterialStatus(value, indicators) {
@@ -437,6 +533,69 @@ function getAnomalyFilteredRows(rows, anomalyFilter) {
   return rows
 }
 
+function isValidDateInput(value) {
+  if (!value) return true
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const date = new Date(`${value}T00:00:00.000Z`)
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
+}
+
+function compactObject(value) {
+  return Object.entries(value).reduce((result, [key, item]) => {
+    if (item === undefined || item === null || item === '') return result
+    if (Array.isArray(item) && item.length === 0) return result
+    result[key] = item
+    return result
+  }, {})
+}
+
+function getFriendlyExportError(error) {
+  const message = String(error?.message || '')
+  if (!message) return 'Export gagal diproses.'
+  if (/invalid.*date|date.*invalid/i.test(message)) return 'Filter tanggal export tidak valid.'
+  if (/prisma|stack|trace|\\n/i.test(message)) return 'Export gagal diproses backend.'
+  return message
+}
+
+function buildDataTimestamps({ summaryData = {}, legacyBudget = {}, provinceRows = [], anomalies = [], productionBatches = [] }) {
+  const legacySummary = legacyBudget.summary || {}
+  return {
+    budget: getLatestTimestamp([
+      summaryData.updatedAt,
+      summaryData.updated_at,
+      summaryData.generatedAt,
+      summaryData.generated_at,
+      summaryData.createdAt,
+      summaryData.created_at,
+      legacyBudget.updatedAt,
+      legacyBudget.updated_at,
+      legacyBudget.generatedAt,
+      legacyBudget.generated_at,
+      legacySummary.updatedAt,
+      legacySummary.updated_at,
+      legacySummary.generatedAt,
+      legacySummary.generated_at,
+    ]),
+    sp2kp: getLatestTimestamp(provinceRows.flatMap((row) => [row.generatedAt, row.updatedAt, row.createdAt])),
+    anomaly: getLatestTimestamp(anomalies.flatMap((row) => [row.updatedAt, row.date])),
+    productionBatch: getLatestTimestamp(productionBatches.flatMap((row) => [row.updatedAt, row.createdAt])),
+  }
+}
+
+function getTimestampLabel(timestamps) {
+  const entries = [
+    ['Budget', timestamps.budget],
+    ['SP2KP', timestamps.sp2kp],
+    ['Anomali', timestamps.anomaly],
+    ['Batch', timestamps.productionBatch],
+  ]
+    .map(([label, value]) => [label, formatTanggalWaktu(value)])
+    .filter(([, value]) => value)
+
+  if (!entries.length) return 'Timestamp data tidak tersedia'
+  return entries.map(([label, value]) => `${label}: ${value}`).join(' | ')
+}
+
 function SortIcon({ active, direction }) {
   if (!active) return null
   return direction === 'asc' ? <ArrowUp aria-hidden="true" /> : <ArrowDown aria-hidden="true" />
@@ -450,6 +609,7 @@ function Anggaran({ userRole, userName, onLogout }) {
   const [budgetSummary, setBudgetSummary] = useState(EMPTY_BUDGET_SUMMARY)
   const [bgnIndicators, setBgnIndicators] = useState(EMPTY_BGN_INDICATORS)
   const [bgnComponentStatus, setBgnComponentStatus] = useState(EMPTY_BGN_COMPONENT_STATUS)
+  const [dataTimestamps, setDataTimestamps] = useState(EMPTY_DATA_TIMESTAMPS)
   const [provincePrices, setProvincePrices] = useState([])
   const [spendingData, setSpendingData] = useState([])
   const [anomalyRows, setAnomalyRows] = useState([])
@@ -460,10 +620,11 @@ function Anggaran({ userRole, userName, onLogout }) {
   const [anomalyFilter, setAnomalyFilter] = useState('unresolved')
   const [anomalyExpanded, setAnomalyExpanded] = useState(true)
   const [exportLoading, setExportLoading] = useState('')
+  const [resolvingAnomalyId, setResolvingAnomalyId] = useState('')
   const [toast, setToast] = useState(null)
 
-  const todayLabel = useMemo(() => formatTanggal(new Date()), [])
   const isAdmin = resolvedRole === 'admin'
+  const timestampLabel = useMemo(() => getTimestampLabel(dataTimestamps), [dataTimestamps])
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type })
@@ -480,6 +641,7 @@ function Anggaran({ userRole, userName, onLogout }) {
           summaryResult,
           provinceResult,
           anomalyResult,
+          anomalyLogResult,
           legacyBudgetResult,
           bgnIndicatorsResult,
           productionBatchResult,
@@ -487,6 +649,7 @@ function Anggaran({ userRole, userName, onLogout }) {
           requestJson('/analytics/budget-summary', { signal }),
           requestJson('/analytics/price-per-province', { signal }),
           requestJson('/analytics/price-anomalies', { signal, params: { limit: 50 } }),
+          requestJson('/anomaly-logs', { signal, params: { limit: 100 } }),
           requestJson('/analytics/budget', { signal }),
           fetchBgnBudgetIndicators(signal),
           requestJson('/production-batches', { signal, params: { limit: 100 } }),
@@ -507,22 +670,30 @@ function Anggaran({ userRole, userName, onLogout }) {
         )
         const provinceRows = mergeLegacyProvinceBudget(normalizedProvinceRows, legacyBudget.byProvince)
         const thresholds = buildThresholdMapFromProvincePrices(provinceRows)
-        const anomalyApiRows =
-          anomalyResult.status === 'fulfilled' && Array.isArray(anomalyResult.value.data)
-            ? anomalyResult.value.data
-            : anomalyResult.status === 'fulfilled' && Array.isArray(anomalyResult.value.data?.items)
-              ? anomalyResult.value.data.items
-              : []
+        const anomalyApiRows = anomalyLogResult.status === 'fulfilled'
+          ? extractAnomalyRows(anomalyLogResult.value).filter((item) => (
+              ['PRICE_ANOMALY', 'RAW_MATERIAL_PRICE_ANOMALY'].includes(item.anomalyType || item.anomaly_type)
+            ))
+          : anomalyResult.status === 'fulfilled'
+            ? extractAnomalyRows(anomalyResult.value)
+            : []
         const anomalies = anomalyApiRows.map((item) => normalizeAnomaly(item, thresholds))
 
         setBudgetSummary(buildUnifiedBudgetSummary(summaryData, legacyBudget, anomalies))
         setBgnIndicators(nextBgnIndicators)
         setBgnComponentStatus(buildBgnComponentStatus(productionBatches, nextBgnIndicators))
+        setDataTimestamps(buildDataTimestamps({
+          summaryData,
+          legacyBudget,
+          provinceRows,
+          anomalies,
+          productionBatches,
+        }))
         setProvincePrices(provinceRows)
         setSpendingData(normalizeSpending(provinceRows))
         setAnomalyRows(anomalies)
 
-        const hasNonAbortPartialFailure = [summaryResult, provinceResult, anomalyResult, bgnIndicatorsResult, productionBatchResult].some((result) => (
+        const hasNonAbortPartialFailure = [summaryResult, provinceResult, anomalyResult, anomalyLogResult, bgnIndicatorsResult, productionBatchResult].some((result) => (
           result.status === 'rejected' && !isAbortError(result.reason)
         ))
         if (hasNonAbortPartialFailure) {
@@ -533,6 +704,7 @@ function Anggaran({ userRole, userName, onLogout }) {
           setBudgetSummary(EMPTY_BUDGET_SUMMARY)
           setBgnIndicators(EMPTY_BGN_INDICATORS)
           setBgnComponentStatus(EMPTY_BGN_COMPONENT_STATUS)
+          setDataTimestamps(EMPTY_DATA_TIMESTAMPS)
           setProvincePrices([])
           setSpendingData([])
           setAnomalyRows([])
@@ -560,6 +732,16 @@ function Anggaran({ userRole, userName, onLogout }) {
     () => getAnomalyFilteredRows(anomalyRows, anomalyFilter),
     [anomalyFilter, anomalyRows],
   )
+  const exportQueryFilters = useMemo(() => {
+    const params = new URLSearchParams(location.search)
+    return {
+      dateFrom: params.get('dateFrom') || params.get('start_date') || '',
+      dateTo: params.get('dateTo') || params.get('end_date') || '',
+      province: params.get('province') || '',
+      status: params.get('status') || '',
+      anomalyType: params.get('anomalyType') || params.get('anomaly_type') || '',
+    }
+  }, [location.search])
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -571,45 +753,82 @@ function Anggaran({ userRole, userName, onLogout }) {
   }
 
   const handleResolve = async (row) => {
-    if (!isAdmin || row.isResolved) return
+    if (!isAdmin || row.isResolved || resolvingAnomalyId) return
 
+    setResolvingAnomalyId(row.id)
     try {
       if (!String(row.id).startsWith('anomaly-')) {
-        await requestJson(`/anomaly-logs/${row.id}/resolve`, {
-          method: 'PUT',
-          body: {
-            isResolved: true,
-            reason: 'Ditandai selesai dari halaman Transparansi Anggaran',
-          },
+        await resolveAnomalyLog(row.id, {
+          isResolved: true,
+          reason: 'Ditandai selesai dari halaman Transparansi Anggaran',
         })
       }
       setAnomalyRows((current) => current.map((item) => (item.id === row.id ? { ...item, isResolved: true } : item)))
+      setBudgetSummary((current) => ({
+        ...current,
+        anomalyCount: row.anomalyType === 'PRICE_ANOMALY' ? Math.max(0, current.anomalyCount - 1) : current.anomalyCount,
+        rawMaterialAnomalyCount: row.anomalyType === 'RAW_MATERIAL_PRICE_ANOMALY'
+          ? Math.max(0, current.rawMaterialAnomalyCount - 1)
+          : current.rawMaterialAnomalyCount,
+      }))
       showToast('Anomali berhasil ditandai selesai oleh admin.', 'success')
     } catch (resolveError) {
       showToast(resolveError.message || 'Resolve anomali gagal.', 'danger')
+    } finally {
+      setResolvingAnomalyId('')
     }
   }
 
   const handleExport = async (type) => {
+    const dateFrom = exportQueryFilters.dateFrom.trim()
+    const dateTo = exportQueryFilters.dateTo.trim()
+    if (!isValidDateInput(dateFrom) || !isValidDateInput(dateTo)) {
+      showToast('Filter tanggal export tidak valid.', 'warning')
+      return
+    }
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      showToast('Tanggal awal export tidak boleh lebih besar dari tanggal akhir.', 'warning')
+      return
+    }
+
+    const province = exportQueryFilters.province.trim()
+    const status = exportQueryFilters.status.trim() || (anomalyFilter !== 'all' ? anomalyFilter : '')
+    const anomalyType = exportQueryFilters.anomalyType.trim()
+    const filterParams = compactObject({
+      page: 'anggaran',
+      exportScope: 'budget_feature',
+      datasets: BUDGET_EXPORT_DATASETS,
+      datasetModes: {
+        budget_by_region: 'detail',
+        production_batches: 'detail',
+        food_prices: 'detail',
+        anomalies: 'detail',
+      },
+      dateFrom,
+      dateTo,
+      start_date: dateFrom,
+      end_date: dateTo,
+      province,
+      provinces: province ? [province] : [],
+      status,
+      anomalyStatus: anomalyFilter,
+      anomalyType: anomalyType || BUDGET_EXPORT_ANOMALY_TYPES,
+      anomalyTypes: anomalyType ? [anomalyType] : BUDGET_EXPORT_ANOMALY_TYPES,
+      sortKey,
+      sortDirection,
+    })
+
     setExportLoading(type)
     showToast('Menggenerate laporan...', 'warning')
 
     try {
-      await requestJson('/exports', {
-        method: 'POST',
-        body: {
-          type,
-          filterParams: {
-            page: 'anggaran',
-            anomalyStatus: anomalyFilter,
-            sortKey,
-            sortDirection,
-          },
-        },
+      await createExport({
+        type,
+        filterParams,
       })
-      showToast('Laporan sedang diproses. Silakan cek menu Export Data.', 'success')
+      showToast('Laporan anggaran sedang diproses. Buka Riwayat Export untuk mengunduh file.', 'success')
     } catch (exportError) {
-      showToast(exportError.message || 'Export gagal diproses.', 'danger')
+      showToast(getFriendlyExportError(exportError), 'danger')
     } finally {
       setExportLoading('')
     }
@@ -704,7 +923,7 @@ function Anggaran({ userRole, userName, onLogout }) {
             <h1 className="anggaran-title">Transparansi Anggaran MBG</h1>
             <p>Data penggunaan anggaran program Makan Bergizi Gratis seluruh Indonesia</p>
           </div>
-          <span className="anggaran-date-badge">Data diperbarui: {todayLabel}</span>
+          <span className="anggaran-date-badge" title={timestampLabel}>Data diperbarui: {timestampLabel}</span>
         </header>
 
         {toast ? <div className={`anggaran-toast anggaran-toast-${toast.type}`}>{toast.message}</div> : null}
@@ -897,7 +1116,7 @@ function Anggaran({ userRole, userName, onLogout }) {
 
         <section className="anggaran-section anggaran-section-alt">
           <div className="anggaran-anomaly-header">
-            <h2 className="anggaran-section-title">{filteredAnomalyRows.length} Distribusi Terdeteksi Harga Anomali</h2>
+            <h2 className="anggaran-section-title">{filteredAnomalyRows.length} Anomali Anggaran Terdeteksi</h2>
             <button className="anggaran-collapse-btn" type="button" aria-expanded={anomalyExpanded} onClick={() => setAnomalyExpanded((current) => !current)}>
               {anomalyExpanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
               {anomalyExpanded ? 'Tutup' : 'Buka'}
@@ -927,30 +1146,42 @@ function Anggaran({ userRole, userName, onLogout }) {
                 <table className="anggaran-table">
                   <thead>
                     <tr>
+                      <th>Tipe</th>
                       <th>SPPG</th>
-                      <th>Sekolah</th>
-                      <th>Provinsi</th>
-                      <th>Harga/Porsi</th>
-                      <th>Threshold</th>
+                      <th>Region</th>
+                      <th>Item / Sekolah</th>
+                      <th>Harga Aktual</th>
+                      <th>Referensi / Threshold</th>
                       <th>Selisih</th>
+                      <th>Deskripsi</th>
                       <th>Tanggal</th>
-                      <th>Status Resolve</th>
+                      <th>Status</th>
                       <th>Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAnomalyRows.map((row) => {
-                      const diff = row.pricePerPortion > row.thresholdMax
-                        ? row.pricePerPortion - row.thresholdMax
-                        : row.thresholdMin - row.pricePerPortion
+                      const priceDiff = row.referencePrice
+                        ? row.actualPrice - row.referencePrice
+                        : row.actualPrice > row.thresholdMax
+                          ? row.actualPrice - row.thresholdMax
+                          : row.thresholdMin - row.actualPrice
                       return (
                         <tr key={row.id}>
+                          <td><span className={`anggaran-anomaly-type anggaran-anomaly-type-${row.anomalyType}`}>{row.anomalyTypeLabel}</span></td>
                           <td>{row.sppg}</td>
-                          <td>{row.school}</td>
                           <td>{row.province}</td>
-                          <td>{row.pricePerPortion ? formatRupiah(row.pricePerPortion) : '-'}</td>
-                          <td>{formatRupiah(row.thresholdMin)} - {formatRupiah(row.thresholdMax)}</td>
-                          <td>{row.pricePerPortion ? formatRupiah(Math.max(0, diff)) : '-'}</td>
+                          <td>{row.itemName}</td>
+                          <td>{row.actualPrice ? formatRupiah(row.actualPrice) : '-'}</td>
+                          <td>{formatReferenceRange(row)}</td>
+                          <td>
+                            {row.actualPrice
+                              ? row.differencePercent
+                                ? `${row.differencePercent.toLocaleString('id-ID')}%`
+                                : formatRupiah(Math.max(0, priceDiff))
+                              : '-'}
+                          </td>
+                          <td>{row.description}</td>
                           <td>{formatTanggal(row.date || new Date())}</td>
                           <td>
                             <span className={row.isResolved ? 'anggaran-status-normal' : 'anggaran-status-over'}>
@@ -959,9 +1190,14 @@ function Anggaran({ userRole, userName, onLogout }) {
                           </td>
                           <td>
                             {isAdmin && !row.isResolved ? (
-                              <button className="anggaran-resolve-btn" type="button" onClick={() => handleResolve(row)}>
-                                <CheckCircle2 aria-hidden="true" />
-                                Resolve
+                              <button
+                                className="anggaran-resolve-btn"
+                                type="button"
+                                disabled={resolvingAnomalyId === row.id}
+                                onClick={() => handleResolve(row)}
+                              >
+                                {resolvingAnomalyId === row.id ? <Loader2 aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+                                {resolvingAnomalyId === row.id ? 'Memproses' : 'Resolve'}
                               </button>
                             ) : (
                               <button className="anggaran-detail-btn" type="button" title={row.isResolved ? 'Ditandai selesai oleh admin' : 'Lihat detail'}>
@@ -975,7 +1211,7 @@ function Anggaran({ userRole, userName, onLogout }) {
                     })}
                     {!filteredAnomalyRows.length ? (
                       <tr>
-                        <td colSpan="9">Belum ada anomali harga untuk filter ini.</td>
+                        <td colSpan="11">Belum ada anomali harga porsi atau bahan pangan untuk filter ini.</td>
                       </tr>
                     ) : null}
                   </tbody>
@@ -994,6 +1230,10 @@ function Anggaran({ userRole, userName, onLogout }) {
             <button className="anggaran-btn anggaran-btn-secondary" type="button" disabled={Boolean(exportLoading)} onClick={() => handleExport('excel')}>
               {exportLoading === 'excel' ? <Loader2 aria-hidden="true" /> : <FileSpreadsheet aria-hidden="true" />}
               Export Excel
+            </button>
+            <button className="anggaran-btn anggaran-btn-secondary" type="button" onClick={() => navigate('/export')}>
+              <Eye aria-hidden="true" />
+              Riwayat Export
             </button>
             <Download aria-hidden="true" className="anggaran-export-icon" />
           </div>

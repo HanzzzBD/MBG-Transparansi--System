@@ -872,7 +872,7 @@ function Landing() {
                     <div className="rounded-lg border border-dashed border-[#b5e0ea] bg-[#f4f8fb] p-4 text-sm font-semibold text-[#92400e]">
                       {CAPTCHA_PROVIDER === 'recaptcha'
                         ? 'reCAPTCHA v3 aktif saat site key tersedia. Token dibuat ketika tombol kirim ditekan.'
-                        : 'CAPTCHA belum dikonfigurasi atau belum diverifikasi. TODO: set VITE_TURNSTILE_SITE_KEY atau VITE_RECAPTCHA_KEY dan pastikan backend memiliki secret yang sesuai.'}
+                        : 'CAPTCHA belum aktif. Konfigurasi site key frontend dan secret backend diperlukan sebelum laporan publik dibuka.'}
                     </div>
                   )}
                 </div>
@@ -974,7 +974,7 @@ function Landing() {
           </div>
         </div>
         <div className="mx-auto w-[min(1120px,calc(100%-32px))] border-t border-[#b5e0ea]/25 py-5 text-sm text-[#d9eef4]">
-          Copyright 2024 MBG Transparency System.
+          Copyright 2026 MBG Transparency System.
         </div>
       </footer>
     </div>

@@ -59,8 +59,30 @@ const loginSchema = z.object({
   query: z.object({}).optional().default({})
 });
 
+const requestPasswordResetSchema = z.object({
+  body: z.object({
+    email: z.email("A valid email address is required.").transform((value) => value.trim().toLowerCase())
+  }),
+  params: z.object({}).optional().default({}),
+  query: z.object({}).optional().default({})
+});
+
+const resetPasswordSchema = z.object({
+  body: z.object({
+    token: z.string().trim().min(32, "Reset token is required."),
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters long.")
+      .max(72, "Password must not exceed 72 characters.")
+  }),
+  params: z.object({}).optional().default({}),
+  query: z.object({}).optional().default({})
+});
+
 module.exports = {
   creatableRoles,
   loginSchema,
-  registerSchema
+  registerSchema,
+  requestPasswordResetSchema,
+  resetPasswordSchema
 };

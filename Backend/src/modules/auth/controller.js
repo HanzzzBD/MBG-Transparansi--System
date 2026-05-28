@@ -152,11 +152,47 @@ const me = async (req, res, next) => {
   }
 };
 
+const requestPasswordReset = async (req, res, next) => {
+  try {
+    const result = await authService.requestPasswordReset({
+      email: req.body.email,
+      ipAddress: getClientIp(req),
+      userAgent: getUserAgent(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const result = await authService.resetPassword({
+      token: req.body.token,
+      password: req.body.password,
+      ipAddress: getClientIp(req)
+    });
+
+    res.status(200).json({
+      status: "success",
+      data: result
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   login,
   logout,
   me,
   refresh,
   register,
+  requestPasswordReset,
+  resetPassword,
   session
 };

@@ -110,6 +110,16 @@ describe("PR 2 public feature endpoints", () => {
     assert.equal(keys.some((key) => SENSITIVE_KEYS.has(key)), false);
   });
 
+  it("keeps internal SPPG list protected while public SPPG endpoint stays open", async () => {
+    const internalResponse = await request("/api/sppg?limit=1");
+    const publicResponse = await request("/api/public/sppg?limit=1");
+
+    assert.equal(internalResponse.status, 401);
+    assert.equal(internalResponse.body?.code, "AUTH_TOKEN_MISSING");
+    assert.equal(publicResponse.status, 200);
+    assert.equal(publicResponse.body?.status, "success");
+  });
+
   it("validates public analytics query parameters", async () => {
     const response = await request("/api/public/statistics?granularity=yearly");
 

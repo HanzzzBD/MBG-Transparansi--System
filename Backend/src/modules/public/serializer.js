@@ -6,6 +6,8 @@ const toDateOnly = (value) => {
 };
 
 const toNumber = (value) => Number(value) || 0;
+const PUBLIC_SPPG_STATUSES = new Set(["active", "inactive", "problem"]);
+const normalizePublicSppgStatus = (status) => (PUBLIC_SPPG_STATUSES.has(status) ? status : "active");
 
 const toNullableNumber = (value) => {
   if (value === null || value === undefined) {
@@ -45,7 +47,7 @@ const serializePublicSppgMarker = ({ sppg, district = null }) => ({
   province: normalizeProvinceName(sppg.province) || sppg.province,
   city: normalizeCityName(sppg.city) || sppg.city,
   district,
-  status: sppg.status,
+  status: normalizePublicSppgStatus(sppg.status),
   lat: toNullableNumber(sppg.lat),
   lng: toNullableNumber(sppg.lng),
   capacity: toNumber(sppg.capacity)

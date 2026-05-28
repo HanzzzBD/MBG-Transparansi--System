@@ -77,6 +77,20 @@ export function buildApiUrl(path, params) {
   return appendQuery(baseUrl, params)
 }
 
+export function resolveFileUrl(fileUrl) {
+  if (!fileUrl) return ''
+  if (/^(blob:|data:|https?:\/\/)/i.test(fileUrl)) return fileUrl
+
+  const normalizedFileUrl = normalizePath(fileUrl)
+  if (!normalizedFileUrl.startsWith('/storage/')) return normalizedFileUrl
+
+  if (!/^https?:\/\//i.test(API_BASE_URL)) {
+    return normalizedFileUrl
+  }
+
+  return `${new URL(API_BASE_URL).origin}${normalizedFileUrl}`
+}
+
 async function parseResponse(response) {
   if (response.status === 204) return null
 
@@ -264,6 +278,22 @@ export const loginRequest = (payload) =>
     skipRefresh: true,
   })
 
+export const requestPasswordReset = (payload) =>
+  apiRequest('/auth/forgot-password', {
+    method: 'POST',
+    body: payload,
+    skipAuth: true,
+    skipRefresh: true,
+  })
+
+export const resetPassword = (payload) =>
+  apiRequest('/auth/reset-password', {
+    method: 'POST',
+    body: payload,
+    skipAuth: true,
+    skipRefresh: true,
+  })
+
 export const refreshSessionRequest = () =>
   apiRequest('/auth/refresh', {
     method: 'POST',
@@ -322,6 +352,12 @@ export const updateSppg = (id, payload) =>
   apiRequest(`/sppg/${id}`, {
     method: 'PUT',
     body: payload,
+  })
+
+export const updateSppgStatus = (id, status) =>
+  apiRequest(`/sppg/${id}/status`, {
+    method: 'PATCH',
+    body: { status },
   })
 
 export const deleteSppg = (id) =>
