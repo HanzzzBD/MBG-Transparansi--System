@@ -8,7 +8,6 @@ import {
   Building2,
   CheckSquare,
   ChevronDown,
-  ClipboardCheck,
   ClipboardList,
   Database,
   Download,
@@ -69,9 +68,8 @@ const dashboardMenu = {
 const sppgMenus = [
   { label: 'Input Menu Harian', icon: UtensilsCrossed, path: '/input-menu', permission: 'daily_menu.create' },
   { label: 'Sekolah Saluran', icon: School, path: '/sekolah-saluran', permission: 'sppg.school_channel.view' },
-  { label: 'Input Porsi & Distribusi', icon: Package, path: '/distribusi', permission: 'distribution.create' },
+  { label: 'Distribusi', icon: Package, path: '/distribusi', permissions: ['distribution.view', 'distribution.create'] },
   { label: 'Production Batch', icon: UtensilsCrossed, path: '/production-batches', permission: 'production.view' },
-  { label: 'Status Distribusi', icon: Truck, path: '/distribusi', permission: 'distribution.view' },
   { label: 'Lapor Kendala', icon: AlertTriangle, path: '/laporan-kendala', permission: 'issue.view' },
   { label: 'Riwayat Distribusi', icon: History, path: '/riwayat', permission: 'distribution.view' },
   { label: 'Profil SPPG', icon: Building2, path: '/profil', permission: 'account.view' },
@@ -79,19 +77,11 @@ const sppgMenus = [
 
 const sekolahMenus = [
   {
-    label: 'Konfirmasi Distribusi',
+    label: 'Konfirmasi & Validasi',
     icon: CheckSquare,
-    path: '/validasi?mode=konfirmasi',
+    path: '/validasi',
     badgeKey: 'notif',
     permission: 'distribution.view',
-    activeMatch: (currentPath) => getValidationMenuMode(currentPath) !== 'validasi' && getPathnameOnly(currentPath) === '/validasi',
-  },
-  {
-    label: 'Validasi Porsi & Kualitas',
-    icon: ClipboardCheck,
-    path: '/validasi?mode=validasi',
-    permission: 'distribution.view',
-    activeMatch: (currentPath) => getPathnameOnly(currentPath) === '/validasi' && getValidationMenuMode(currentPath) === 'validasi',
   },
   { label: 'Laporan Sekolah', icon: FileText, path: '/laporan-sekolah', permission: 'issue.view' },
   { label: 'Riwayat Distribusi', icon: History, path: '/riwayat', permission: 'distribution.view' },
@@ -233,7 +223,7 @@ function getRoleMenuGroups(userRole) {
       { label: null, items: [dashboardMenu] },
       {
         label: 'Penerimaan Makanan',
-        items: getMenusByLabel(sekolahMenus, ['Konfirmasi Distribusi', 'Validasi Porsi & Kualitas']),
+        items: getMenusByLabel(sekolahMenus, ['Konfirmasi & Validasi']),
       },
       {
         label: 'Laporan & Riwayat',
@@ -244,14 +234,14 @@ function getRoleMenuGroups(userRole) {
   }
 
   return [
-    { label: null, items: [dashboardMenu] },
+      { label: null, items: [dashboardMenu] },
     {
       label: 'Operasional Harian',
-      items: getMenusByLabel(sppgMenus, ['Input Menu Harian', 'Input Porsi & Distribusi', 'Production Batch']),
+      items: getMenusByLabel(sppgMenus, ['Input Menu Harian', 'Distribusi', 'Production Batch']),
     },
     {
       label: 'Distribusi',
-      items: getMenusByLabel(sppgMenus, ['Sekolah Saluran', 'Status Distribusi', 'Riwayat Distribusi']),
+      items: getMenusByLabel(sppgMenus, ['Sekolah Saluran', 'Riwayat Distribusi']),
     },
     {
       label: 'Laporan & Profil',
@@ -281,11 +271,6 @@ function canAccessMenu(item, role, can, permissionsLoaded) {
 
 function getPathnameOnly(fullPath) {
   return String(fullPath || '').split(/[?#]/)[0]
-}
-
-function getValidationMenuMode(fullPath) {
-  const queryString = String(fullPath || '').split('?')[1]?.split('#')[0] || ''
-  return new URLSearchParams(queryString).get('mode')
 }
 
 function isMenuActive(pathname, item) {

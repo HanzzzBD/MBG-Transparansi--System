@@ -12,7 +12,13 @@ const prisma = getPrismaClient();
 
 const state = {
   server: null,
-  baseUrl: ""
+  baseUrl: "",
+  created: {
+    fileId: null,
+    menuId: null,
+    sppgId: null,
+    userId: null
+  }
 };
 
 const SENSITIVE_KEYS = new Set([
@@ -79,6 +85,11 @@ describe("PR 2 public feature endpoints", () => {
       await redisClient.quit().catch(() => {});
     }
 
+    await prisma.menu.deleteMany({ where: { id: state.created.menuId || -1 } });
+    await prisma.file.deleteMany({ where: { id: state.created.fileId || -1 } });
+    await prisma.user.deleteMany({ where: { id: state.created.userId || -1 } });
+    await prisma.sppg.deleteMany({ where: { id: state.created.sppgId || -1 } });
+
     await prisma.$disconnect();
   });
 
@@ -118,6 +129,76 @@ describe("PR 2 public feature endpoints", () => {
     assert.equal(internalResponse.body?.code, "AUTH_TOKEN_MISSING");
     assert.equal(publicResponse.status, 200);
     assert.equal(publicResponse.body?.status, "success");
+  });
+
+  it("serves public SPPG detail with full menu-safe data and photo URL", async () => {
+    const prefix = `Public Menu ${Date.now()}`;
+    const sppg = await prisma.sppg.create({
+      data: {
+        name: `${prefix} SPPG`,
+        province: "Jawa Barat",
+        city: "Kota Bandung",
+        address: "Jl. Publik",
+        lat: -6.9,
+        lng: 107.6,
+        capacity: 1500,
+        status: "active"
+      }
+    });
+    state.created.sppgId = sppg.id;
+
+    const uploader = await prisma.user.create({
+      data: {
+        name: `${prefix} Uploader`,
+        email: `${prefix.toLowerCase().replace(/\s+/g, ".")}@example.test`,
+        password: "hashed",
+        role: "admin",
+        isActive: true
+      }
+    });
+    state.created.userId = uploader.id;
+
+    const file = await prisma.file.create({
+      data: {
+        originalName: "menu-kamis.jpg",
+        storedName: `${prefix.toLowerCase().replace(/\s+/g, "-")}.jpg`,
+        fileUrl: "/storage/menu-kamis.jpg",
+        mimeType: "image/jpeg",
+        sizeBytes: 128,
+        uploadedBy: uploader.id,
+        status: "ready"
+      }
+    });
+    state.created.fileId = file.id;
+
+    const menu = await prisma.menu.create({
+      data: {
+        sppgId: sppg.id,
+        menuDate: new Date(),
+        menuName: "Menu Kamis",
+        items: ["Nasi", "Ayam", "Sayur", "Buah"],
+        photoFileId: file.id,
+        manualPricePerPortion: 13000,
+        calories: 660,
+        proteinG: 20,
+        carbsG: 70,
+        fatG: 15,
+        priceValidationStatus: "VERIFIED"
+      }
+    });
+    state.created.menuId = menu.id;
+
+    const response = await request(`/api/public/sppg/${sppg.id}`);
+
+    assert.equal(response.status, 200);
+    assert.equal(response.body?.status, "success");
+    assert.equal(response.body?.data?.todayMenu?.name, "Menu Kamis");
+    assert.deepEqual(response.body?.data?.todayMenu?.items, ["Nasi", "Ayam", "Sayur", "Buah"]);
+    assert.equal(response.body?.data?.todayMenu?.photo?.url, "/storage/menu-kamis.jpg");
+    assert.equal(response.body?.data?.todayMenu?.manualPricePerPortion, 13000);
+
+    const keys = collectKeys(response.body.data);
+    assert.equal(keys.some((key) => SENSITIVE_KEYS.has(key)), false);
   });
 
   it("validates public analytics query parameters", async () => {

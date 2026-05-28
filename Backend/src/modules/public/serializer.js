@@ -22,7 +22,19 @@ const serializePublicMenu = (menu) => {
   if (!menu) return null;
 
   return {
+    id: String(menu.id),
     name: menu.menuName,
+    date: toDateOnly(menu.menuDate),
+    items: Array.isArray(menu.items) ? menu.items : [],
+    manualPricePerPortion: toNullableNumber(menu.manualPricePerPortion),
+    priceValidationStatus: menu.priceValidationStatus || null,
+    photo: menu.photoFile
+      ? {
+          url: menu.photoFile.fileUrl,
+          mimeType: menu.photoFile.mimeType,
+          originalName: menu.photoFile.originalName
+        }
+      : null,
     nutrition: {
       calories: toNumber(menu.calories),
       protein: toNumber(menu.proteinG),
