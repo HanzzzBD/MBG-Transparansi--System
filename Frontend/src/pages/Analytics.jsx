@@ -195,7 +195,7 @@ function Analytics({ userRole = 'pemerintah' }) {
       publicReportTrendResult,
       publicReportRegionResult,
     ].some((result) => result.status === 'rejected')) {
-      setError('Sebagian data analytics gagal dimuat dari API.')
+      setError('Sebagian data analytics belum berhasil dimuat.')
     }
 
     setLoading(false)
@@ -254,7 +254,7 @@ function Analytics({ userRole = 'pemerintah' }) {
       <section className="analytics-chart-grid">
         <article className="analytics-chart-card">
           <h2>Tren Cost Per Portion</h2>
-          {!costTrend.length && !loading ? <p className="analytics-desc">Belum ada data costing dari backend.</p> : null}
+          {!costTrend.length && !loading ? <p className="analytics-desc">Belum ada data costing untuk ditampilkan.</p> : null}
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={costTrend}>
               <CartesianGrid stroke="#f4f8fb" vertical={false} />
@@ -269,7 +269,7 @@ function Analytics({ userRole = 'pemerintah' }) {
 
         <article className="analytics-chart-card">
           <h2>Distribusi per Provinsi</h2>
-          {!provinceRows.length && !loading ? <p className="analytics-desc">Belum ada data provinsi dari backend.</p> : null}
+          {!provinceRows.length && !loading ? <p className="analytics-desc">Belum ada data provinsi untuk ditampilkan.</p> : null}
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={provinceRows} layout="vertical" margin={{ left: 16, right: 16 }}>
               <CartesianGrid stroke="#f4f8fb" horizontal={false} />
@@ -292,7 +292,7 @@ function Analytics({ userRole = 'pemerintah' }) {
       <section className="analytics-chart-grid">
         <article className="analytics-chart-card">
           <h2>Tren Laporan Masyarakat</h2>
-          {!publicReportTrend.length && !loading ? <p className="analytics-desc">Belum ada data tren laporan masyarakat dari backend.</p> : null}
+          {!publicReportTrend.length && !loading ? <p className="analytics-desc">Belum ada tren laporan masyarakat untuk ditampilkan.</p> : null}
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={publicReportTrend}>
               <CartesianGrid stroke="#f4f8fb" vertical={false} />
@@ -308,7 +308,7 @@ function Analytics({ userRole = 'pemerintah' }) {
 
         <article className="analytics-chart-card">
           <h2>Top Wilayah Laporan</h2>
-          {!publicReportRegions.length && !loading ? <p className="analytics-desc">Belum ada data wilayah laporan masyarakat dari backend.</p> : null}
+          {!publicReportRegions.length && !loading ? <p className="analytics-desc">Belum ada wilayah laporan masyarakat untuk ditampilkan.</p> : null}
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={publicReportRegions} layout="vertical" margin={{ left: 16, right: 16 }}>
               <CartesianGrid stroke="#f4f8fb" horizontal={false} />

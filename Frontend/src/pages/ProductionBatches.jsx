@@ -201,7 +201,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
           setBatches([])
           setSelectedBatch(null)
           setCostSummary(null)
-          setError(getErrorMessage(fetchError, 'Production batch gagal dimuat dari backend.'))
+          setError(getErrorMessage(fetchError, 'Production batch belum berhasil dimuat.'))
         }
       } finally {
         if (!signal?.aborted) setLoading(false)
@@ -350,7 +350,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
           <span className="batch-label">Tanggal Produksi</span>
           <input className="batch-input" type="date" value={filterDate} onChange={(event) => setFilterDate(event.target.value)} />
         </label>
-        <p>Backend menjadi sumber utama costing. Data kosong ditampilkan sebagai empty state tanpa angka palsu.</p>
+        <p>Pantau costing produksi berdasarkan batch, bahan pangan, operasional, sewa, dan distribusi.</p>
       </section>
 
       <div className="batch-layout">
@@ -400,7 +400,7 @@ function ProductionBatches({ userRole = 'sppg', userName = 'Petugas SPPG', user 
                   <CostItem label="Cost/Porsi" value={formatRupiah(activeCostSummary.costPerPortion)} highlight />
                 </div>
               ) : (
-                <div className="batch-empty">Ringkasan costing belum dimuat dari backend.</div>
+                <div className="batch-empty">Ringkasan costing belum tersedia.</div>
               )}
 
               {activeCostSummary ? (

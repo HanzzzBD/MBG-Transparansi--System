@@ -250,7 +250,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
       if (fetchError.name !== 'AbortError') {
         setReports([])
         setTotal(0)
-        setError(fetchError.message || 'Laporan masyarakat gagal dimuat dari API.')
+        setError(fetchError.message || 'Laporan masyarakat belum berhasil dimuat.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
@@ -271,7 +271,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
       setSummary(normalizeSummary(result.data))
     } catch (summaryError) {
       if (summaryError.name !== 'AbortError') {
-        setAnalyticsError(summaryError.message || 'Ringkasan laporan gagal dimuat dari backend.')
+        setAnalyticsError(summaryError.message || 'Ringkasan laporan belum berhasil dimuat.')
       }
       setSummary(normalizeSummary(null))
     } finally {
@@ -309,7 +309,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
     }
 
     if ([trendResult, topResult].some((result) => result.status === 'rejected') && !signal.aborted) {
-      setAnalyticsError('Sebagian analytics laporan gagal dimuat dari backend.')
+      setAnalyticsError('Sebagian analytics laporan belum berhasil dimuat.')
     }
     if (!signal.aborted) setChartsLoading(false)
   }, [canAccess, filters])
@@ -637,7 +637,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
           <article className="laporan-chart-card">
             <h2 className="laporan-chart-title">Tren Laporan Masuk 30 Hari</h2>
             {chartsLoading ? (
-              <div className="laporan-loading"><Loader2 aria-hidden="true" /> Memuat tren dari backend...</div>
+              <div className="laporan-loading"><Loader2 aria-hidden="true" /> Memuat tren laporan...</div>
             ) : trendRows.length ? (
               <ResponsiveContainer width="100%" height={320}>
                 <AreaChart data={trendRows}>
@@ -653,14 +653,14 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="laporan-empty">Belum ada data tren laporan dari backend untuk filter ini.</div>
+              <div className="laporan-empty">Belum ada data tren laporan untuk filter ini.</div>
             )}
           </article>
 
           <article className="laporan-chart-card">
             <h2 className="laporan-chart-title">Wilayah dengan Laporan Terbanyak</h2>
             {chartsLoading ? (
-              <div className="laporan-loading"><Loader2 aria-hidden="true" /> Memuat wilayah dari backend...</div>
+              <div className="laporan-loading"><Loader2 aria-hidden="true" /> Memuat data wilayah...</div>
             ) : topRegions.length ? (
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={topRegions} layout="vertical" margin={{ left: 18, right: 16 }}>
@@ -672,7 +672,7 @@ function LaporanMasyarakat({ userRole, userName, onLogout }) {
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="laporan-empty">Belum ada data wilayah dari backend untuk filter ini.</div>
+              <div className="laporan-empty">Belum ada data wilayah untuk filter ini.</div>
             )}
           </article>
         </section>

@@ -131,7 +131,7 @@ function SppgHistory({ user }) {
         <div>
           <p className="sppg-op-eyebrow">Operasional SPPG</p>
           <h1 className="sppg-op-title">Riwayat SPPG</h1>
-          <p className="sppg-op-desc">Riwayat distribusi, menu, dan kendala diambil langsung dari endpoint backend yang sudah di-scope untuk akun SPPG.</p>
+          <p className="sppg-op-desc">Lihat riwayat distribusi, menu, dan kendala yang tercatat untuk akun SPPG Anda.</p>
         </div>
         <button className="sppg-op-btn sppg-op-btn-secondary" type="button" onClick={() => fetchHistory(new AbortController().signal)}>
           <RefreshCcw aria-hidden="true" />
@@ -145,7 +145,7 @@ function SppgHistory({ user }) {
       <div className="sppg-op-grid">
         <section className="sppg-op-card">
           <h2>Distribusi</h2>
-          {!loading && distributions.length === 0 ? <div className="sppg-op-empty">Belum ada data distribusi dari backend.</div> : null}
+          {!loading && distributions.length === 0 ? <div className="sppg-op-empty">Belum ada data distribusi.</div> : null}
           <div className="sppg-op-list">
             {distributions.map((distribution) => (
               <article className="sppg-op-item" key={distribution.id}>
@@ -159,7 +159,7 @@ function SppgHistory({ user }) {
 
         <section className="sppg-op-card">
           <h2>Menu Harian</h2>
-          {!loading && menus.length === 0 ? <div className="sppg-op-empty">Belum ada data menu dari backend.</div> : null}
+          {!loading && menus.length === 0 ? <div className="sppg-op-empty">Belum ada data menu.</div> : null}
           <div className="sppg-op-list">
             {menus.map((menu) => (
               <article className="sppg-op-item" key={menu.id}>
@@ -172,7 +172,7 @@ function SppgHistory({ user }) {
 
         <section className="sppg-op-card">
           <h2>Kendala</h2>
-          {!loading && issues.length === 0 ? <div className="sppg-op-empty">Belum ada data kendala dari backend.</div> : null}
+          {!loading && issues.length === 0 ? <div className="sppg-op-empty">Belum ada data kendala.</div> : null}
           <div className="sppg-op-list">
             {issues.map((issue) => (
               <article className="sppg-op-item" key={issue.id}>

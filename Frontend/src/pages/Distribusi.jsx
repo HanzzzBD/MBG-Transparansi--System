@@ -245,7 +245,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
       } catch (fetchError) {
         if (!isAbortError(fetchError)) {
           setDistributions([])
-          setError(fetchError.message || 'Data distribusi gagal dimuat dari API.')
+          setError(fetchError.message || 'Data distribusi belum berhasil dimuat.')
         }
       } finally {
         if (!signal.aborted) setLoading(false)
@@ -281,13 +281,13 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
       setSchools(assignedSchools.map(normalizeSchool))
     } else if (!isAbortError(schoolsSettled.reason)) {
       setSchools([])
-      setSetupError(schoolsSettled.reason?.message || 'Sekolah tujuan gagal dimuat dari API.')
+      setSetupError(schoolsSettled.reason?.message || 'Sekolah tujuan belum berhasil dimuat.')
     }
 
     if (thresholdSettled.status === 'fulfilled') {
       const maxPrice = getThresholdMaxPrice(thresholdSettled.value.data)
       setPriceThreshold(maxPrice)
-      setThresholdStatus(maxPrice ? '' : 'Threshold harga wilayah belum tersedia dari backend.')
+      setThresholdStatus(maxPrice ? '' : 'Batas harga wilayah belum tersedia.')
     } else if (!isAbortError(thresholdSettled.reason)) {
       setPriceThreshold(null)
       setThresholdStatus(thresholdSettled.reason?.message || 'Threshold harga wilayah gagal dimuat.')
@@ -630,7 +630,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
           <div>
             <p className="distribusi-subtitle">Operasional SPPG</p>
             <h1 className="distribusi-title">Distribusi Harian</h1>
-            <p>Input distribusi, update status terkirim, dan unggah bukti foto sesuai alur SDD MBG.</p>
+            <p>Input distribusi, perbarui status pengiriman, dan unggah bukti foto harian.</p>
           </div>
           <button className="distribusi-btn distribusi-btn-secondary" type="button" onClick={handleReloadAll}>
             <RefreshCcw aria-hidden="true" />
@@ -717,7 +717,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                   {!loading && filteredDistributions.length === 0 ? (
                     <tr>
                       <td colSpan={9}>
-                        <div className="distribusi-empty-state">Belum ada data distribusi dari backend.</div>
+                        <div className="distribusi-empty-state">Belum ada data distribusi.</div>
                       </td>
                     </tr>
                   ) : null}
@@ -875,7 +875,7 @@ function Distribusi({ onLogout, user, userName: authenticatedUserName }) {
                     onChange={handleFormChange}
                     placeholder="Contoh: 450"
                   />
-                  {sppgCapacity === null ? <small className="distribusi-helper">Kapasitas SPPG belum tersedia dari backend.</small> : null}
+                  {sppgCapacity === null ? <small className="distribusi-helper">Kapasitas SPPG belum tersedia.</small> : null}
                   {formErrors.portions ? <small className="distribusi-field-error">{formErrors.portions}</small> : null}
                 </label>
 

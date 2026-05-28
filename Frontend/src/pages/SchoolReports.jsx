@@ -107,7 +107,7 @@ function SchoolReports() {
         <div>
           <p className="sppg-op-eyebrow">Sekolah</p>
           <h1 className="sppg-op-title">Laporan Sekolah</h1>
-          <p className="sppg-op-desc">Laporan dikirim ke backend dan otomatis di-scope ke sekolah milik akun login.</p>
+          <p className="sppg-op-desc">Laporkan kendala yang terjadi di sekolah agar dapat ditindaklanjuti oleh pihak terkait.</p>
         </div>
         <button className="sppg-op-btn sppg-op-btn-secondary" type="button" onClick={() => fetchReports(new AbortController().signal)}>
           <RefreshCcw aria-hidden="true" />
@@ -157,7 +157,7 @@ function SchoolReports() {
         <section className="sppg-op-card">
           <h2>Riwayat Laporan</h2>
           {loading ? <div className="sppg-op-state"><Loader2 aria-hidden="true" /> Memuat laporan...</div> : null}
-          {!loading && reports.length === 0 ? <div className="sppg-op-empty">Belum ada laporan sekolah dari backend.</div> : null}
+          {!loading && reports.length === 0 ? <div className="sppg-op-empty">Belum ada laporan sekolah.</div> : null}
           <div className="sppg-op-list">
             {reports.map((report) => (
               <article className="sppg-op-item" key={report.id}>

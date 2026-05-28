@@ -747,7 +747,7 @@ function Dashboard({ userRole, userName, onLogout }) {
       } catch (fetchError) {
         if (!isAbortError(fetchError)) {
           setDashboardData(makeInitialData())
-          setError(fetchError.message || 'Dashboard gagal memuat data dari backend.')
+          setError(fetchError.message || 'Dashboard belum berhasil memuat data.')
         }
       } finally {
         if (!signal.aborted) setLoading(false)
@@ -796,7 +796,7 @@ function Dashboard({ userRole, userName, onLogout }) {
           </div>
           <div className="dashboard-header-meta">
             <Database aria-hidden="true" />
-            <span>{dashboardData.hasRequestError ? 'Data backend parsial' : 'Data backend aktif'}</span>
+            <span>{dashboardData.hasRequestError ? 'Sebagian data tersedia' : 'Data terkini tersedia'}</span>
           </div>
         </header>
 
@@ -817,7 +817,7 @@ function Dashboard({ userRole, userName, onLogout }) {
         {loading ? (
           <div className="dashboard-loading">
             <Loader2 aria-hidden="true" />
-            <span>Memuat data dashboard dari backend...</span>
+            <span>Memuat data dashboard...</span>
           </div>
         ) : null}
 

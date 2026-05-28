@@ -692,7 +692,7 @@ function PublicPetaSPPG() {
         <aside className={`public-map-detail ${detailState.open ? 'public-map-detail-open' : ''}`} aria-label="Detail SPPG publik">
           <div className="public-map-detail-head">
             <div>
-              <p>Detail Public-Safe</p>
+              <p>Detail SPPG</p>
               <h2>{detailState.selected?.name || detailState.data?.name || 'Pilih marker SPPG'}</h2>
             </div>
             {detailState.open ? (
@@ -705,7 +705,7 @@ function PublicPetaSPPG() {
           {!detailState.open ? (
             <div className="public-map-detail-placeholder">
               <MapPin size={28} aria-hidden="true" />
-              Pilih marker pada peta untuk memuat detail SPPG dari endpoint publik.
+              Pilih marker pada peta untuk melihat informasi SPPG yang tersedia untuk publik.
             </div>
           ) : null}
 

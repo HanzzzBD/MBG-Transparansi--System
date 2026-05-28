@@ -178,7 +178,7 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
       if (fetchError.name !== 'AbortError') {
         setPendingList([])
         setHistoryList([])
-        setError(fetchError.message || 'Data validasi gagal dimuat dari API.')
+        setError(fetchError.message || 'Data validasi belum berhasil dimuat.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
@@ -496,7 +496,7 @@ function Konfirmasi({ onLogout, user, userName: authenticatedUserName }) {
                     {!loading && pagedHistory.length === 0 ? (
                       <tr>
                         <td colSpan={5}>
-                          <div className="konfirmasi-empty-state">Belum ada riwayat validasi dari backend.</div>
+                          <div className="konfirmasi-empty-state">Belum ada riwayat validasi.</div>
                         </td>
                       </tr>
                     ) : null}

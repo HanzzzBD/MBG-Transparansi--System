@@ -84,7 +84,7 @@ function SchoolHistory() {
         <div>
           <p className="sppg-op-eyebrow">Sekolah</p>
           <h1 className="sppg-op-title">Riwayat Sekolah</h1>
-          <p className="sppg-op-desc">Riwayat distribusi dan validasi diambil dari endpoint backend yang sudah di-scope ke sekolah login.</p>
+          <p className="sppg-op-desc">Lihat riwayat distribusi dan validasi yang terkait dengan sekolah Anda.</p>
         </div>
         <button className="sppg-op-btn sppg-op-btn-secondary" type="button" onClick={() => fetchHistory(new AbortController().signal)}>
           <RefreshCcw aria-hidden="true" />
@@ -98,7 +98,7 @@ function SchoolHistory() {
       <div className="sppg-op-grid">
         <section className="sppg-op-card">
           <h2>Distribusi</h2>
-          {!loading && distributions.length === 0 ? <div className="sppg-op-empty">Belum ada distribusi sekolah dari backend.</div> : null}
+          {!loading && distributions.length === 0 ? <div className="sppg-op-empty">Belum ada distribusi sekolah.</div> : null}
           <div className="sppg-op-list">
             {distributions.map((distribution) => (
               <article className="sppg-op-item" key={distribution.id}>
@@ -112,7 +112,7 @@ function SchoolHistory() {
 
         <section className="sppg-op-card">
           <h2>Validasi</h2>
-          {!loading && validations.length === 0 ? <div className="sppg-op-empty">Belum ada validasi sekolah dari backend.</div> : null}
+          {!loading && validations.length === 0 ? <div className="sppg-op-empty">Belum ada validasi sekolah.</div> : null}
           <div className="sppg-op-list">
             {validations.map((validation) => (
               <article className="sppg-op-item" key={validation.id}>

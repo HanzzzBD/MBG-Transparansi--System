@@ -116,7 +116,7 @@ function SchoolProfile({ user }) {
       {message ? <div className="sppg-op-state">{message}</div> : null}
       {loading ? <div className="sppg-op-state"><Loader2 aria-hidden="true" /> Memuat profil...</div> : null}
       {error ? <div className="sppg-op-state sppg-op-error">{error}</div> : null}
-      {!loading && !school && !error ? <div className="sppg-op-empty">Profil sekolah belum tersedia dari backend.</div> : null}
+      {!loading && !school && !error ? <div className="sppg-op-empty">Profil sekolah belum tersedia.</div> : null}
 
       {school ? (
         <>

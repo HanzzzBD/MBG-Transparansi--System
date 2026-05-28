@@ -553,7 +553,7 @@ function getFriendlyExportError(error) {
   const message = String(error?.message || '')
   if (!message) return 'Export gagal diproses.'
   if (/invalid.*date|date.*invalid/i.test(message)) return 'Filter tanggal export tidak valid.'
-  if (/prisma|stack|trace|\\n/i.test(message)) return 'Export gagal diproses backend.'
+  if (/prisma|stack|trace|\\n/i.test(message)) return 'Export belum berhasil diproses.'
   return message
 }
 
@@ -697,7 +697,7 @@ function Anggaran({ userRole, userName, onLogout }) {
           result.status === 'rejected' && !isAbortError(result.reason)
         ))
         if (hasNonAbortPartialFailure) {
-          setError('Sebagian data anggaran gagal dimuat dari API.')
+          setError('Sebagian data anggaran belum berhasil dimuat.')
         }
       } catch (fetchError) {
         if (!isAbortError(fetchError)) {
@@ -708,7 +708,7 @@ function Anggaran({ userRole, userName, onLogout }) {
           setProvincePrices([])
           setSpendingData([])
           setAnomalyRows([])
-          setError('Data anggaran gagal dimuat dari API.')
+          setError('Data anggaran belum berhasil dimuat.')
         }
       } finally {
         if (!signal.aborted) setLoading(false)
@@ -991,7 +991,7 @@ function Anggaran({ userRole, userName, onLogout }) {
               ))}
             </div>
           ) : (
-            <p className="anggaran-empty-note">Konfigurasi indikator BGN belum tersedia dari backend.</p>
+            <p className="anggaran-empty-note">Konfigurasi indikator BGN belum tersedia.</p>
           )}
         </section>
 
@@ -1088,7 +1088,7 @@ function Anggaran({ userRole, userName, onLogout }) {
                 })}
                 {!sortedProvincePrices.length ? (
                   <tr>
-                    <td colSpan="6">Belum ada data harga provinsi dari backend.</td>
+                    <td colSpan="6">Belum ada data harga provinsi.</td>
                   </tr>
                 ) : null}
               </tbody>
@@ -1110,7 +1110,7 @@ function Anggaran({ userRole, userName, onLogout }) {
                 <Bar dataKey="totalSpending" name="Total Pengeluaran" fill="#0f4c81" radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
-            {!spendingData.length ? <p>Belum ada data pengeluaran per provinsi dari backend.</p> : null}
+            {!spendingData.length ? <p>Belum ada data pengeluaran per provinsi.</p> : null}
           </article>
         </section>
 

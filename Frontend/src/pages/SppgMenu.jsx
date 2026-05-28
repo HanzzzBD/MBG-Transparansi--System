@@ -303,7 +303,7 @@ function SppgMenu({ user }) {
         <section className="sppg-op-card">
           <h2>Riwayat Menu</h2>
           {loading ? <div className="sppg-op-state"><Loader2 aria-hidden="true" /> Memuat menu...</div> : null}
-          {!loading && menus.length === 0 ? <div className="sppg-op-empty">Belum ada data menu dari backend.</div> : null}
+          {!loading && menus.length === 0 ? <div className="sppg-op-empty">Belum ada data menu.</div> : null}
           <div className="sppg-op-list">
             {menus.map((menu) => {
               const draft = validationDrafts[menu.id] || { status: 'VERIFIED', notes: '' }

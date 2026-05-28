@@ -126,7 +126,7 @@ function isValidDateInput(value) {
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
 }
 
-function getFriendlyExportMessage(message, fallback = 'Export gagal diproses backend.') {
+function getFriendlyExportMessage(message, fallback = 'Export belum berhasil diproses.') {
   const raw = typeof message === 'string' ? message.trim() : ''
   if (!raw) return fallback
 
@@ -151,7 +151,7 @@ function getFriendlyExportMessage(message, fallback = 'Export gagal diproses bac
   return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw
 }
 
-function getFriendlyExportError(error, fallback = 'Export gagal diproses backend.') {
+function getFriendlyExportError(error, fallback = 'Export belum berhasil diproses.') {
   return getFriendlyExportMessage(error?.message || error, fallback)
 }
 
@@ -251,7 +251,7 @@ function ExportData({ userRole, userName, onLogout }) {
       setMaxRows(getConfiguredValue(result))
     } catch (configError) {
       if (!isAbortError(configError)) {
-        setError(getFriendlyExportError(configError, 'Konfigurasi export_max_rows gagal dimuat dari API.'))
+        setError(getFriendlyExportError(configError, 'Konfigurasi batas export belum berhasil dimuat.'))
       }
     }
   }, [])
@@ -269,7 +269,7 @@ function ExportData({ userRole, userName, onLogout }) {
     } catch (historyError) {
       if (!isAbortError(historyError)) {
         setHistory([])
-        setError(getFriendlyExportError(historyError, 'Riwayat export gagal dimuat dari API.'))
+        setError(getFriendlyExportError(historyError, 'Riwayat export belum berhasil dimuat.'))
       }
     }
   }, [])
@@ -341,7 +341,7 @@ function ExportData({ userRole, userName, onLogout }) {
         await Promise.all([fetchMaxRows(controller.signal), fetchHistory(controller.signal)])
       } catch (fetchError) {
         if (!isAbortError(fetchError)) {
-          setError(getFriendlyExportError(fetchError, 'Data export gagal dimuat dari API.'))
+          setError(getFriendlyExportError(fetchError, 'Data export belum berhasil dimuat.'))
           setHistory([])
         }
       } finally {
@@ -454,7 +454,7 @@ function ExportData({ userRole, userName, onLogout }) {
         setProgress(0)
       }, 700)
     } catch (generateError) {
-      showToast(getFriendlyExportError(generateError, 'Export gagal dibuat dari API.'), 'danger')
+      showToast(getFriendlyExportError(generateError, 'Export belum berhasil dibuat.'), 'danger')
       setIsGenerating(false)
       setProgress(0)
     }
@@ -490,7 +490,7 @@ function ExportData({ userRole, userName, onLogout }) {
       pollExportStatus(updated.id)
       showToast('Export dikirim ulang ke queue.', 'success')
     } catch (retryError) {
-      showToast(getFriendlyExportError(retryError, 'Retry export gagal diproses backend.'), 'danger')
+      showToast(getFriendlyExportError(retryError, 'Retry export belum berhasil diproses.'), 'danger')
     } finally {
       setRetryingId('')
     }
@@ -644,7 +644,7 @@ function ExportData({ userRole, userName, onLogout }) {
               </div>
 
               <div className="export-estimate">
-                <strong>Row count dan ukuran file dihitung backend setelah export diproses.</strong>
+                <strong>Jumlah baris dan ukuran file dihitung setelah export diproses.</strong>
                 <span>Limit konfigurasi: {formatNumber(maxRows)} baris. File export berlaku 7 hari setelah selesai dibuat.</span>
                 {validationMessage ? <small className="export-form-warning">{validationMessage}</small> : null}
               </div>
@@ -676,7 +676,7 @@ function ExportData({ userRole, userName, onLogout }) {
 
             <div className="export-history-list">
               {!loading && history.length === 0 ? (
-                <div className="export-loading">Belum ada riwayat export dari backend.</div>
+                <div className="export-loading">Belum ada riwayat export.</div>
               ) : null}
               {history.map((record) => {
                 const status = getStatus(record)
