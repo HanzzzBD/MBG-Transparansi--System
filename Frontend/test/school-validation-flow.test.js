@@ -19,7 +19,7 @@ describe('PR 5 school validation flow frontend', () => {
     assert.doesNotMatch(source, /fallback development/i)
     assert.doesNotMatch(source, /import\.meta\.env\.DEV/)
     assert.match(source, /Belum ada distribusi yang perlu dikonfirmasi/)
-    assert.match(source, /Belum ada riwayat validasi dari backend/)
+    assert.match(source, /Belum ada riwayat validasi/)
   })
 
   it('registers school SDD routes and routes shared pages by role', async () => {

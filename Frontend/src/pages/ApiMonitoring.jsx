@@ -98,7 +98,7 @@ function ApiMonitoring({ userRole = 'admin' }) {
         setApis([])
         setErrors([])
         setSyncSources([])
-        setError(fetchError.message || 'Monitoring gagal dimuat dari backend.')
+        setError(fetchError.message || 'Monitoring belum berhasil dimuat.')
       }
     } finally {
       if (!signal?.aborted) setLoading(false)
@@ -145,7 +145,7 @@ function ApiMonitoring({ userRole = 'admin' }) {
     setActionLoading(`sync:${item.id}`)
     try {
       const result = await syncMonitoringSource(item.id)
-      showToast(result.data?.message || `${item.name} sync diproses backend.`, result.data?.status === 'disabled' ? 'warning' : 'success')
+      showToast(result.data?.message || `${item.name} sync sedang diproses.`, result.data?.status === 'disabled' ? 'warning' : 'success')
       const syncResult = await getMonitoringSyncSources()
       setSyncSources((syncResult.data || []).map(normalizeItem))
     } catch (syncError) {
@@ -164,7 +164,7 @@ function ApiMonitoring({ userRole = 'admin' }) {
       <header className="monitor-header">
         <div>
           <p className="monitor-subtitle">API Monitoring</p>
-          <h1 className="monitor-title">Monitoring Backend MBG</h1>
+          <h1 className="monitor-title">Monitoring Sistem MBG</h1>
           <p className="monitor-desc">Health check, queue export, sinkronisasi data, dan error operasional untuk role {userRole}.</p>
         </div>
         <button className="monitor-btn" type="button" onClick={handleRefresh} disabled={loading}>
@@ -183,7 +183,7 @@ function ApiMonitoring({ userRole = 'admin' }) {
       {loading ? (
         <div className="monitor-loading">
           <Loader2 aria-hidden="true" />
-          Memuat monitoring backend...
+          Memuat monitoring sistem...
         </div>
       ) : null}
 
@@ -192,7 +192,7 @@ function ApiMonitoring({ userRole = 'admin' }) {
         <div>
           <span>Status Service</span>
           <strong>{summary?.status || 'unknown'}</strong>
-          <small>{summary?.service || 'Backend belum merespons'}</small>
+          <small>{summary?.service || 'Layanan belum merespons'}</small>
         </div>
         <div>
           <span>Last Update</span>
@@ -230,7 +230,7 @@ function ApiMonitoring({ userRole = 'admin' }) {
             <tbody>
               {!loading && apis.length === 0 ? (
                 <tr>
-                  <td colSpan="8">Belum ada data API monitoring dari backend.</td>
+                  <td colSpan="8">Belum ada data monitoring API.</td>
                 </tr>
               ) : null}
               {apis.map((item) => (
@@ -269,7 +269,7 @@ function ApiMonitoring({ userRole = 'admin' }) {
             <tbody>
               {!loading && syncSources.length === 0 ? (
                 <tr>
-                  <td colSpan="8">Belum ada data sync source dari backend.</td>
+                  <td colSpan="8">Belum ada data sumber sinkronisasi.</td>
                 </tr>
               ) : null}
               {syncSources.map((item) => (
@@ -292,7 +292,7 @@ function ApiMonitoring({ userRole = 'admin' }) {
           <span>{errors.length} item</span>
         </div>
         <div className="monitor-error-list">
-          {!loading && errors.length === 0 ? <div className="monitor-empty">Tidak ada error operasional dari backend.</div> : null}
+          {!loading && errors.length === 0 ? <div className="monitor-empty">Tidak ada error operasional.</div> : null}
           {errors.slice(0, 12).map((item) => (
             <article key={item.id} className={`monitor-error-item monitor-error-${item.severity.toLowerCase()}`}>
               <AlertTriangle aria-hidden="true" />

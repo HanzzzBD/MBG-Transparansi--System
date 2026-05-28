@@ -70,7 +70,7 @@ function AnomalyDetection({ userRole = 'pemerintah' }) {
       setRows(normalized)
     } catch (fetchError) {
       setRows([])
-      setError(fetchError.message || 'Anomaly log gagal dimuat dari backend.')
+      setError(fetchError.message || 'Anomaly log belum berhasil dimuat.')
     } finally {
       setLoading(false)
     }
@@ -115,7 +115,7 @@ function AnomalyDetection({ userRole = 'pemerintah' }) {
           <p className="anomaly-subtitle">Anomaly Detection</p>
           <h1 className="anomaly-title">Monitoring Anomali MBG</h1>
           <p className="anomaly-desc">
-            Pantau PRICE_ANOMALY, RAW_MATERIAL_PRICE_ANOMALY, dan konflik validasi dari data backend.
+            Pantau anomali harga, bahan pangan, dan konflik validasi yang perlu ditindaklanjuti.
           </p>
         </div>
         <button className="anomaly-btn anomaly-btn-secondary" type="button" onClick={fetchAnomalies}>

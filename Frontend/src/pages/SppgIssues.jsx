@@ -143,7 +143,7 @@ function SppgIssues() {
         <div>
           <p className="sppg-op-eyebrow">Operasional SPPG</p>
           <h1 className="sppg-op-title">Laporan Kendala</h1>
-          <p className="sppg-op-desc">Kendala operasional tersimpan sebagai issue backend dan dapat dipantau pemerintah/admin sesuai permission.</p>
+          <p className="sppg-op-desc">Catat kendala operasional agar dapat dipantau dan ditindaklanjuti sesuai hak akses.</p>
         </div>
         <button className="sppg-op-btn sppg-op-btn-secondary" type="button" onClick={() => fetchIssues(new AbortController().signal)}>
           <RefreshCcw aria-hidden="true" />
@@ -184,7 +184,7 @@ function SppgIssues() {
         <section className="sppg-op-card">
           <h2>Riwayat Kendala</h2>
           {loading ? <div className="sppg-op-state"><Loader2 aria-hidden="true" /> Memuat kendala...</div> : null}
-          {!loading && issues.length === 0 ? <div className="sppg-op-empty">Belum ada data kendala dari backend.</div> : null}
+          {!loading && issues.length === 0 ? <div className="sppg-op-empty">Belum ada data kendala.</div> : null}
           <div className="sppg-op-list">
             {issues.map((issue) => (
               <article className="sppg-op-item" key={issue.id}>

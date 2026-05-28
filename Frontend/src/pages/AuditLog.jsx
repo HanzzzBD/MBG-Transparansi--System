@@ -200,7 +200,7 @@ function AuditLog({ userRole, userName, onLogout }) {
       if (!isAbortError(fetchError)) {
         setRows([])
         setTotal(0)
-        setError(fetchError.message || 'Audit log gagal dimuat dari API.')
+        setError(fetchError.message || 'Audit log belum berhasil dimuat.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)

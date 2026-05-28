@@ -228,7 +228,7 @@ function OverrideData({ userRole, userName, onLogout }) {
       if (fetchError.name !== 'AbortError') {
         setRows([])
         setTotal(0)
-        setError(fetchError.message || 'Data distribusi terkunci gagal dimuat dari API.')
+        setError(fetchError.message || 'Data distribusi terkunci belum berhasil dimuat.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
@@ -253,7 +253,7 @@ function OverrideData({ userRole, userName, onLogout }) {
     } catch (fetchError) {
       if (fetchError.name !== 'AbortError') {
         setHistoryRows([])
-        setHistoryError(fetchError.message || 'Riwayat override gagal dimuat dari API.')
+        setHistoryError(fetchError.message || 'Riwayat override belum berhasil dimuat.')
       }
     }
   }, [isAdmin])

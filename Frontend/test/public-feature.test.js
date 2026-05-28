@@ -26,7 +26,7 @@ describe('PR 2 public feature completeness', () => {
     assert.doesNotMatch(landingSource, /FALLBACK_SUMMARY|FALLBACK_MARKERS|fallback preview/i)
     assert.doesNotMatch(landingSource, /2847|18432|94\.7|fallback-aceh|fallback-jayapura/)
     assert.match(landingSource, /\/public\/statistics/)
-    assert.match(landingSource, /Belum ada marker SPPG publik dari backend/)
+    assert.match(landingSource, /Belum ada lokasi SPPG publik untuk ditampilkan/)
   })
 
   it('public statistics page uses public endpoints and exposes budget section', async () => {

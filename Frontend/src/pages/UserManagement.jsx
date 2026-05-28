@@ -250,7 +250,7 @@ function getBackendErrorMessage(error) {
   const details = error?.data?.details
   const fieldErrors = details?.fieldErrors || {}
   const messages = Object.values(fieldErrors).flat().filter(Boolean)
-  return messages[0] || details?.formErrors?.[0] || error?.message || 'Validasi backend gagal.'
+  return messages[0] || details?.formErrors?.[0] || error?.message || 'Validasi belum berhasil.'
 }
 
 function normalizePermission(item) {
@@ -365,7 +365,7 @@ function UserManagement({ userRole, userName, onLogout, user }) {
       if (fetchError.name !== 'AbortError') {
         setUsers([])
         setTotal(0)
-        setError(fetchError.message || 'Data user gagal dimuat dari API.')
+        setError(fetchError.message || 'Data user belum berhasil dimuat.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
@@ -385,7 +385,7 @@ function UserManagement({ userRole, userName, onLogout, user }) {
       }
     } catch (rolesError) {
       if (!signal?.aborted) {
-        showToast(rolesError.message || 'Data role gagal dimuat dari API.', 'warning')
+        showToast(rolesError.message || 'Data role belum berhasil dimuat.', 'warning')
       }
     }
   }, [isAdmin, showToast])

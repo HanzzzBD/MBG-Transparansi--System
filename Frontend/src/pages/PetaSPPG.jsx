@@ -475,7 +475,7 @@ function PetaSPPG() {
       } catch (fetchError) {
         if (fetchError.name !== 'AbortError') {
           setSppgList([])
-          setError(fetchError.message || 'Data marker SPPG gagal dimuat dari backend.')
+          setError(fetchError.message || 'Data marker SPPG belum berhasil dimuat.')
         }
       } finally {
         if (!signal.aborted) setLoading(false)
@@ -539,7 +539,7 @@ function PetaSPPG() {
           setDetailData(null)
           setDetailDistributions([])
           setMenuToday(null)
-          setDetailError(detailFetchError.message || 'Detail SPPG gagal dimuat dari backend.')
+          setDetailError(detailFetchError.message || 'Detail SPPG belum berhasil dimuat.')
         }
       } finally {
         if (!controller.signal.aborted) setDetailLoading(false)

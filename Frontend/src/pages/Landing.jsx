@@ -229,7 +229,7 @@ function Landing() {
           setSummary({
             data: null,
             loading: false,
-            error: 'Data statistik gagal dimuat dari API.',
+            error: 'Data statistik belum berhasil dimuat.',
           })
         }
       })
@@ -253,7 +253,7 @@ function Landing() {
           setMapData({
             markers: [],
             loading: false,
-            error: 'Data peta SPPG gagal dimuat dari API.',
+            error: 'Data peta SPPG belum berhasil dimuat.',
             empty: false,
           })
         }
@@ -513,7 +513,7 @@ function Landing() {
                 Ringkasan distribusi nasional
               </h2>
               <p className="mt-3 text-base leading-7 text-[#6b7280]">
-                KPI publik diambil dari endpoint backend GET /api/public/statistics.
+                Ringkasan ini menampilkan capaian utama distribusi MBG yang dapat dipantau publik.
               </p>
             </div>
 
@@ -552,7 +552,7 @@ function Landing() {
                               {kpi.value}
                             </p>
                             <p className="mt-3 text-xs font-bold text-[#057a55]">
-                              {summary.data ? 'Data backend aktif' : 'Data belum tersedia'}
+                              {summary.data ? 'Data terkini tersedia' : 'Data belum tersedia'}
                             </p>
                           </div>
                           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-lg bg-[#f4f8fb]" style={{ color: kpi.color }}>
@@ -574,13 +574,13 @@ function Landing() {
                 Pratinjau sebaran dapur SPPG di Indonesia
               </h2>
               <p className="mt-3 text-base leading-7 text-[#6b7280]">
-                Marker diambil dari GET /api/public/sppg?limit=10 dan titik tanpa koordinat dilewati.
+                Lihat sebaran lokasi SPPG yang sudah memiliki koordinat publik.
               </p>
             </div>
 
             {mapData.error || mapData.empty ? (
               <div className="mb-5 flex flex-col gap-3 rounded-lg border border-[#b5e0ea] bg-[#f4f8fb] px-4 py-3 text-sm font-semibold text-[#92400e] sm:flex-row sm:items-center sm:justify-between">
-                <span>{mapData.error || 'Data SPPG dari API belum memiliki koordinat publik.'}</span>
+                <span>{mapData.error || 'Belum ada lokasi SPPG dengan koordinat publik untuk ditampilkan.'}</span>
                 <button
                   className="inline-flex h-9 items-center justify-center rounded-lg bg-[#0f4c81] px-4 text-xs font-extrabold text-white"
                   type="button"
@@ -630,7 +630,7 @@ function Landing() {
                 })
               ) : (
                 <div className="absolute inset-0 z-20 grid place-items-center bg-white/55 px-5 text-center text-sm font-extrabold text-[#0f4c81]">
-                  Belum ada marker SPPG publik dari backend.
+                  Belum ada lokasi SPPG publik untuk ditampilkan.
                 </div>
               )}
               {(sppgDetail.loading || sppgDetail.error || sppgDetail.data) ? (
@@ -655,7 +655,7 @@ function Landing() {
                   {sppgDetail.loading ? (
                     <div className="inline-flex items-center gap-2 text-sm font-bold text-[#0f4c81]">
                       <Loader2 className="landing-spin" size={16} aria-hidden="true" />
-                      Memuat data public-safe...
+                      Memuat detail SPPG...
                     </div>
                   ) : null}
 
@@ -691,7 +691,7 @@ function Landing() {
 
                       <div className="rounded-lg border border-[#b5e0ea] p-3">
                         <small className="block font-bold text-[#6b7280]">Menu Hari Ini</small>
-                        <strong>{sppgDetail.data.todayMenu?.name || 'Belum ada menu dari backend'}</strong>
+                        <strong>{sppgDetail.data.todayMenu?.name || 'Belum ada menu tersedia'}</strong>
                         {sppgDetail.data.todayMenu?.nutrition ? (
                           <p className="mt-2 text-xs font-semibold text-[#6b7280]">
                             {formatNumber(sppgDetail.data.todayMenu.nutrition.calories)} kkal · Protein {formatNumber(sppgDetail.data.todayMenu.nutrition.protein)}g · Karbo {formatNumber(sppgDetail.data.todayMenu.nutrition.carbohydrate)}g · Lemak {formatNumber(sppgDetail.data.todayMenu.nutrition.fat)}g
@@ -711,7 +711,7 @@ function Landing() {
                             ))}
                           </div>
                         ) : (
-                          <p className="mt-2 text-xs font-semibold text-[#6b7280]">Belum ada distribusi terbaru dari backend.</p>
+                          <p className="mt-2 text-xs font-semibold text-[#6b7280]">Belum ada distribusi terbaru.</p>
                         )}
                       </div>
                     </div>
@@ -737,7 +737,7 @@ function Landing() {
                 Dirancang untuk transparansi dari SPPG ke sekolah
               </h2>
               <p className="mt-3 text-base leading-7 text-[#6b7280]">
-                Mengacu pada SDD: dashboard nasional, peta SPPG, bukti distribusi, anggaran, anomali, dan laporan publik.
+                Pantau lokasi SPPG, bukti distribusi, anggaran, anomali, dan laporan masyarakat dalam satu tempat.
               </p>
             </div>
 
@@ -770,8 +770,7 @@ function Landing() {
                 Temukan Masalah? Laporkan Sekarang
               </h2>
               <p className="mt-4 text-base leading-8 text-[#6b7280]">
-                Form publik mengikuti SDD: pesan minimal 20 karakter, honeypot anti-bot, dan CAPTCHA wajib sebelum
-                POST /api/public-reports.
+                Sampaikan laporan dengan lokasi, kategori, dan kronologi yang jelas agar mudah ditindaklanjuti.
               </p>
               <div className="mt-6 rounded-xl border border-[#b5e0ea] bg-[#f4f8fb] p-4 text-sm leading-6 text-[#0f4c81]">
                 <div className="flex gap-3">
@@ -872,7 +871,7 @@ function Landing() {
                     <div className="rounded-lg border border-dashed border-[#b5e0ea] bg-[#f4f8fb] p-4 text-sm font-semibold text-[#92400e]">
                       {CAPTCHA_PROVIDER === 'recaptcha'
                         ? 'reCAPTCHA v3 aktif saat site key tersedia. Token dibuat ketika tombol kirim ditekan.'
-                        : 'CAPTCHA belum aktif. Konfigurasi site key frontend dan secret backend diperlukan sebelum laporan publik dibuka.'}
+                        : 'Verifikasi keamanan belum aktif. Laporan publik akan dibuka setelah konfigurasi perlindungan bot selesai.'}
                     </div>
                   )}
                 </div>

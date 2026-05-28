@@ -185,7 +185,7 @@ function LockUnlock({ userRole, userName, onLogout }) {
       if (fetchError.name !== 'AbortError') {
         setRows([])
         setTotal(0)
-        setError(fetchError.message || 'Data lock/unlock gagal dimuat dari API.')
+        setError(fetchError.message || 'Data lock/unlock belum berhasil dimuat.')
       }
     } finally {
       if (!signal.aborted) setLoading(false)
@@ -590,7 +590,7 @@ function LockUnlock({ userRole, userName, onLogout }) {
                   <label className="lock-toggle-row">
                     <span>
                       <strong>Auto-lock kembali setelah 1 jam</strong>
-                      <small>Backend menyimpan batas waktu koreksi lewat field unlockedUntil.</small>
+                      <small>Batas waktu koreksi tersimpan sampai waktu yang ditentukan.</small>
                     </span>
                     <input
                       type="checkbox"

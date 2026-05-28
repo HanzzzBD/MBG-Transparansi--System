@@ -121,7 +121,7 @@ function SppgProfile({ user }) {
         <div>
           <p className="sppg-op-eyebrow">Operasional SPPG</p>
           <h1 className="sppg-op-title">Profil SPPG</h1>
-          <p className="sppg-op-desc">Profil ini menampilkan data SPPG milik akun yang sedang login dan ringkasan operasional dari backend.</p>
+          <p className="sppg-op-desc">Profil ini menampilkan data SPPG dan ringkasan operasional untuk akun yang sedang login.</p>
         </div>
         <button className="sppg-op-btn sppg-op-btn-secondary" type="button" onClick={() => fetchProfile(new AbortController().signal)}>
           <RefreshCcw aria-hidden="true" />
@@ -132,7 +132,7 @@ function SppgProfile({ user }) {
       {message ? <div className="sppg-op-state">{message}</div> : null}
       {loading ? <div className="sppg-op-state"><Loader2 aria-hidden="true" /> Memuat profil...</div> : null}
       {error ? <div className="sppg-op-state sppg-op-error">{error}</div> : null}
-      {!loading && !profile && !error ? <div className="sppg-op-empty">Profil SPPG belum tersedia dari backend.</div> : null}
+      {!loading && !profile && !error ? <div className="sppg-op-empty">Profil SPPG belum tersedia.</div> : null}
 
       {profile ? (
         <>

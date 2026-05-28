@@ -185,7 +185,7 @@ function PublicStatistik() {
                 Data agregat distribusi dan anggaran MBG
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-8 text-[#6b7280]">
-                Semua angka di halaman ini berasal dari endpoint publik read-only. Jika data belum tersedia, halaman menampilkan state kosong.
+                Pantau ringkasan distribusi, tren wilayah, dan anggaran publik berdasarkan data terbaru yang tersedia.
               </p>
             </div>
             <Link
@@ -266,7 +266,7 @@ function PublicStatistik() {
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (
-                      <EmptyState>Belum ada tren distribusi dari backend.</EmptyState>
+                      <EmptyState>Belum ada tren distribusi untuk filter ini.</EmptyState>
                     )}
                   </div>
                 </section>
@@ -282,7 +282,7 @@ function PublicStatistik() {
                         </div>
                         <p className="mt-1 text-xs font-semibold text-[#6b7280]">Success rate {formatPercent(row.successRate)}</p>
                       </div>
-                    )) : <EmptyState>Belum ada agregasi wilayah dari backend.</EmptyState>}
+                    )) : <EmptyState>Belum ada agregasi wilayah untuk filter ini.</EmptyState>}
                   </div>
                 </section>
               </div>
@@ -329,7 +329,7 @@ function PublicStatistik() {
                           </BarChart>
                         </ResponsiveContainer>
                       ) : (
-                        <EmptyState>Belum ada agregat anggaran dari backend.</EmptyState>
+                        <EmptyState>Belum ada agregat anggaran untuk filter ini.</EmptyState>
                       )}
                     </div>
                   </section>
@@ -347,7 +347,7 @@ function PublicStatistik() {
                             Min {formatCurrency(row.minPricePerPortion)} - Max {formatCurrency(row.maxPricePerPortion)}
                           </p>
                         </div>
-                      )) : <EmptyState>Belum ada harga per porsi dari backend.</EmptyState>}
+                      )) : <EmptyState>Belum ada harga per porsi untuk filter ini.</EmptyState>}
                     </div>
                   </section>
                 </div>

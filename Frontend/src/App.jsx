@@ -656,7 +656,7 @@ function AppRoutes() {
                 <section className="app-settings-page">
                   <p className="app-settings-eyebrow">Admin</p>
                   <h1>Pengaturan Sistem</h1>
-                  <p>Panel pengaturan backend config belum diaktifkan untuk production.</p>
+                  <p>Panel pengaturan sistem belum tersedia untuk lingkungan produksi.</p>
                 </section>
               )}
             </ProtectedRoute>

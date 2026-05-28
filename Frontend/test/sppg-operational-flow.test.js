@@ -18,7 +18,7 @@ describe('PR 4 SPPG operational flow frontend', () => {
     assert.doesNotMatch(source, /import\.meta\.env\.DEV/)
     assert.doesNotMatch(source, /SDN Nusantara/)
     assert.doesNotMatch(source, /demo-proof/)
-    assert.match(source, /Belum ada data distribusi dari backend/)
+    assert.match(source, /Belum ada data distribusi/)
     assert.match(source, /getAssignedSppgSchools/)
     assert.match(source, /getMyRegionPriceThreshold/)
   })
